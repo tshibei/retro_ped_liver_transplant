@@ -8,6 +8,8 @@ from functools import reduce
 pd.options.mode.chained_assignment = None 
 from statistics import mean
 
+# Data cleaning
+
 def read_indiv_patient_data(input_file, patient_name, rows_to_skip):
     """Read in individual patient data into a data frame, shift tac level one cell up, 
     remove "mg" from numbers"""
@@ -24,6 +26,8 @@ def read_indiv_patient_data(input_file, patient_name, rows_to_skip):
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
 
     return df
+
+# Data selection
 
 def keep_longest_chunk(df):
     """
@@ -68,6 +72,8 @@ def keep_longest_chunk(df):
     
     return df
 
+# Tests
+
 def normality_test(df):
     """
     Perform both numerical and graphical normality tests.
@@ -92,6 +98,18 @@ def normality_test(df):
 
     ## Histogram
     ax = sns.histplot(df["Tac level (prior to am dose)"])
+
+def python_vs_excel_polyfit():
+    """ Visualise the difference between polyfit in python vs excel """
+    model_python = np.poly1d([0.90768,1.000041, -4.069297])
+    model_excel = np.poly1d([1.06, 0, -2.45])
+    polyline = np.linspace(2,5,50)
+    plt.scatter([3, 3.5, 3.5], [7.1, 11.2, 9.9])
+    plt.plot(polyline, model_python(polyline))
+    plt.plot(polyline, model_excel(polyline))
+    plt.show()
+
+# Methods
 
 def Q_Cum(df):
     """

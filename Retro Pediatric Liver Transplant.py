@@ -50,16 +50,6 @@ normality_test(df)
 df_Q_Cum = Q_Cum(df)
 df_Q_PPM = Q_PPM(df)
 df_Q_RW = Q_RW(df)
-# -
-
-# python vs excel
-model_python = np.poly1d([0.90768,1.000041, -4.069297])
-model_excel = np.poly1d([1.06, 0, -2.45])
-polyline = np.linspace(2,5,50)
-plt.scatter([3, 3.5, 3.5], [7.1, 11.2, 9.9])
-plt.plot(polyline, model_python(polyline))
-plt.plot(polyline, model_excel(polyline))
-plt.show()
 
 # +
 # Create dataframe for L-Cum
