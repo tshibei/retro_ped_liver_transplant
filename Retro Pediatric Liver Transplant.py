@@ -39,7 +39,7 @@ rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 df = read_indiv_patient_data(input_file, patient_name, rows_to_skip)
 
 # Keep largest consecutive non-NA chunk of patient data
-df = longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
+df = keep_longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
 
 df = df.reset_index(drop=True) 
 

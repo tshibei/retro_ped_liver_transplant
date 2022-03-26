@@ -25,7 +25,7 @@ def read_indiv_patient_data(input_file, patient_name, rows_to_skip):
 
     return df
 
-def longest_chunk(df):
+def keep_longest_chunk(df):
     """
     Find longest chunk of consecutive non-NA data per patient.
 
