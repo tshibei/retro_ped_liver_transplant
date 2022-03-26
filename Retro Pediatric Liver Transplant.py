@@ -8,12 +8,15 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: Python [conda env:root] *
+#     display_name: Python 3 (ipykernel)
 #     language: python
-#     name: conda-root-py
+#     name: python3
 # ---
 
 # +
+# %load_ext autoreload
+# %autoreload 2
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
@@ -23,106 +26,38 @@ import seaborn as sns
 from functools import reduce
 pd.options.mode.chained_assignment = None 
 from statistics import mean
+from Profile_Generation import *
 
+# +
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 patient_name = '120'
 rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 
-def read_indiv_patient_data():
-    # Read patient 120 into dataframe
-    df = pd.read_excel(input_file, sheet_name=patient_name, skiprows = rows_to_skip)
-    df = df[["Day #", "Tac level (prior to am dose)", "Eff 24h Tac Dose"]]
-
-    # Shift tac level one cell up so that tac level is the output to the input of eff 24h dose
-    df['Tac level (prior to am dose)'] = df['Tac level (prior to am dose)'].shift(-1)
-
-    # Remove "mg" from eff 24h tac dose
-    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
-    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
-
-    return df
-
-# Keep largest consecutive non-NA chunk of patient data
-def longest_chunk(df):
-    # Create copy of df to manipulate and find largest consec non-NA chunk
-    df_temp = df.copy()
-
-    # Create boolean column of non-NA
-    df_temp['tac_level_nan'] = (df_temp["Tac level (prior to am dose)"].isna()) 
-
-    # Create index column
-    df_temp.reset_index(inplace=True) 
-
-    # Find cumulative sum of non-NA for each index row
-    df_cum_sum_non_NA = df_temp['tac_level_nan'].cumsum() 
-
-    # Find number of consecutive non-NA
-    df_temp = df_temp.groupby(df_cum_sum_non_NA).agg({'index': ['count', 'min', 'max']})
-
-    # Groupby created useless column level for index, drop it
-    df_temp.columns = df_temp.columns.droplevel()
-
-    # Find largest chunk with consec non-NA
-    df_temp = df_temp[df_temp['count']==df_temp['count'].max()] 
-    df_temp.reset_index(inplace=True)
-    
-    # Find index of largest chunk to keep in dataframe
-    if len(df_temp) > 1: # If there are >1 large chunks with longest length, an error will be printed
-        df = print("there are >1 chunks of data with the longest length.")
-    else:
-        # Find index of largest chunk to keep in dataframe
-        min_idx = df_temp.loc[0, 'min'] + 1 # First index where non-NA begins is 1 after the min index, thus add 1 to min index
-        max_idx = df_temp.loc[0, 'max'] # Get max index where non-NA chunk ends
-
-        # Keep largest chunk in dataframe
-        df = df.iloc[min_idx:max_idx + 1, :] 
-    
-    return df
-
 # Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
-df = read_indiv_patient_data()
+df = read_indiv_patient_data(input_file, patient_name, rows_to_skip)
 
 # Keep largest consecutive non-NA chunk of patient data
 df = longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
 
-
-# +
-# Check normality of dataset with shapiro test
-shapiro_test = stats.shapiro(df["Tac level (prior to am dose)"])
-print("shapiro_test p value:", shapiro_test.pvalue)
-if shapiro_test.pvalue < 0.05:
-    print("reject normality\n")
-else: 
-    print("assume normality\n")
-
-# Check normality of dataset with probability plot and histogram 
-## Probability plot
-df["Tac level (prior to am dose)"] = df["Tac level (prior to am dose)"].astype(float)
-stats.probplot(df["Tac level (prior to am dose)"], dist = "norm", plot = pylab)
-pylab.show()
-
-## Histogram
-ax = sns.histplot(df["Tac level (prior to am dose)"])
-# -
-
-df_120
+# Perform normality test, both numerical and graphical
+normality_test(df)
 
 # +
 # Create dataframe for Q-Cum
 column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
 df_Q_Cum = pd.DataFrame(columns = column_names)
 
-for day_num in range(3, len(df_120)):
-    pred_day = int(df_120["Day #"][day_num])
+for day_num in range(3, len(df)):
+    pred_day = int(df["Day #"][day_num])
     
     # Find coefficients of quadratic fit
-    fittedParameters = (np.polyfit(df_120["Eff 24h Tac Dose"][0:day_num], df_120["Tac level (prior to am dose)"][0:day_num], 2))
+    fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num], df["Tac level (prior to am dose)"][0:day_num], 2))
     
     # Calculate prediction based on quad fit
-    prediction = np.polyval(fittedParameters, df_120["Eff 24h Tac Dose"][day_num])
+    prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
     
     # Calculate deviation from prediction
-    deviation = prediction - df_120["Tac level (prior to am dose)"][day_num]
+    deviation = prediction - df["Tac level (prior to am dose)"][day_num]
     abs_deviation = abs(deviation)
     
     # Add the prediction day, coefficients, prediction, and deviation below dataframe
