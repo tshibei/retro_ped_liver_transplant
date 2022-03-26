@@ -1,6 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-# import matplotlib.pylab as pylab
+import matplotlib.pylab as pylab
 import numpy as np
 from scipy import stats
 import seaborn as sns
@@ -222,3 +222,148 @@ def Q_RW(df):
     df_Q_RW = df_Q_RW.reset_index(drop = True)
     
     return df_Q_RW
+
+def L_Cum(df):
+    """
+    Use L_Cum method to generate predictions and calculate deviations.
+    Input: Individual patient data
+    Output: L_Cum results
+    """
+    # Create dataframe for L-Cum
+    column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
+    df_L_Cum = pd.DataFrame(columns = column_names)
+
+    for day_num in range(2, len(df)):
+        pred_day = day_num + 2 
+
+        # Find coefficients of quadratic fit
+        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num], df["Tac level (prior to am dose)"][0:day_num], 1))
+
+        # Calculate prediction based on quad fit
+        prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
+
+        # Calculate deviation from prediction
+        deviation = prediction - df["Tac level (prior to am dose)"][day_num]
+        abs_deviation = abs(deviation)
+
+        # Add the prediction day, coefficients, prediction, and deviation below dataframe
+        df_L_Cum_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
+        df_L_Cum_day = pd.DataFrame(df_L_Cum_day.reshape(-1, len(df_L_Cum_day)),columns=column_names)
+        df_L_Cum = df_L_Cum.append(df_L_Cum_day)
+
+    df_L_Cum = df_L_Cum.reset_index(drop = True)
+
+    return df_L_Cum
+
+def L_PPM(df):
+    """
+    Use L_PPM method to generate predictions and calculate deviations.
+    Input: Individual patient data
+    Output: L_PPM results
+    """
+    # Create dataframe for L-PPM
+    column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
+    df_L_PPM = pd.DataFrame(columns = column_names)
+
+    # Fill in prediction day, quadratic fit, prediction, deviation for prediction of day 5
+    pred_day = 4
+    day_num = 2
+
+    # Find coefficients of quadratic fit
+    fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num], df["Tac level (prior to am dose)"][0:day_num], 1))
+
+    # Calculate prediction based on quad fit
+    prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
+
+    # Calculate deviation from prediction
+    deviation = prediction - df["Tac level (prior to am dose)"][day_num]
+    abs_deviation = abs(deviation)
+
+    # Add prediction of day 5 into dataframe
+    df_L_PPM_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
+    df_L_PPM_day = pd.DataFrame(df_L_PPM_day.reshape(-1, len(df_L_PPM_day)),columns=column_names)
+    df_L_PPM = df_L_PPM.append(df_L_PPM_day)
+
+    # Add subsequent predictions
+    for day_num in range(3, len(df)):
+        pred_day, a = df_L_PPM["prediction day"].iloc[-1] + 1, df_L_PPM['a'].iloc[-1]
+        b = df_L_PPM['b'].iloc[-1] - df_L_PPM['deviation'].iloc[-1]
+        fittedParameters = a, b
+        prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
+        deviation = prediction - df["Tac level (prior to am dose)"][day_num]
+        abs_deviation = abs(deviation)
+
+        df_L_PPM_day = np.array([pred_day, a, b, prediction, deviation, abs_deviation])
+        df_L_PPM_day = pd.DataFrame(df_L_PPM_day.reshape(-1, len(df_L_PPM_day)),columns=column_names)
+        df_L_PPM = df_L_PPM.append(df_L_PPM_day)
+
+    df_L_PPM = df_L_PPM.reset_index(drop = True)
+    return df_L_PPM
+
+def L_RW(df):
+    """
+    Use L_RW method to generate predictions and calculate deviations.
+    Input: Individual patient data
+    Output: L_RW results
+    """
+    # Create dataframe for L-RW
+    column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
+    df_L_RW = pd.DataFrame(columns = column_names)
+
+    for day_num in range(2, len(df)): 
+        # Find prediction day
+        pred_day = int(df["Day #"][day_num])
+
+        # Find coefficients of quadratic fit
+        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][day_num-2:day_num], df["Tac level (prior to am dose)"][day_num-2:day_num], 1))
+
+        # Calculate prediction based on quad fit
+        prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
+
+        # Calculate deviation from prediction
+        deviation = prediction - df["Tac level (prior to am dose)"][day_num]
+        abs_deviation = abs(deviation)
+
+        # Add prediction into dataframe
+        df_L_RW_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
+        df_L_RW_day = pd.DataFrame(df_L_RW_day.reshape(-1, len(df_L_RW_day)),columns=column_names)
+        df_L_RW = df_L_RW.append(df_L_RW_day)
+
+    df_L_RW = df_L_RW.reset_index(drop = True)
+    return df_L_RW
+
+
+# Plotting
+
+def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
+                                df_L_Cum, df_L_PPM, df_L_RW):
+    """ Plot deviation for all methods without intercept """
+    # Plot x = prediction day, y = deviation, by method (color)
+    data_frames = [df_Q_Cum[['prediction day', 'deviation']],
+                 df_Q_PPM[['prediction day', 'deviation']],
+                 df_Q_RW[['prediction day', 'deviation']],
+                 df_L_Cum[['prediction day', 'deviation']],
+                 df_L_PPM[['prediction day', 'deviation']],
+                 df_L_RW[['prediction day', 'deviation']]]
+    df_deviation = reduce(lambda  left,right: pd.merge(left,right,on=['prediction day'],
+                                                how='outer'), data_frames)
+
+    # Keep rows with common prediction day
+    df_deviation = df_deviation.iloc[:-1,:]
+    df_deviation.columns = ['pred_day', 'Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
+
+    # for col in range(df_deviation.shape[1]):
+    #     plt.scatter(df_deviation['pred_day'], df_deviation.iloc[:, col])
+
+    df_deviation.plot(x='pred_day', 
+                      y=['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW'], 
+                      kind="line")
+    plt.xlabel("Day of Prediction")
+    plt.ylabel("Deviation")
+    plt.title("Deviation of Prediction from Actual Value")
+    plt.legend(bbox_to_anchor=(1.04,1), loc="upper left")
+
+    # plt.savefig("test.png", format="png", dpi=300)
+    plt.tight_layout()
+    # plt.savefig('myfile.png', bbox_inches="tight", dpi=300)
+    plt.show()
