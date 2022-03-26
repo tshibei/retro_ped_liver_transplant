@@ -8,9 +8,9 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: Python [conda env:root] *
 #     language: python
-#     name: python3
+#     name: conda-root-py
 # ---
 
 # +
@@ -24,23 +24,71 @@ from functools import reduce
 pd.options.mode.chained_assignment = None 
 from statistics import mean
 
-# Read patient 120 into dataframe
-df_120 = pd.read_excel('Retrospective Liver Transplant Data.xlsx', sheet_name="120", skiprows = 17)
-df_120 = df_120[["Day #", "Tac level (prior to am dose)", "Eff 24h Tac Dose"]]
+input_file = 'Retrospective Liver Transplant Data.xlsx'
+patient_name = '120'
+rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 
-# Shift tac level one cell up so that tac level is the output to the input of eff 24h dose
-df_120['Tac level (prior to am dose)'] = df_120['Tac level (prior to am dose)'].shift(-1)
+def read_indiv_patient_data():
+    # Read patient 120 into dataframe
+    df = pd.read_excel(input_file, sheet_name=patient_name, skiprows = rows_to_skip)
+    df = df[["Day #", "Tac level (prior to am dose)", "Eff 24h Tac Dose"]]
 
-# Remove "mg" from eff 24h tac dose
-df_120['Eff 24h Tac Dose'] = df_120['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
-df_120['Eff 24h Tac Dose'] = df_120['Eff 24h Tac Dose'].astype(float)
+    # Shift tac level one cell up so that tac level is the output to the input of eff 24h dose
+    df['Tac level (prior to am dose)'] = df['Tac level (prior to am dose)'].shift(-1)
 
-# Keep rows with non-NA data
-df_120 = df_120.iloc[2:21,:]
-df_120 = df_120.reset_index(drop=True)
+    # Remove "mg" from eff 24h tac dose
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
 
+    return df
+
+# Keep largest consecutive non-NA chunk of patient data
+def longest_chunk(df):
+    # Create copy of df to manipulate and find largest consec non-NA chunk
+    df_temp = df.copy()
+
+    # Create boolean column of non-NA
+    df_temp['tac_level_nan'] = (df_temp["Tac level (prior to am dose)"].isna()) 
+
+    # Create index column
+    df_temp.reset_index(inplace=True) 
+
+    # Find cumulative sum of non-NA for each index row
+    df_cum_sum_non_NA = df_temp['tac_level_nan'].cumsum() 
+
+    # Find number of consecutive non-NA
+    df_temp = df_temp.groupby(df_cum_sum_non_NA).agg({'index': ['count', 'min', 'max']})
+
+    # Groupby created useless column level for index, drop it
+    df_temp.columns = df_temp.columns.droplevel()
+
+    # Find largest chunk with consec non-NA
+    df_temp = df_temp[df_temp['count']==df_temp['count'].max()] 
+    df_temp.reset_index(inplace=True)
+    
+    # Find index of largest chunk to keep in dataframe
+    if len(df_temp) > 1: # If there are >1 large chunks with longest length, an error will be printed
+        df = print("there are >1 chunks of data with the longest length.")
+    else:
+        # Find index of largest chunk to keep in dataframe
+        min_idx = df_temp.loc[0, 'min'] + 1 # First index where non-NA begins is 1 after the min index, thus add 1 to min index
+        max_idx = df_temp.loc[0, 'max'] # Get max index where non-NA chunk ends
+
+        # Keep largest chunk in dataframe
+        df = df.iloc[min_idx:max_idx + 1, :] 
+    
+    return df
+
+# Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
+df = read_indiv_patient_data()
+
+# Keep largest consecutive non-NA chunk of patient data
+df = longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
+
+
+# +
 # Check normality of dataset with shapiro test
-shapiro_test = stats.shapiro(df_120["Tac level (prior to am dose)"])
+shapiro_test = stats.shapiro(df["Tac level (prior to am dose)"])
 print("shapiro_test p value:", shapiro_test.pvalue)
 if shapiro_test.pvalue < 0.05:
     print("reject normality\n")
@@ -49,15 +97,13 @@ else:
 
 # Check normality of dataset with probability plot and histogram 
 ## Probability plot
-df_120["Tac level (prior to am dose)"] = df_120["Tac level (prior to am dose)"].astype(float)
-stats.probplot(df_120["Tac level (prior to am dose)"], dist = "norm", plot = pylab)
+df["Tac level (prior to am dose)"] = df["Tac level (prior to am dose)"].astype(float)
+stats.probplot(df["Tac level (prior to am dose)"], dist = "norm", plot = pylab)
 pylab.show()
 
 ## Histogram
-ax = sns.histplot(df_120["Tac level (prior to am dose)"])
+ax = sns.histplot(df["Tac level (prior to am dose)"])
 # -
-
-
 
 df_120
 
@@ -287,7 +333,7 @@ plt.legend(bbox_to_anchor=(1.04,1), loc="upper left")
 
 # plt.savefig("test.png", format="png", dpi=300)
 plt.tight_layout()
-plt.savefig('myfile.png', bbox_inches="tight", dpi=300)
+# plt.savefig('myfile.png', bbox_inches="tight", dpi=300)
 plt.show()
 
 # +
@@ -319,7 +365,7 @@ ax.yaxis.grid(True)
 
 # Save the figure and show
 plt.tight_layout()
-plt.savefig('Mean Deviation.png', bbox_inches="tight", dpi=300)
+# plt.savefig('Mean Deviation.png', bbox_inches="tight", dpi=300)
 plt.show()
 
 # +
@@ -338,7 +384,7 @@ fig, ax = plt.subplots()
 ax.set_title('Deviation of Predicted from Actual Value (Median)')
 ax.boxplot(data)
 ax.set_xticklabels(methods)
-plt.ylabel('Deviation (Median)')
+# plt.ylabel('Deviation (Median)')
 plt.savefig('Median Deviation.png', bbox_inches="tight", dpi=300)
 plt.show()
 
@@ -383,7 +429,7 @@ df_rmse_MAE.columns = ['RMSE', 'MAE']
 df_rmse_MAE.plot()
 plt.ylabel('RMSE and MAE')
 plt.title("RMSE and MAE of Deviation of Predicted from Actual Value")
-plt.savefig('RMSE and MAE Deviation.png', bbox_inches="tight", dpi=300)
+# plt.savefig('RMSE and MAE Deviation.png', bbox_inches="tight", dpi=300)
 
 # +
 # Plot tac level over number of days from day 5
@@ -406,7 +452,7 @@ plt.ylabel("Tac Level")
 plt.xlabel("No. of Days")
 plt.figtext(0.5, -0.1, "Percentage of tac level within range (from Day 5):\n" + perc_in_range, wrap=True, horizontalalignment='center', fontsize=12)
 
-plt.savefig('Tac Level within Range.png', bbox_inches="tight", dpi=300)
+# plt.savefig('Tac Level within Range.png', bbox_inches="tight", dpi=300)
 
 # +
 # Plot tac level over number of days from day 4
@@ -429,7 +475,7 @@ plt.ylabel("Tac Level")
 plt.xlabel("No. of Days")
 plt.figtext(0.5, -0.1, "Percentage of tac level within range (from Day 4):\n" + perc_in_range, wrap=True, horizontalalignment='center', fontsize=12)
 
-plt.savefig('Tac Level within Range_from Day 4.png', bbox_inches="tight", dpi=300)
+# plt.savefig('Tac Level within Range_from Day 4.png', bbox_inches="tight", dpi=300)
 
 # +
 # # Create dataframe for Q-Cum_0
@@ -787,7 +833,7 @@ plt.xlabel("Day of Prediction")
 plt.ylabel("Deviation")
 plt.title("Deviation of Prediction from Actual Value")
 
-plt.savefig('test.png', bbox_inches="tight", dpi=300)
+# plt.savefig('test.png', bbox_inches="tight", dpi=300)
 
 # +
 # # Plot mean deviation
@@ -810,7 +856,7 @@ plt.xticks(rotation=45)
 
 # Save the figure and show
 plt.tight_layout()
-plt.savefig('all_methods_mean_deviation.png', bbox_inches="tight", dpi=300)
+# plt.savefig('all_methods_mean_deviation.png', bbox_inches="tight", dpi=300)
 plt.show()
 
 error
@@ -832,7 +878,7 @@ ax.boxplot(data)
 ax.set_xticklabels(methods)
 plt.ylabel('Deviation (Median)')
 plt.xticks(rotation=45)
-plt.savefig('all_methods_median_dev.png', bbox_inches="tight", dpi=300)
+# plt.savefig('all_methods_median_dev.png', bbox_inches="tight", dpi=300)
 plt.show()
 
 # +
@@ -897,7 +943,7 @@ plt.xticks(np.arange(len(df_rmse_MAE.index)), df_rmse_MAE.index, rotation=45)
 plt.ylabel('RMSE and MAE')
 plt.title("RMSE and MAE of Deviation of Predicted from Actual Value")
 plt.xticks(rotation=45)
-plt.savefig('all_methods_MAE_RMSE.png', bbox_inches="tight", dpi=300)
+# plt.savefig('all_methods_MAE_RMSE.png', bbox_inches="tight", dpi=300)
 # -
 
 # Plot prediction of all methods
@@ -923,4 +969,4 @@ plt.ylabel("Prediction")
 plt.title("Prediction of Tac Level")
 # plt.title("Prediction of Tac Level (without Q_PPM, Q_PPM_0, Q_RW, Q_RW_0)")
 plt.tight_layout()
-plt.savefig('prediction.png', bbox_inches="tight", dpi=300)
+# plt.savefig('prediction.png', bbox_inches="tight", dpi=300)
