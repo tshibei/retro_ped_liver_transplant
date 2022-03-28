@@ -41,13 +41,14 @@ def keep_longest_chunk(df):
     df_temp = df.copy()
 
     # Create boolean column of non-NA
-    df_temp['tac_level_nan'] = (df_temp["Tac level (prior to am dose)"].isna()) 
+    # df_temp['tac_level_nan'] = (df_temp[["Tac level (prior to am dose)", "Eff 24h Tac Dose"]].isna().any()) 
+    df_temp['tac_level_nan'] = df_temp.isnull().values.any(axis=1)
 
     # Create index column
     df_temp.reset_index(inplace=True) 
 
     # Find cumulative sum of non-NA for each index row
-    df_cum_sum_non_NA = df_temp['tac_level_nan'].cumsum() 
+    df_cum_sum_non_NA = df_temp['tac_level_nan'].cumsum()     
 
     # Find number of consecutive non-NA
     df_temp = df_temp.groupby(df_cum_sum_non_NA).agg({'index': ['count', 'min', 'max']})
@@ -58,7 +59,7 @@ def keep_longest_chunk(df):
     # Find largest chunk with consec non-NA
     df_temp = df_temp[df_temp['count']==df_temp['count'].max()] 
     df_temp.reset_index(inplace=True)
-    
+
     # Find index of largest chunk to keep in dataframe
     if len(df_temp) > 1: # If there are >1 large chunks with longest length, an error will be printed
         df = print("there are >1 chunks of data with the longest length.")
@@ -69,7 +70,8 @@ def keep_longest_chunk(df):
 
         # Keep largest chunk in dataframe
         df = df.iloc[min_idx:max_idx + 1, :] 
-    
+
+    print(df)
     return df
 
 # Tests
