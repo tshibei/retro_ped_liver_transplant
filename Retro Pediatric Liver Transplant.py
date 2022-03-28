@@ -54,57 +54,19 @@ df_L_Cum = L_Cum(df)
 df_L_PPM = L_PPM(df)
 df_L_RW = L_RW(df)
 
-# +
-# Plot mean deviation
+# Create dataframe of deviation
+data_frames = [df_Q_Cum[['prediction day', 'deviation']],
+             df_Q_PPM[['prediction day', 'deviation']],
+             df_Q_RW[['prediction day', 'deviation']],
+             df_L_Cum[['prediction day', 'deviation']],
+             df_L_PPM[['prediction day', 'deviation']],
+             df_L_RW[['prediction day', 'deviation']]]
+df_deviation = reduce(lambda  left,right: pd.merge(left,right,on=['prediction day'],
+                                            how='outer'), data_frames)
 
-methods = ['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
-x_pos = np.arange(len(methods))
-CTEs = [np.mean(df_deviation['Q_Cum']), 
-        np.mean(df_deviation['Q_PPM']),
-       np.mean(df_deviation['Q_RW']),
-       np.mean(df_deviation['L_Cum']),
-       np.mean(df_deviation['L_PPM']),
-       np.mean(df_deviation['L_RW'])]
-error = [np.std(df_deviation['Q_Cum']), 
-        np.std(df_deviation['Q_PPM']),
-       np.std(df_deviation['Q_RW']),
-       np.std(df_deviation['L_Cum']),
-       np.std(df_deviation['L_PPM']),
-       np.std(df_deviation['L_RW'])]
-
-# Build the plot
-fig, ax = plt.subplots()
-ax.bar(x_pos, CTEs, yerr=error, align='center', alpha=0.5, ecolor='black', capsize=10)
-ax.set_ylabel('Deviation (Mean \u00B1 SD)')
-ax.set_xticks(x_pos)
-ax.set_xticklabels(methods)
-ax.set_title('Deviation of Predicted from Actual Value (Mean \u00B1 SD)')
-ax.yaxis.grid(True)
-
-# Save the figure and show
-plt.tight_layout()
-# plt.savefig('Mean Deviation.png', bbox_inches="tight", dpi=300)
-plt.show()
-
-# +
-# Plot median of deviation
-methods = ['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
-x_pos = np.arange(len(methods))
-
-data = [df_deviation['Q_Cum'],
-       df_deviation['Q_PPM'],
-       df_deviation['Q_RW'],
-       df_deviation['L_Cum'],
-       df_deviation['L_PPM'],
-       df_deviation['L_RW']]
-
-fig, ax = plt.subplots()
-ax.set_title('Deviation of Predicted from Actual Value (Median)')
-ax.boxplot(data)
-ax.set_xticklabels(methods)
-# plt.ylabel('Deviation (Median)')
-plt.savefig('Median Deviation.png', bbox_inches="tight", dpi=300)
-plt.show()
+# Keep rows with common prediction day
+df_deviation = df_deviation.iloc[:-1,:]
+df_deviation.columns = ['pred_day', 'Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
 
 # +
 # Plot RMSE and MAE
