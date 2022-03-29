@@ -7,6 +7,7 @@ import seaborn as sns
 from functools import reduce
 pd.options.mode.chained_assignment = None 
 from statistics import mean
+from scipy.optimize import curve_fit
 
 # Data cleaning
 
@@ -42,7 +43,9 @@ def keep_longest_chunk(df):
 
     # Create boolean column of non-NA
     # df_temp['tac_level_nan'] = (df_temp[["Tac level (prior to am dose)", "Eff 24h Tac Dose"]].isna().any()) 
-    df_temp['tac_level_nan'] = df_temp.isnull().values.any(axis=1)
+    df_temp['tac_level_nan'] = (df_temp.isnull().values.any(axis=1))  | \
+                               (df_temp['Tac level (prior to am dose)'] == '<2') | \
+                               (df_temp["Tac level (prior to am dose)"].astype(str).str.contains("/"))
 
     # Create index column
     df_temp.reset_index(inplace=True) 
@@ -70,6 +73,15 @@ def keep_longest_chunk(df):
 
         # Keep largest chunk in dataframe
         df = df.iloc[min_idx:max_idx + 1, :] 
+
+    print(df)
+
+    # # Drop rows with '<2' tac level
+    # df_temp = df_temp[df_temp['Tac level (prior to am dose)'] != '<2']
+
+    # # Drop rows containing '/' which represents multiple blood draws
+    # df_temp = df_temp[df_temp["Tac level (prior to am dose)"].astype(str).str.contains("/")==False]
+
     return df
 
 # Tests
@@ -123,6 +135,9 @@ def Q_Cum(df):
 
     for day_num in range(3, len(df)): # Prediction starts at index 3, after taking 3 sets of unique data points
         pred_day = int(df["Day #"][day_num])
+
+        df["Tac level (prior to am dose)"] = df["Tac level (prior to am dose)"].astype(float)
+        df["Eff 24h Tac Dose"] = df["Eff 24h Tac Dose"].astype(float)
 
         # Find coefficients of quadratic fit
         fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num], df["Tac level (prior to am dose)"][0:day_num], 2))
@@ -373,7 +388,6 @@ def Q_Cum_0(df):
     Input: Individual patient data
     Output: Q_Cum_0 results
     """
-    from scipy.optimize import curve_fit
     def f(x, a, b):
         return a*x**2 + b*x
 

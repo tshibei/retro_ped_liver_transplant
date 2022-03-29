@@ -34,52 +34,57 @@ from scipy.optimize import curve_fit
 # +
 from scipy.optimize import curve_fit
 input_file = 'Retrospective Liver Transplant Data.xlsx'
-patient_name = '120'
-rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
+# patient_name = '120'
 
-# Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
-df = read_indiv_patient_data(input_file, patient_name, rows_to_skip)
+patient_list = ['84', '114', '117', '118', '120', '121']
 
-# Keep largest consecutive non-NA chunk of patient data
-df = keep_longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
+for patient in patient_list:
 
-df = df.reset_index(drop=True) 
+    patient_name = patient
+    rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 
-# Perform normality test, both numerical and graphical
-normality_test(df)
+    # Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
+    df = read_indiv_patient_data(input_file, patient_name, rows_to_skip)
 
-# Generate predictions and calculate deviations using different methods
-df_Q_Cum = Q_Cum(df)
-df_Q_PPM = Q_PPM(df)
-df_Q_RW = Q_RW(df)
-df_L_Cum = L_Cum(df)
-df_L_PPM = L_PPM(df)
-df_L_RW = L_RW(df)
-df_Q_Cum_0 = Q_Cum_0(df)
-df_Q_PPM_0 = Q_PPM_0(df)
-df_Q_RW_0 = Q_RW_0(df)
-df_L_Cum_0 = L_Cum_0(df)
-df_L_PPM_0 = L_PPM_0(df)
-df_L_RW_0 = L_RW_0(df)
+    # Keep largest consecutive non-NA chunk of patient data
+    df = keep_longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
 
-# Create dataframe of deviation
-data_frames = [df_Q_Cum[['prediction day', 'deviation']],
-             df_Q_PPM[['prediction day', 'deviation']],
-             df_Q_RW[['prediction day', 'deviation']],
-             df_L_Cum[['prediction day', 'deviation']],
-             df_L_PPM[['prediction day', 'deviation']],
-             df_L_RW[['prediction day', 'deviation']]]
-df_deviation = reduce(lambda  left,right: pd.merge(left,right,on=['prediction day'],
-                                            how='outer'), data_frames)
+    df = df.reset_index(drop=True) 
 
-# Keep rows with common prediction day
-df_deviation = df_deviation.iloc[:-1,:]
-df_deviation.columns = ['pred_day', 'Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
-# +
+    # # Perform normality test, both numerical and graphical
+    # normality_test(df)
+
+    # Generate predictions and calculate deviations using different methods
+    # df_Q_Cum = Q_Cum(df)
+    
+    print(patient_name, df)
 
 
+# df_Q_PPM = Q_PPM(df)
+# df_Q_RW = Q_RW(df)
+# df_L_Cum = L_Cum(df)
+# df_L_PPM = L_PPM(df)
+# df_L_RW = L_RW(df)
+# df_Q_Cum_0 = Q_Cum_0(df)
+# df_Q_PPM_0 = Q_PPM_0(df)
+# df_Q_RW_0 = Q_RW_0(df)
+# df_L_Cum_0 = L_Cum_0(df)
+# df_L_PPM_0 = L_PPM_0(df)
+# df_L_RW_0 = L_RW_0(df)
 
+# # Create dataframe of deviation
+# data_frames = [df_Q_Cum[['prediction day', 'deviation']],
+#              df_Q_PPM[['prediction day', 'deviation']],
+#              df_Q_RW[['prediction day', 'deviation']],
+#              df_L_Cum[['prediction day', 'deviation']],
+#              df_L_PPM[['prediction day', 'deviation']],
+#              df_L_RW[['prediction day', 'deviation']]]
+# df_deviation = reduce(lambda  left,right: pd.merge(left,right,on=['prediction day'],
+#                                             how='outer'), data_frames)
 
+# # Keep rows with common prediction day
+# df_deviation = df_deviation.iloc[:-1,:]
+# df_deviation.columns = ['pred_day', 'Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
 # +
 methods = ['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
 
