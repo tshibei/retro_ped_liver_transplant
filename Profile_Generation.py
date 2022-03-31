@@ -31,31 +31,32 @@ def read_indiv_patient_data(input_file, patient_name, rows_to_skip):
 
 # Data selection
 
-def keep_longest_chunk(df):
+def keep_ideal_data(df):
     """
-    Find longest chunk of consecutive non-NA data per patient.
+    Remove rows with non-ideal data, including missing tac level and/or tac dose, 
+    <2 tac level, multiple blood draws. Then keep the longest consecutive chunk
+    based on number of days. 
 
     Input: Dataframe of individual patient
-    Output: dataframe with the longest chunk of consecutive non-NA data.
+    Output: Dataframe with the longest chunk of consecutive ideal data.
     """
-
     # Create copy of df to manipulate and find largest consec non-NA chunk
     df_temp = df.copy()
 
-    # Create boolean column of non-NA
-    # df_temp['tac_level_nan'] = (df_temp[["Tac level (prior to am dose)", "Eff 24h Tac Dose"]].isna().any()) 
-    df_temp['tac_level_nan'] = (df_temp.isnull().values.any(axis=1))  | \
+    # Create boolean column of data to remove
+    # Including NA, <2 tac level, multiple blood draws
+    df_temp['non_ideal'] = (df_temp.isnull().values.any(axis=1))  | \
                                (df_temp['Tac level (prior to am dose)'] == '<2') | \
                                (df_temp["Tac level (prior to am dose)"].astype(str).str.contains("/"))
 
     # Create index column
     df_temp.reset_index(inplace=True) 
 
-    # Find cumulative sum of non-NA for each index row
-    df_cum_sum_non_NA = df_temp['tac_level_nan'].cumsum()     
+    # Find cumulative sum of data to be removed for each index row
+    df_cum_sum_non_ideal = df_temp['non_ideal'].cumsum()     
 
     # Find number of consecutive non-NA
-    df_temp = df_temp.groupby(df_cum_sum_non_NA).agg({'index': ['count', 'min', 'max']})
+    df_temp = df_temp.groupby(df_cum_sum_non_ideal).agg({'index': ['count', 'min', 'max']})
 
     # Groupby created useless column level for index, drop it
     df_temp.columns = df_temp.columns.droplevel()
@@ -75,13 +76,66 @@ def keep_longest_chunk(df):
         # Keep largest chunk in dataframe
         df = df.iloc[min_idx:max_idx + 1, :] 
 
-    # # Drop rows with '<2' tac level
-    # df_temp = df_temp[df_temp['Tac level (prior to am dose)'] != '<2']
-
-    # # Drop rows containing '/' which represents multiple blood draws
-    # df_temp = df_temp[df_temp["Tac level (prior to am dose)"].astype(str).str.contains("/")==False]
-
     return df
+
+# Combine calibration and prediction data into one dataframe
+
+def select_calibration_prediction_data(df, patient, cal_pred):
+    """
+    Find calibration points and combine calibration data with the rest of data,
+    to perform CURATE methods later.
+    
+    Input: 
+    df - dataframe
+    patient - string of patient number
+
+    Output: 
+    Dataframe of calibration data and data for subsequent predictions.
+    Print patients with insufficient data for calibration and <3 predictions
+
+    """
+    # Create index column
+    df[patient] = df[patient].reset_index(drop=False) 
+
+    # Create boolean column to check if tac dose diff from next row
+    df[patient]['diff_from_next'] = \
+            (df[patient]['Eff 24h Tac Dose'] != df[patient]['Eff 24h Tac Dose'].shift(-1))
+
+    # Find indexes of last rows of first 2 unique doses
+    last_unique_doses_idx = [i for i, x in enumerate(df[patient].diff_from_next) if x]
+
+    # Create boolean column to check if tac dose diff from previous row
+    df[patient]['diff_from_prev'] = \
+            (df[patient]['Eff 24h Tac Dose'] != df[patient]['Eff 24h Tac Dose'].shift(1))
+
+    # Find indexes of first rows of third unique dose
+    first_unique_doses_idx = [i for i, x in enumerate(df[patient].diff_from_prev) if x]
+
+    # The boolean checks created useless index, diff_from_next and diff_from_prev columns,
+    # drop them
+    df[patient] = df[patient].drop(['index', 'diff_from_next', 'diff_from_prev'], axis=1)
+
+    # Combine calibration and prediction rows
+    cal_pred[patient] = []
+    
+    if len(last_unique_doses_idx) > 2:
+        first_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[0],:]).T
+        second_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[1],:]).T
+        third_cal_point = pd.DataFrame(df[patient].iloc[first_unique_doses_idx[2],:]).T
+        rest_of_data = df[patient].iloc[first_unique_doses_idx[2]+1:,:]
+        cal_pred[patient] = pd.concat([first_cal_point, second_cal_point, third_cal_point, 
+                                    rest_of_data]).reset_index(drop=True)
+    else:
+        print(patient, ": Insufficient unique dose-response pairs for calibration!")
+
+    # Print error msg if number of predictions is less than 3
+    if len(last_unique_doses_idx) < 3:
+        pass # there are insufficient data for calibration already, don't need
+             # this error msg
+    elif len(cal_pred[patient]) - 3 < 3:
+        print(patient, ": No. of predictions is <3: ", len(cal_pred[patient]) - 3)
+
+    return cal_pred[patient]
 
 # Tests
 

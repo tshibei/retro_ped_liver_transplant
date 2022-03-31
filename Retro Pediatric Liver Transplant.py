@@ -40,23 +40,39 @@ patient_list = ['84', '114', '117', '118', '120', '121', '122', '123', '125', '1
 
 # Create dictionary of dataframes for each patient
 df = {}
+cal_pred = {}
 
 # Set parameters
 rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 
-# Read each patient's data into a dataframe
 for patient in patient_list:
     
-    # Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
+    # Data cleaning: Read individual patient data from excel, 
+    # shift tac level one cell up, remove "mg" from values
     df[patient] = read_indiv_patient_data(input_file, patient, rows_to_skip)
 
-    # Keep largest consecutive non-NA chunk of patient data
-    df[patient] = keep_longest_chunk(df[patient]) # If there are >1 large chunks with longest length, an error will be printed
+    # Data selection: Keep ideal data only
+    df[patient] = keep_ideal_data(df[patient]) # If there are >1 large chunks with longest length, an error will be printed
     
     df[patient] = df[patient].reset_index(drop=True) 
-
-    print(patient_name, df[patient])
     
+    # Combine data for calibration and subsequent predictions into a dataframe
+    cal_pred[patient] = select_calibration_prediction_data(df, patient, cal_pred)
+
+
+
+# +
+patient = '129'
+# Data cleaning
+df[patient] = read_indiv_patient_data(input_file, patient, rows_to_skip)
+
+# Data selection
+df[patient] = keep_ideal_data(df[patient]) # If there are >1 large chunks with longest length, an error will be printed
+df[patient] = df[patient].reset_index(drop=True)
+
+
+cal_pred[patient]
+
 # +
 # # Perform normality test, both numerical and graphical
 # normality_test(df)
