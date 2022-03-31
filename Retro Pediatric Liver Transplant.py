@@ -13,7 +13,6 @@
 #     name: python3
 # ---
 
-# +
 # %load_ext autoreload
 # %autoreload 2
 
@@ -34,32 +33,36 @@ from scipy.optimize import curve_fit
 # +
 from scipy.optimize import curve_fit
 input_file = 'Retrospective Liver Transplant Data.xlsx'
-# patient_name = '120'
 
-patient_list = ['84', '114', '117', '118', '120', '121']
+# Create list of patient numbers
+patient_list = ['84', '114', '117', '118', '120', '121', '122', '123', '125', '126', 
+               '129', '130', '131', '132', '133', '138']
 
+# Create dictionary of dataframes for each patient
+df = {}
+
+# Set parameters
+rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
+
+# Read each patient's data into a dataframe
 for patient in patient_list:
-
-    patient_name = patient
-    rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
-
+    
     # Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
-    df = read_indiv_patient_data(input_file, patient_name, rows_to_skip)
+    df[patient] = read_indiv_patient_data(input_file, patient, rows_to_skip)
 
     # Keep largest consecutive non-NA chunk of patient data
-    df = keep_longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
-
-    df = df.reset_index(drop=True) 
-
-    # # Perform normality test, both numerical and graphical
-    # normality_test(df)
-
-    # Generate predictions and calculate deviations using different methods
-    # df_Q_Cum = Q_Cum(df)
+    df[patient] = keep_longest_chunk(df[patient]) # If there are >1 large chunks with longest length, an error will be printed
     
-    print(patient_name, df)
+    df[patient] = df[patient].reset_index(drop=True) 
 
+    print(patient_name, df[patient])
+    
+# +
+# # Perform normality test, both numerical and graphical
+# normality_test(df)
 
+# Generate predictions and calculate deviations using different methods
+# df_Q_Cum = Q_Cum(df)
 # df_Q_PPM = Q_PPM(df)
 # df_Q_RW = Q_RW(df)
 # df_L_Cum = L_Cum(df)
@@ -85,6 +88,41 @@ for patient in patient_list:
 # # Keep rows with common prediction day
 # df_deviation = df_deviation.iloc[:-1,:]
 # df_deviation.columns = ['pred_day', 'Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
+
+# +
+patient_name = '125'
+rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
+
+# Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
+df = read_indiv_patient_data(input_file, patient_name, rows_to_skip)
+
+# Keep largest consecutive non-NA chunk of patient data
+df = keep_longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
+
+df = df.reset_index(drop=True)
+df = df.reset_index(drop=False)
+
+df['']
+# Out of the first 3 unique tac doses, create list of indexes of the latest appearances
+# unique_doses = df.sort_values('Day #').groupby(['Eff 24h Tac Dose']).tail(1)
+# .reset_index()['index'].tolist()
+df.loc[df.groupby('Eff 24h Tac Dose').['Eff 24h Tac Dose'].idxmax()]
+# # Create dataframe of latest appearances of the first 3 unique tac doses
+# unique_df = df.iloc[[unique_doses[0], unique_doses[1], unique_doses[2]],:]
+# unique_df = unique_df.drop(labels='index', axis=1) # Drop useless index column
+
+# # Join first 3 unique tac doses with the rest of data in selected chunk
+# df = pd.concat([unique_df, df.iloc[unique_doses[2]+1:,:]]) 
+
+# df = df.drop(labels='index', axis=1)
+# df = df.reset_index()
+
+# df
+# # Perform normality test, both numerical and graphical
+# normality_test(df)
+
+# print(patient_name, df)
+
 # +
 methods = ['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
 

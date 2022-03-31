@@ -24,6 +24,7 @@ def read_indiv_patient_data(input_file, patient_name, rows_to_skip):
 
     # Remove "mg" from eff 24h tac dose
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('ng', '')
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
 
     return df
@@ -73,8 +74,6 @@ def keep_longest_chunk(df):
 
         # Keep largest chunk in dataframe
         df = df.iloc[min_idx:max_idx + 1, :] 
-
-    print(df)
 
     # # Drop rows with '<2' tac level
     # df_temp = df_temp[df_temp['Tac level (prior to am dose)'] != '<2']
