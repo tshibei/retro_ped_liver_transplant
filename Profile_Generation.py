@@ -80,7 +80,7 @@ def keep_ideal_data(df):
 
 # Combine calibration and prediction data into one dataframe
 
-def select_calibration_prediction_data(df, patient, cal_pred):
+def select_calibration_prediction_data(df, patient, cal_pred, patients_to_exclude):
     """
     Find calibration points and combine calibration data with the rest of data,
     to perform CURATE methods later.
@@ -126,6 +126,7 @@ def select_calibration_prediction_data(df, patient, cal_pred):
         cal_pred[patient] = pd.concat([first_cal_point, second_cal_point, third_cal_point, 
                                     rest_of_data]).reset_index(drop=True)
     else:
+        patients_to_exclude.append(str(patient))
         print(patient, ": Insufficient unique dose-response pairs for calibration!")
 
     # Print error msg if number of predictions is less than 3
@@ -133,6 +134,7 @@ def select_calibration_prediction_data(df, patient, cal_pred):
         pass # there are insufficient data for calibration already, don't need
              # this error msg
     elif len(cal_pred[patient]) - 3 < 3:
+        patients_to_exclude.append(str(patient))
         print(patient, ": No. of predictions is <3: ", len(cal_pred[patient]) - 3)
 
     return cal_pred[patient]
