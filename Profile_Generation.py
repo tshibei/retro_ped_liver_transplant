@@ -118,11 +118,20 @@ def select_calibration_prediction_data(df, patient, cal_pred, patients_to_exclud
     # Combine calibration and prediction rows
     cal_pred[patient] = []
     
-    if len(last_unique_doses_idx) > 2:
+    if df[patient]['Eff 24h Tac Dose'].nunique() > 2:
+        # If third cal point is the same as first 2 cal points, keep looking
+        first_cal_dose = df[patient]['Eff 24h Tac Dose'][last_unique_doses_idx[0]]
+        second_cal_dose = df[patient]['Eff 24h Tac Dose'][last_unique_doses_idx[1]]
+        n = 2
+        for i in range(n, len(df[patient])+1):
+            third_cal_dose = df[patient]['Eff 24h Tac Dose'][first_unique_doses_idx[n]]
+            if (third_cal_dose == first_cal_dose) | (third_cal_dose == second_cal_dose):
+                n = n + 1
+
         first_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[0],:]).T
         second_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[1],:]).T
-        third_cal_point = pd.DataFrame(df[patient].iloc[first_unique_doses_idx[2],:]).T
-        rest_of_data = df[patient].iloc[first_unique_doses_idx[2]+1:,:]
+        third_cal_point = pd.DataFrame(df[patient].iloc[first_unique_doses_idx[n],:]).T
+        rest_of_data = df[patient].iloc[first_unique_doses_idx[n]+1:,:]
         cal_pred[patient] = pd.concat([first_cal_point, second_cal_point, third_cal_point, 
                                     rest_of_data]).reset_index(drop=True)
     else:
@@ -130,7 +139,7 @@ def select_calibration_prediction_data(df, patient, cal_pred, patients_to_exclud
         print(patient, ": Insufficient unique dose-response pairs for calibration!")
 
     # Print error msg if number of predictions is less than 3
-    if len(last_unique_doses_idx) < 3:
+    if df[patient]['Eff 24h Tac Dose'].nunique() < 3:
         pass # there are insufficient data for calibration already, don't need
              # this error msg
     elif len(cal_pred[patient]) - 3 < 3:
@@ -275,7 +284,7 @@ def Q_RW(df):
         pred_day = int(df["Day #"][day_num])
 
         # Find coefficients of quadratic fit
-        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][day_num-3:day_num], df["Tac level (prior to am dose)"][day_num-3:day_num], 2))
+        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][day_num-3:day_num].astype(float), df["Tac level (prior to am dose)"][day_num-3:day_num].astype(float), 2))
 
         # Calculate prediction based on quad fit
         prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
@@ -385,7 +394,7 @@ def L_RW(df):
         pred_day = int(df["Day #"][day_num])
 
         # Find coefficients of quadratic fit
-        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][day_num-2:day_num], df["Tac level (prior to am dose)"][day_num-2:day_num], 1))
+        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][day_num-2:day_num].astype(float), df["Tac level (prior to am dose)"][day_num-2:day_num].astype(float), 1))
 
         # Calculate prediction based on quad fit
         prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])

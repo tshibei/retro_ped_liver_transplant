@@ -34,44 +34,61 @@ from scipy.optimize import curve_fit
 from scipy.optimize import curve_fit
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 
-# Create list of patient numbers
+
+df = {}
+cal_pred = {}
+patients_to_exclude = []
+rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 patient_list = ['84', '114', '117', '118', '120', '121', '122', '123', '125', '126', 
                '129', '130', '131', '132', '133', '138']
 
-# Create dictionary of dataframes for each patient
-df = {}
-cal_pred = {}
-
-# Define empty list of patients to exclude
-patients_to_exclude = []
-
-# Set parameters
-rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
-
 for patient in patient_list:
     
-    # Data cleaning: Read individual patient data from excel, 
+    # 1. Data cleaning: 
+    
+    # Read individual patient data from excel, 
     # shift tac level one cell up, remove "mg" from values
     df[patient] = read_indiv_patient_data(input_file, patient, rows_to_skip)
 
-    # Data selection: Keep ideal data only
+    # 2. Data selection: 
+    
+    # Keep ideal data only
     df[patient] = keep_ideal_data(df[patient]) # If there are >1 large chunks with longest length, an error will be printed
     
     df[patient] = df[patient].reset_index(drop=True) 
     
-    # Combine data for calibration and subsequent predictions into a dataframe
+    # Select data for calibration and subsequent predictions
     # Print patients with insufficient data for calibration and with <3 predictions
     # Store such patients into a patients_to_exclude list
     cal_pred[patient] = select_calibration_prediction_data(df, patient, cal_pred,
                                                           patients_to_exclude)
+    
+    print(cal_pred[patient])
 
 # Print list of patients to exclude generated from cal_pred function
-print(patients_to_exclude)
+print("Patients to exclude from CURATE.AI predictions: ", patients_to_exclude)
 # -
 
 
-patients_to_exclude = []
-patients_to_exclude.append('120')
+print(cal_pred['138'])
+L_RW(cal_pred['138'])
+
+df['129']['Day #'][3]
+
+# +
+df_Q_Cum = {}
+
+# Exclude chosen patients from list
+patient_list = [patient for patient in patient_list if patient not in patients_to_exclude]
+
+# Apply df_Q_Cum method to all remaining patients
+for patient in patient_list:
+    df_Q_Cum[patient] = Q_Cum(df[patient])
+
+df_Q_Cum
+# -
+
+
 
 
 # +
@@ -105,40 +122,6 @@ patients_to_exclude.append('120')
 # # Keep rows with common prediction day
 # df_deviation = df_deviation.iloc[:-1,:]
 # df_deviation.columns = ['pred_day', 'Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
-
-# +
-patient_name = '125'
-rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
-
-# Read individual patient data from excel, shift tac level one cell up, remove "mg" from values
-df = read_indiv_patient_data(input_file, patient_name, rows_to_skip)
-
-# Keep largest consecutive non-NA chunk of patient data
-df = keep_longest_chunk(df) # If there are >1 large chunks with longest length, an error will be printed
-
-df = df.reset_index(drop=True)
-df = df.reset_index(drop=False)
-
-df['']
-# Out of the first 3 unique tac doses, create list of indexes of the latest appearances
-# unique_doses = df.sort_values('Day #').groupby(['Eff 24h Tac Dose']).tail(1)
-# .reset_index()['index'].tolist()
-df.loc[df.groupby('Eff 24h Tac Dose').['Eff 24h Tac Dose'].idxmax()]
-# # Create dataframe of latest appearances of the first 3 unique tac doses
-# unique_df = df.iloc[[unique_doses[0], unique_doses[1], unique_doses[2]],:]
-# unique_df = unique_df.drop(labels='index', axis=1) # Drop useless index column
-
-# # Join first 3 unique tac doses with the rest of data in selected chunk
-# df = pd.concat([unique_df, df.iloc[unique_doses[2]+1:,:]]) 
-
-# df = df.drop(labels='index', axis=1)
-# df = df.reset_index()
-
-# df
-# # Perform normality test, both numerical and graphical
-# normality_test(df)
-
-# print(patient_name, df)
 
 # +
 methods = ['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
