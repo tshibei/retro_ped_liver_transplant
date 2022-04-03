@@ -404,41 +404,6 @@ def RW(df_input, patient, df_RW, num_of_data_pairs):
         
     return df_RW[patient]
 
-
-def Q_RW_old(df):
-    """
-    (not in use)
-    Use Q_RW method to generate predictions and calculate deviations.
-    Input: Individual patient data
-    Output: Q_RW results
-    """
-    # Create dataframe for Q-RW
-    column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
-    df_Q_RW = pd.DataFrame(columns = column_names)
-
-    for day_num in range(3, len(df)): 
-        # Find prediction day
-        pred_day = int(df["Day #"][day_num])
-
-        # Find coefficients of quadratic fit
-        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][day_num-3:day_num].astype(float), df["Tac level (prior to am dose)"][day_num-3:day_num].astype(float), 2))
-
-        # Calculate prediction based on quad fit
-        prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
-
-        # Calculate deviation from prediction
-        deviation = prediction - df["Tac level (prior to am dose)"][day_num]
-        abs_deviation = abs(deviation)
-
-        # Add prediction into dataframe
-        df_Q_RW_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
-        df_Q_RW_day = pd.DataFrame(df_Q_RW_day.reshape(-1, len(df_Q_RW_day)),columns=column_names)
-        df_Q_RW = df_Q_RW.append(df_Q_RW_day)
-
-    df_Q_RW = df_Q_RW.reset_index(drop = True)
-    
-    return df_Q_RW
-
 def L_Cum(df):
     """
     Use L_Cum method to generate predictions and calculate deviations.
@@ -547,41 +512,6 @@ def L_RW(df):
 
     df_L_RW = df_L_RW.reset_index(drop = True)
     return df_L_RW
-
-def Q_Cum_0_old(df):
-    
-    # Add row for origin intercept
-    empty_df = pd.DataFrame(columns = ['Day #', 'Tac level (prior to am dose)', 'Eff 24h Tac Dose' ])
-    origin_df = np.array([float(0), float(0), float(0)]).reshape(-1, 3)
-    origin_df = pd.DataFrame(origin_df, columns = ['Day #', 'Tac level (prior to am dose)', 'Eff 24h Tac Dose'])
-    new_df = df.append(origin_df)
-    new_df = new_df.append(df)
-    new_df = new_df.reset_index(drop = True)
-
-    # Create dataframe for Q-Cum_0
-    column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
-    df_Q_Cum_0 = pd.DataFrame(columns = column_names)
-
-    for day_num in range(4, len(new_df)):
-        pred_day = int(new_df["Day #"][day_num])
-
-        # Find coefficients of quadratic fit
-        fittedParameters = (np.polyfit(new_df["Eff 24h Tac Dose"][0:day_num], new_df["Tac level (prior to am dose)"][0:day_num], 2))
-
-        # Calculate prediction based on quad fit
-        prediction = np.polyval(fittedParameters, new_df["Eff 24h Tac Dose"][day_num])
-
-        # Calculate deviation from prediction
-        deviation = prediction - new_df["Tac level (prior to am dose)"][day_num]
-        abs_deviation = abs(deviation)
-
-        # Add the prediction day, coefficients, prediction, and deviation below dataframe
-        df_Q_Cum_0_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
-        df_Q_Cum_0_day = pd.DataFrame(df_Q_Cum_0_day.reshape(-1, len(df_Q_Cum_0_day)),columns=column_names)
-        df_Q_Cum_0 = df_Q_Cum_0.append(df_Q_Cum_0_day)
-
-    df_Q_Cum_0 = df_Q_Cum_0.reset_index(drop = True)
-    return df_Q_Cum_0
 
 def Q_Cum_0(df):
     """

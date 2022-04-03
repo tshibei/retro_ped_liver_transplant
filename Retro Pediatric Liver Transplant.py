@@ -70,12 +70,10 @@ for patient in patient_list:
     
     # Keep ideal data only
     df[patient] = keep_ideal_data(df[patient]) # If there are >1 large chunks with longest length, an error will be printed
-    
     df[patient] = df[patient].reset_index(drop=True) 
     
     # Select data for calibration and subsequent predictions
     # Print patients with insufficient data for calibration and with <3 predictions
-    # Store such patients into a patients_to_exclude list
     cal_pred[patient] = select_calibration_prediction_data(df, patient, cal_pred,
                                                           patients_to_exclude)
     
@@ -85,7 +83,7 @@ print("Patients to exclude from CURATE.AI predictions: ", patients_to_exclude)
 # Exclude chosen patients from list
 patient_list = [patient for patient in patient_list if patient not in patients_to_exclude]
 
-# Apply CURATE.AI methods to all remaining patients:
+# 3. Apply CURATE.AI methods to all remaining patients:
 
 # Loop through patients
 for patient in patient_list:
@@ -100,10 +98,10 @@ for patient in patient_list:
     df_L_PPM[patient] = L_PPM(cal_pred[patient])
     df_L_PPM_0[patient] = L_PPM_0(cal_pred[patient])
     
-    # Rolling window methods require additional data selection step first
-    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], 3)
+    # Perform rolling window methods
+    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], 3) # Extra data selection step for RW
     df_Q_RW[patient] = RW(df_Q_RW_input[patient], patient, df_RW, 3)
-    df_L_RW_input[patient] = select_RW_data(cal_pred[patient], 2)
+    df_L_RW_input[patient] = select_RW_data(cal_pred[patient], 2) # Extra data selection step for RW
     df_L_RW[patient] = RW(df_L_RW_input[patient], patient, df_RW, 2)
 
 
