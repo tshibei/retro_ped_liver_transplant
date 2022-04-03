@@ -513,11 +513,11 @@ def L_RW(df):
     df_L_RW = df_L_RW.reset_index(drop = True)
     return df_L_RW
 
-def Q_Cum_0(df):
+def Q_Cum_origin_int(df):
     """
-    Use Q_Cum_0 method to generate predictions and calculate deviations.
+    Use Q_Cum_origin_int method to generate predictions and calculate deviations.
     Input: Individual patient data
-    Output: Q_Cum_0 results
+    Output: Q_Cum_origin_int results
     """
     def f(x, a, b):
         return a*x**2 + b*x
@@ -528,7 +528,7 @@ def Q_Cum_0(df):
 
     # Create dataframe for Q-Cum
     column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
-    df_Q_Cum_0 = pd.DataFrame(columns = column_names)
+    df_Q_Cum_origin_int = pd.DataFrame(columns = column_names)
 
     for day_num in range(3, len(df)):
         pred_day = int(df["Day #"][day_num])
@@ -548,23 +548,23 @@ def Q_Cum_0(df):
         abs_deviation = abs(deviation)
 
         # Add the prediction day, coefficients, prediction, and deviation below dataframe
-        df_Q_Cum_0_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
-        df_Q_Cum_0_day = pd.DataFrame(df_Q_Cum_0_day.reshape(-1, len(df_Q_Cum_0_day)),columns=column_names)
-        df_Q_Cum_0 = df_Q_Cum_0.append(df_Q_Cum_0_day)
+        df_Q_Cum_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
+        df_Q_Cum_origin_int_day = pd.DataFrame(df_Q_Cum_origin_int_day.reshape(-1, len(df_Q_Cum_origin_int_day)),columns=column_names)
+        df_Q_Cum_origin_int = df_Q_Cum_origin_int.append(df_Q_Cum_origin_int_day)
 
-    df_Q_Cum_0 = df_Q_Cum_0.reset_index(drop = True)
-    return df_Q_Cum_0
+    df_Q_Cum_origin_int = df_Q_Cum_origin_int.reset_index(drop = True)
+    return df_Q_Cum_origin_int
 
-def Q_PPM_0(df):
+def Q_PPM_origin_int(df):
     """
-    Use Q_PPM_0 method to generate predictions and calculate deviations.
+    Use Q_PPM_origin_int method to generate predictions and calculate deviations.
     Input: Individual patient data
-    Output: Q_PPM_0 results
+    Output: Q_PPM_origin_int results
     """
     from scipy.optimize import curve_fit
-    # Create dataframe for Q-PPM_0
+    # Create dataframe for Q-PPM_origin_int
     column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
-    df_Q_PPM_0 = pd.DataFrame(columns = column_names)
+    df_Q_PPM_origin_int = pd.DataFrame(columns = column_names)
 
     # Fill in prediction day, quadratic fit, prediction, deviation for prediction of day 5
     pred_day = 5
@@ -588,37 +588,37 @@ def Q_PPM_0(df):
     abs_deviation = abs(deviation)
 
     # Add prediction of day 5 into dataframe
-    df_Q_PPM_0_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
-    df_Q_PPM_0_day = pd.DataFrame(df_Q_PPM_0_day.reshape(-1, len(df_Q_PPM_0_day)),columns=column_names)
-    df_Q_PPM_0 = df_Q_PPM_0.append(df_Q_PPM_0_day)
+    df_Q_PPM_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
+    df_Q_PPM_origin_int_day = pd.DataFrame(df_Q_PPM_origin_int_day.reshape(-1, len(df_Q_PPM_origin_int_day)),columns=column_names)
+    df_Q_PPM_origin_int = df_Q_PPM_origin_int.append(df_Q_PPM_origin_int_day)
 
     # Add subsequent predictions
     for day_num in range(4, len(df)):
-        pred_day, a, b = df_Q_PPM_0["prediction day"].iloc[-1] + 1, df_Q_PPM_0['a'].iloc[-1], df_Q_PPM_0['b'].iloc[-1]
-        c = df_Q_PPM_0['c'].iloc[-1] - df_Q_PPM_0['deviation'].iloc[-1]
+        pred_day, a, b = df_Q_PPM_origin_int["prediction day"].iloc[-1] + 1, df_Q_PPM_origin_int['a'].iloc[-1], df_Q_PPM_origin_int['b'].iloc[-1]
+        c = df_Q_PPM_origin_int['c'].iloc[-1] - df_Q_PPM_origin_int['deviation'].iloc[-1]
         fittedParameters = a, b, c
         prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
         deviation = prediction - df["Tac level (prior to am dose)"][day_num]
         abs_deviation = abs(deviation)
 
-        df_Q_PPM_0_day = np.array([pred_day, a, b, c, prediction, deviation, abs_deviation])
-        df_Q_PPM_0_day = pd.DataFrame(df_Q_PPM_0_day.reshape(-1, len(df_Q_PPM_0_day)),columns=column_names)
-        df_Q_PPM_0 = df_Q_PPM_0.append(df_Q_PPM_0_day)
+        df_Q_PPM_origin_int_day = np.array([pred_day, a, b, c, prediction, deviation, abs_deviation])
+        df_Q_PPM_origin_int_day = pd.DataFrame(df_Q_PPM_origin_int_day.reshape(-1, len(df_Q_PPM_origin_int_day)),columns=column_names)
+        df_Q_PPM_origin_int = df_Q_PPM_origin_int.append(df_Q_PPM_origin_int_day)
 
-    df_Q_PPM_0 = df_Q_PPM_0.reset_index(drop = True)
-    return df_Q_PPM_0
+    df_Q_PPM_origin_int = df_Q_PPM_origin_int.reset_index(drop = True)
+    return df_Q_PPM_origin_int
 
-def Q_RW_0(df):
+def Q_RW_origin_int(df):
     """
-    Use Q_RW_0 method to generate predictions and calculate deviations.
+    Use Q_RW_origin_int method to generate predictions and calculate deviations.
     Input: Individual patient data
-    Output: Q_RW_0 results
+    Output: Q_RW_origin_int results
     """
     from scipy.optimize import curve_fit
     
     # Create dataframe for Q-RW
     column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
-    df_Q_RW_0 = pd.DataFrame(columns = column_names)
+    df_Q_RW_origin_int = pd.DataFrame(columns = column_names)
 
     for day_num in range(3, len(df)): 
         # Find prediction day
@@ -642,27 +642,27 @@ def Q_RW_0(df):
         abs_deviation = abs(deviation)
 
         # Add prediction into dataframe
-        df_Q_RW_0_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
-        df_Q_RW_0_day = pd.DataFrame(df_Q_RW_0_day.reshape(-1, len(df_Q_RW_0_day)),columns=column_names)
-        df_Q_RW_0 = df_Q_RW_0.append(df_Q_RW_0_day)
+        df_Q_RW_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], fittedParameters[2], prediction, deviation, abs_deviation])
+        df_Q_RW_origin_int_day = pd.DataFrame(df_Q_RW_origin_int_day.reshape(-1, len(df_Q_RW_origin_int_day)),columns=column_names)
+        df_Q_RW_origin_int = df_Q_RW_origin_int.append(df_Q_RW_origin_int_day)
 
-    df_Q_RW_0 = df_Q_RW_0.reset_index(drop = True)
-    return df_Q_RW_0
+    df_Q_RW_origin_int = df_Q_RW_origin_int.reset_index(drop = True)
+    return df_Q_RW_origin_int
 
-def L_Cum_0(df):
+def L_Cum_origin_int(df):
     """
-    Use L_Cum_0 method to generate predictions and calculate deviations.
+    Use L_Cum_origin_int method to generate predictions and calculate deviations.
     Input: Individual patient data
-    Output: L_Cum_0 results
+    Output: L_Cum_origin_int results
     """
     from scipy.optimize import curve_fit
 
     def f(x, a):
         return a*x
 
-    # Create dataframe for L-Cum_0
+    # Create dataframe for L-Cum_origin_int
     column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
-    df_L_Cum_0 = pd.DataFrame(columns = column_names)
+    df_L_Cum_origin_int = pd.DataFrame(columns = column_names)
 
     for day_num in range(2, len(df)):
         pred_day = int(df["Day #"][day_num])
@@ -682,24 +682,24 @@ def L_Cum_0(df):
         abs_deviation = abs(deviation)
 
         # Add the prediction day, coefficients, prediction, and deviation below dataframe
-        df_L_Cum_0_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
-        df_L_Cum_0_day = pd.DataFrame(df_L_Cum_0_day.reshape(-1, len(df_L_Cum_0_day)),columns=column_names)
-        df_L_Cum_0 = df_L_Cum_0.append(df_L_Cum_0_day)
+        df_L_Cum_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
+        df_L_Cum_origin_int_day = pd.DataFrame(df_L_Cum_origin_int_day.reshape(-1, len(df_L_Cum_origin_int_day)),columns=column_names)
+        df_L_Cum_origin_int = df_L_Cum_origin_int.append(df_L_Cum_origin_int_day)
 
-    df_L_Cum_0 = df_L_Cum_0.reset_index(drop = True)
-    return df_L_Cum_0
+    df_L_Cum_origin_int = df_L_Cum_origin_int.reset_index(drop = True)
+    return df_L_Cum_origin_int
 
-def L_PPM_0(df):
+def L_PPM_origin_int(df):
     """
-    Use L_PPM_0 method to generate predictions and calculate deviations.
+    Use L_PPM_origin_int method to generate predictions and calculate deviations.
     Input: Individual patient data
-    Output: L_PPM_0 results
+    Output: L_PPM_origin_int results
     """
     from scipy.optimize import curve_fit
     
-    # Create dataframe for L-PPM_0
+    # Create dataframe for L-PPM_origin_int
     column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
-    df_L_PPM_0 = pd.DataFrame(columns = column_names)
+    df_L_PPM_origin_int = pd.DataFrame(columns = column_names)
 
     # Fill in prediction day, linearratic fit, prediction, deviation for prediction of day 5
     pred_day = 4
@@ -723,37 +723,37 @@ def L_PPM_0(df):
     abs_deviation = abs(deviation)
 
     # Add prediction of day 5 into dataframe
-    df_L_PPM_0_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
-    df_L_PPM_0_day = pd.DataFrame(df_L_PPM_0_day.reshape(-1, len(df_L_PPM_0_day)),columns=column_names)
-    df_L_PPM_0 = df_L_PPM_0.append(df_L_PPM_0_day)
+    df_L_PPM_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
+    df_L_PPM_origin_int_day = pd.DataFrame(df_L_PPM_origin_int_day.reshape(-1, len(df_L_PPM_origin_int_day)),columns=column_names)
+    df_L_PPM_origin_int = df_L_PPM_origin_int.append(df_L_PPM_origin_int_day)
 
     # Add subsequent predictions
     for day_num in range(3, len(df)):
-        pred_day, a = df_L_PPM_0["prediction day"].iloc[-1] + 1, df_L_PPM_0['a'].iloc[-1]
-        b = df_L_PPM_0['b'].iloc[-1] - df_L_PPM_0['deviation'].iloc[-1]
+        pred_day, a = df_L_PPM_origin_int["prediction day"].iloc[-1] + 1, df_L_PPM_origin_int['a'].iloc[-1]
+        b = df_L_PPM_origin_int['b'].iloc[-1] - df_L_PPM_origin_int['deviation'].iloc[-1]
         fittedParameters = a, b
         prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
         deviation = prediction - df["Tac level (prior to am dose)"][day_num]
         abs_deviation = abs(deviation)
 
-        df_L_PPM_0_day = np.array([pred_day, a, b, prediction, deviation, abs_deviation])
-        df_L_PPM_0_day = pd.DataFrame(df_L_PPM_0_day.reshape(-1, len(df_L_PPM_0_day)),columns=column_names)
-        df_L_PPM_0 = df_L_PPM_0.append(df_L_PPM_0_day)
+        df_L_PPM_origin_int_day = np.array([pred_day, a, b, prediction, deviation, abs_deviation])
+        df_L_PPM_origin_int_day = pd.DataFrame(df_L_PPM_origin_int_day.reshape(-1, len(df_L_PPM_origin_int_day)),columns=column_names)
+        df_L_PPM_origin_int = df_L_PPM_origin_int.append(df_L_PPM_origin_int_day)
 
-    df_L_PPM_0 = df_L_PPM_0.reset_index(drop = True)
-    return df_L_PPM_0
+    df_L_PPM_origin_int = df_L_PPM_origin_int.reset_index(drop = True)
+    return df_L_PPM_origin_int
 
-def L_RW_0(df):
+def L_RW_origin_int(df):
     """
-    Use L_RW_0 method to generate predictions and calculate deviations.
+    Use L_RW_origin_int method to generate predictions and calculate deviations.
     Input: Individual patient data
-    Output: L_RW_0 results
+    Output: L_RW_origin_int results
     """
     from scipy.optimize import curve_fit
 
     # Create dataframe for L-RW
     column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
-    df_L_RW_0 = pd.DataFrame(columns = column_names)
+    df_L_RW_origin_int = pd.DataFrame(columns = column_names)
 
     for day_num in range(2, len(df)): 
         # Find prediction day
@@ -777,12 +777,12 @@ def L_RW_0(df):
         abs_deviation = abs(deviation)
 
         # Add prediction into dataframe
-        df_L_RW_0_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
-        df_L_RW_0_day = pd.DataFrame(df_L_RW_0_day.reshape(-1, len(df_L_RW_0_day)),columns=column_names)
-        df_L_RW_0 = df_L_RW_0.append(df_L_RW_0_day)
+        df_L_RW_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
+        df_L_RW_origin_int_day = pd.DataFrame(df_L_RW_origin_int_day.reshape(-1, len(df_L_RW_origin_int_day)),columns=column_names)
+        df_L_RW_origin_int = df_L_RW_origin_int.append(df_L_RW_origin_int_day)
 
-    df_L_RW_0 = df_L_RW_0.reset_index(drop = True)
-    return df_L_RW_0
+    df_L_RW_origin_int = df_L_RW_origin_int.reset_index(drop = True)
+    return df_L_RW_origin_int
 
 # Plotting
 

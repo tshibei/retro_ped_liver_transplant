@@ -38,13 +38,13 @@ input_file = 'Retrospective Liver Transplant Data.xlsx'
 df = {}
 cal_pred = {}
 df_Q_Cum = {}
-df_Q_Cum_0 = {}
+df_Q_Cum_origin_int = {}
 df_Q_PPM = {}
-df_Q_PPM_0 = {}
+df_Q_PPM_origin_int = {}
 df_L_Cum = {}
-df_L_Cum_0 = {}
+df_L_Cum_origin_int = {}
 df_L_PPM = {}
-df_L_PPM_0 = {}
+df_L_PPM_origin_int = {}
 df_Q_RW_input = {}
 df_Q_RW = {}
 df_L_RW_input = {}
@@ -62,8 +62,7 @@ for patient in patient_list:
     
     # 1. Data cleaning: 
     
-    # Read individual patient data from excel, 
-    # shift tac level one cell up, remove "mg" from values
+    # Read individual patient data from excel, shift tac level one cell up, remove "mg" and "ng" from values
     df[patient] = read_indiv_patient_data(input_file, patient, rows_to_skip)
 
     # 2. Data selection: 
@@ -90,53 +89,24 @@ for patient in patient_list:
 
     # Perform all methods except rolling window
     df_Q_Cum[patient] = Q_Cum(cal_pred[patient])
-    df_Q_Cum_0[patient] = Q_Cum_0(cal_pred[patient])
+    df_Q_Cum_origin_int[patient] = Q_Cum_origin_int(cal_pred[patient])
     df_Q_PPM[patient] = Q_PPM(cal_pred[patient])
-    df_Q_PPM_0[patient] = Q_PPM_0(cal_pred[patient])
+    df_Q_PPM_origin_int[patient] = Q_PPM_origin_int(cal_pred[patient])
     df_L_Cum[patient] = L_Cum(cal_pred[patient])
-    df_L_Cum_0[patient] = L_Cum_0(cal_pred[patient])
+    df_L_Cum_origin_int[patient] = L_Cum_origin_int(cal_pred[patient])
     df_L_PPM[patient] = L_PPM(cal_pred[patient])
-    df_L_PPM_0[patient] = L_PPM_0(cal_pred[patient])
+    df_L_PPM_origin_int[patient] = L_PPM_origin_int(cal_pred[patient])
     
     # Perform rolling window methods
     df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], 3) # Extra data selection step for RW
     df_Q_RW[patient] = RW(df_Q_RW_input[patient], patient, df_RW, 3)
     df_L_RW_input[patient] = select_RW_data(cal_pred[patient], 2) # Extra data selection step for RW
     df_L_RW[patient] = RW(df_L_RW_input[patient], patient, df_RW, 2)
+    
+# 4. Plot results
 
 
 
-# +
-# # Perform normality test, both numerical and graphical
-# normality_test(df)
-
-# Generate predictions and calculate deviations using different methods
-# df_Q_Cum = Q_Cum(df)
-# df_Q_PPM = Q_PPM(df)
-# df_Q_RW = Q_RW(df)
-# df_L_Cum = L_Cum(df)
-# df_L_PPM = L_PPM(df)
-# df_L_RW = L_RW(df)
-# df_Q_Cum_0 = Q_Cum_0(df)
-# df_Q_PPM_0 = Q_PPM_0(df)
-# df_Q_RW_0 = Q_RW_0(df)
-# df_L_Cum_0 = L_Cum_0(df)
-# df_L_PPM_0 = L_PPM_0(df)
-# df_L_RW_0 = L_RW_0(df)
-
-# # Create dataframe of deviation
-# data_frames = [df_Q_Cum[['prediction day', 'deviation']],
-#              df_Q_PPM[['prediction day', 'deviation']],
-#              df_Q_RW[['prediction day', 'deviation']],
-#              df_L_Cum[['prediction day', 'deviation']],
-#              df_L_PPM[['prediction day', 'deviation']],
-#              df_L_RW[['prediction day', 'deviation']]]
-# df_deviation = reduce(lambda  left,right: pd.merge(left,right,on=['prediction day'],
-#                                             how='outer'), data_frames)
-
-# # Keep rows with common prediction day
-# df_deviation = df_deviation.iloc[:-1,:]
-# df_deviation.columns = ['pred_day', 'Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
 
 # +
 methods = ['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
