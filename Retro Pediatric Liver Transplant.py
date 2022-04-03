@@ -34,16 +34,30 @@ from scipy.optimize import curve_fit
 from scipy.optimize import curve_fit
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 
+# Create dictionaries to store information for individual patients
 df = {}
 cal_pred = {}
+df_Q_Cum = {}
+df_Q_Cum_0 = {}
+df_Q_PPM = {}
+df_Q_PPM_0 = {}
+df_L_Cum = {}
+df_L_Cum_0 = {}
+df_L_PPM = {}
+df_L_PPM_0 = {}
 df_Q_RW_input = {}
 df_Q_RW = {}
+df_L_RW_input = {}
+df_L_RW = {}
+df_RW = {}
 
+# Define lists and parameters
 patients_to_exclude = []
 rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 patient_list = ['84', '114', '117', '118', '120', '121', '122', '123', '125', '126', 
                '129', '130', '131', '132', '133', '138']
 
+# Loop through patients
 for patient in patient_list:
     
     # 1. Data cleaning: 
@@ -71,13 +85,27 @@ print("Patients to exclude from CURATE.AI predictions: ", patients_to_exclude)
 # Exclude chosen patients from list
 patient_list = [patient for patient in patient_list if patient not in patients_to_exclude]
 
-# Apply CURATE.AI methods to all remaining patients
+# Apply CURATE.AI methods to all remaining patients:
+
+# Loop through patients
 for patient in patient_list:
 
-    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], num_of_data_pairs)
-    df_Q_RW[patient] = Q_RW(df_Q_RW_input[patient], patient, df_Q_RW)
+    # Perform all methods except rolling window
+    df_Q_Cum[patient] = Q_Cum(cal_pred[patient])
+    df_Q_Cum_0[patient] = Q_Cum_0(cal_pred[patient])
+    df_Q_PPM[patient] = Q_PPM(cal_pred[patient])
+    df_Q_PPM_0[patient] = Q_PPM_0(cal_pred[patient])
+    df_L_Cum[patient] = L_Cum(cal_pred[patient])
+    df_L_Cum_0[patient] = L_Cum_0(cal_pred[patient])
+    df_L_PPM[patient] = L_PPM(cal_pred[patient])
+    df_L_PPM_0[patient] = L_PPM_0(cal_pred[patient])
+    
+    # Rolling window methods require additional data selection step first
+    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], 3)
+    df_Q_RW[patient] = RW(df_Q_RW_input[patient], patient, df_RW, 3)
+    df_L_RW_input[patient] = select_RW_data(cal_pred[patient], 2)
+    df_L_RW[patient] = RW(df_L_RW_input[patient], patient, df_RW, 2)
 
-    print(patient, df_Q_RW[patient])
 
 
 # +

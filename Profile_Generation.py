@@ -324,39 +324,57 @@ def select_RW_data(cal_pred_dataframe, num_of_data_pairs):
         # Prepare dataframe of dose-response pairs for prediction
         if len(indices) == num_of_data_pairs:
 
-            dict = {'Pred_Day': day,
-                    'Dose_1': cal_pred_dataframe['Eff 24h Tac Dose'][indices[0]],
-                    'Dose_2': cal_pred_dataframe['Eff 24h Tac Dose'][indices[1]],
-                    'Dose_3': cal_pred_dataframe['Eff 24h Tac Dose'][indices[2]],
-                    'Response_1': cal_pred_dataframe['Tac level (prior to am dose)'][indices[0]],
-                    'Response_2': cal_pred_dataframe['Tac level (prior to am dose)'][indices[1]],
-                    'Response_3': cal_pred_dataframe['Tac level (prior to am dose)'][indices[2]],
-                    'New_Dose': cal_pred_dataframe['Eff 24h Tac Dose'][i+1],
-                    'New_Response': cal_pred_dataframe['Tac level (prior to am dose)'][i+1]}
+            if num_of_data_pairs == 3:
 
-            df_input = df_input.append(dict, ignore_index=True)
+                dict = {'Pred_Day': day,
+                        'Dose_1': cal_pred_dataframe['Eff 24h Tac Dose'][indices[0]],
+                        'Dose_2': cal_pred_dataframe['Eff 24h Tac Dose'][indices[1]],
+                        'Dose_3': cal_pred_dataframe['Eff 24h Tac Dose'][indices[2]],
+                        'Response_1': cal_pred_dataframe['Tac level (prior to am dose)'][indices[0]],
+                        'Response_2': cal_pred_dataframe['Tac level (prior to am dose)'][indices[1]],
+                        'Response_3': cal_pred_dataframe['Tac level (prior to am dose)'][indices[2]],
+                        'New_Dose': cal_pred_dataframe['Eff 24h Tac Dose'][i+1],
+                        'New_Response': cal_pred_dataframe['Tac level (prior to am dose)'][i+1]}
+
+                df_input = df_input.append(dict, ignore_index=True)
+            
+            else:
+
+                dict = {'Pred_Day': day,
+                        'Dose_1': cal_pred_dataframe['Eff 24h Tac Dose'][indices[0]],
+                        'Dose_2': cal_pred_dataframe['Eff 24h Tac Dose'][indices[1]],
+                        'Response_1': cal_pred_dataframe['Tac level (prior to am dose)'][indices[0]],
+                        'Response_2': cal_pred_dataframe['Tac level (prior to am dose)'][indices[1]],
+                        'New_Dose': cal_pred_dataframe['Eff 24h Tac Dose'][i+1],
+                        'New_Response': cal_pred_dataframe['Tac level (prior to am dose)'][i+1]}
+
+                df_input = df_input.append(dict, ignore_index=True)
         
     return df_input
 
-def Q_RW(df_input, patient, df_Q_RW):
+def RW(df_input, patient, df_RW, num_of_data_pairs):
     """
-    Use Q_RW method to generate predictions and calculate deviations.
+    Use Rolling Window method to generate predictions and calculate deviations.
     
     Input: Dose response pairs for prediction of individual patient
-    Output: Q_RW results
+    Output: Rolling Window results
     """
     # Perform RW method:
 
     # Define dataframe output for RW method
-    df_Q_RW[patient] = pd.DataFrame(columns = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation'])
+    df_RW[patient] = pd.DataFrame(columns = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation'])
 
     # Loop through rows
     for i in range(0, len(df_input)):
 
         # Perform quadratic fit
-        x = df_input.loc[i, ['Dose_1', 'Dose_2', 'Dose_3']]
-        y = df_input.loc[i, ['Response_1', 'Response_2', 'Response_3']]
-        fittedParameters = (np.polyfit(x, y, 2))
+        if num_of_data_pairs == 3:
+            x = df_input.loc[i, ['Dose_1', 'Dose_2', 'Dose_3']]
+            y = df_input.loc[i, ['Response_1', 'Response_2', 'Response_3']]
+        else: 
+            x = df_input.loc[i, ['Dose_1', 'Dose_2']]
+            y = df_input.loc[i, ['Response_1', 'Response_2']]
+        fittedParameters = (np.polyfit(x, y, num_of_data_pairs - 1))
 
         # Predict new response
         prediction = np.polyval(fittedParameters, df_input.loc[i, 'New_Dose'])
@@ -366,17 +384,25 @@ def Q_RW(df_input, patient, df_Q_RW):
         abs_deviation = abs(deviation)
 
         # Append results into dataframe
-        dict = {'prediction day': df_input.loc[i, 'Pred_Day'],
-               'a': fittedParameters[0],
-               'b': fittedParameters[1],
-               'c': fittedParameters[2],
-               'prediction': prediction,
-               'deviation': deviation,
-               'abs deviation': abs_deviation}
+        if num_of_data_pairs == 3:
+            dict = {'prediction day': df_input.loc[i, 'Pred_Day'],
+                'a': fittedParameters[0],
+                'b': fittedParameters[1],
+                'c': fittedParameters[2],
+                'prediction': prediction,
+                'deviation': deviation,
+                'abs deviation': abs_deviation}
+        else:
+            dict = {'prediction day': df_input.loc[i, 'Pred_Day'],
+                'a': fittedParameters[0],
+                'b': fittedParameters[1],
+                'prediction': prediction,
+                'deviation': deviation,
+                'abs deviation': abs_deviation}
 
-        df_Q_RW[patient] = df_Q_RW[patient].append(dict, ignore_index=True)
+        df_RW[patient] = df_RW[patient].append(dict, ignore_index=True)
         
-    return df_Q_RW[patient]
+    return df_RW[patient]
 
 
 def Q_RW_old(df):
