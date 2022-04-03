@@ -269,8 +269,119 @@ def Q_PPM(df):
     
     return df_Q_PPM
 
-def Q_RW(df):
+def select_RW_data(cal_pred_dataframe, num_of_data_pairs):
     """
+    For each prediction day, find the previous 2/3 data pairs (for linear/quadratic method) for rolling window prediction.
+    
+    Input: Calibration and prediction data of a patient (e.g. cal_pred['114'])
+    Output: Dose-response pairs for rolling window prediction
+    """
+
+    values = []
+    indices = []
+    fittedParameters = []
+    df_input = pd.DataFrame(columns = ['Pred_Day', 'Dose_1', 'Dose_2', 'Dose_3',
+                                      'Response_1', 'Response_2', 'Response_3', 
+                                       'New_Dose', 'New_Response'])
+
+    # Find values and indices of dose-response pairs for RW:
+
+    # Loop through rows
+    for i in range(0, len(cal_pred_dataframe) - 1):
+
+        # Define new dose and prediction day
+        new_dose = cal_pred_dataframe['Eff 24h Tac Dose'][i]
+        day = cal_pred_dataframe['Day #'][i+1]
+
+        # Add values and indices of first three unique doses into list
+        if len(values) < num_of_data_pairs:
+
+            # Check if new dose in values list
+            # If not, append new dose into value list and append index into indices list
+            if new_dose not in values:
+                values.append(new_dose)
+                indices.append(i)
+
+        else:
+            # Check if new dose in value list
+            # If yes: remove value and index of repeat, and append new dose and index to list.
+            if new_dose in values:
+                repeated_dose_index = values.index(new_dose)
+                values.pop(repeated_dose_index)
+                indices.pop(repeated_dose_index)
+
+                values.append(new_dose)
+                indices.append(i)
+
+            # If no: remove the first element of list and append value and index of new dose
+            else:
+                values.pop(0)
+                indices.pop(0)
+
+                values.append(new_dose)
+                indices.append(i)
+
+        # Prepare dataframe of dose-response pairs for prediction
+        if len(indices) == num_of_data_pairs:
+
+            dict = {'Pred_Day': day,
+                    'Dose_1': cal_pred_dataframe['Eff 24h Tac Dose'][indices[0]],
+                    'Dose_2': cal_pred_dataframe['Eff 24h Tac Dose'][indices[1]],
+                    'Dose_3': cal_pred_dataframe['Eff 24h Tac Dose'][indices[2]],
+                    'Response_1': cal_pred_dataframe['Tac level (prior to am dose)'][indices[0]],
+                    'Response_2': cal_pred_dataframe['Tac level (prior to am dose)'][indices[1]],
+                    'Response_3': cal_pred_dataframe['Tac level (prior to am dose)'][indices[2]],
+                    'New_Dose': cal_pred_dataframe['Eff 24h Tac Dose'][i+1],
+                    'New_Response': cal_pred_dataframe['Tac level (prior to am dose)'][i+1]}
+
+            df_input = df_input.append(dict, ignore_index=True)
+        
+    return df_input
+
+def Q_RW(df_input, patient, df_Q_RW):
+    """
+    Use Q_RW method to generate predictions and calculate deviations.
+    
+    Input: Dose response pairs for prediction of individual patient
+    Output: Q_RW results
+    """
+    # Perform RW method:
+
+    # Define dataframe output for RW method
+    df_Q_RW[patient] = pd.DataFrame(columns = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation'])
+
+    # Loop through rows
+    for i in range(0, len(df_input)):
+
+        # Perform quadratic fit
+        x = df_input.loc[i, ['Dose_1', 'Dose_2', 'Dose_3']]
+        y = df_input.loc[i, ['Response_1', 'Response_2', 'Response_3']]
+        fittedParameters = (np.polyfit(x, y, 2))
+
+        # Predict new response
+        prediction = np.polyval(fittedParameters, df_input.loc[i, 'New_Dose'])
+
+        # Calculate deviation
+        deviation = prediction - df_input.loc[i, 'New_Response']
+        abs_deviation = abs(deviation)
+
+        # Append results into dataframe
+        dict = {'prediction day': df_input.loc[i, 'Pred_Day'],
+               'a': fittedParameters[0],
+               'b': fittedParameters[1],
+               'c': fittedParameters[2],
+               'prediction': prediction,
+               'deviation': deviation,
+               'abs deviation': abs_deviation}
+
+        df_Q_RW[patient] = df_Q_RW[patient].append(dict, ignore_index=True)
+        
+    return df_Q_RW[patient]
+
+
+def Q_RW_old(df):
+    """
+    (not in use)
     Use Q_RW method to generate predictions and calculate deviations.
     Input: Individual patient data
     Output: Q_RW results

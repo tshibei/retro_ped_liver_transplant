@@ -34,9 +34,11 @@ from scipy.optimize import curve_fit
 from scipy.optimize import curve_fit
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 
-
 df = {}
 cal_pred = {}
+df_Q_RW_input = {}
+df_Q_RW = {}
+
 patients_to_exclude = []
 rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 patient_list = ['84', '114', '117', '118', '120', '121', '122', '123', '125', '126', 
@@ -63,32 +65,19 @@ for patient in patient_list:
     cal_pred[patient] = select_calibration_prediction_data(df, patient, cal_pred,
                                                           patients_to_exclude)
     
-    print(cal_pred[patient])
-
 # Print list of patients to exclude generated from cal_pred function
 print("Patients to exclude from CURATE.AI predictions: ", patients_to_exclude)
-# -
-
-
-print(cal_pred['138'])
-L_RW(cal_pred['138'])
-
-df['129']['Day #'][3]
-
-# +
-df_Q_Cum = {}
 
 # Exclude chosen patients from list
 patient_list = [patient for patient in patient_list if patient not in patients_to_exclude]
 
-# Apply df_Q_Cum method to all remaining patients
+# Apply CURATE.AI methods to all remaining patients
 for patient in patient_list:
-    df_Q_Cum[patient] = Q_Cum(df[patient])
 
-df_Q_Cum
-# -
+    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], num_of_data_pairs)
+    df_Q_RW[patient] = Q_RW(df_Q_RW_input[patient], patient, df_Q_RW)
 
-
+    print(patient, df_Q_RW[patient])
 
 
 # +
