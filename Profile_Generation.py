@@ -833,6 +833,62 @@ def prep_Cum_origin_dp_data(cal_pred_dataframe, index_first_prediction, deg):
     
     return prediction_dataframe
 
+def Cum_origin_dp(df_Cum_origin_dp, patient, prediction_dataframe, min_num_of_pairs, deg):
+    """
+    Use Cum_origin_dp method to generate predictions and calculate deviations.
+    
+    Input: 
+        df_Cum_origin_dp: dictionary of dataframes for this method (df_Cum_origin_dp)
+        patient: string of patient number
+        prediction_dataframe: prediction-ready dataframe for a patient (prediction_dataframe[patient])
+        min_num_of_pairs: minimum number of dose-response pairs including origin to start prediction
+                          (3 for linear, 4 for quadratic)
+        deg: degree of fitting polynomial (1 for linear, 2 for quadratic)
+        
+    Output: 
+        Dataframe of results of method for a patient
+    """
+    # Perform Cum_origin_dp method:
+    # Define dataframe output for Cum method
+    df_Cum_origin_dp[patient] = pd.DataFrame(columns = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation'])
+    max_cum_length = len(prediction_dataframe) + min_num_of_pairs - 1
+    
+    # Loop through rows
+    for i in range(0, len(prediction_dataframe)):
+
+        # Fit equation
+        x = prediction_dataframe.loc[i, 'Dose_1':'Dose_' + str(max_cum_length)].dropna().astype(float)
+        y = prediction_dataframe.loc[i, 'Response_1':'Response_' + str(max_cum_length)].dropna().astype(float)
+        fittedParameters = (np.polyfit(x, y, deg))
+
+        # Predict new response
+        prediction = np.polyval(fittedParameters, prediction_dataframe.loc[i, 'New_Dose'])
+
+        # Calculate deviation
+        deviation = prediction - prediction_dataframe.loc[i, 'New_Response']
+        abs_deviation = abs(deviation)
+
+        # Append results into dataframe
+        if deg == 2:
+            dict = {'prediction day': prediction_dataframe.loc[i, 'Pred_Day'],
+                'a': fittedParameters[0],
+                'b': fittedParameters[1],
+                'c': fittedParameters[2],
+                'prediction': prediction,
+                'deviation': deviation,
+                'abs deviation': abs_deviation}
+        else:
+            dict = {'prediction day': prediction_dataframe.loc[i, 'Pred_Day'],
+                'a': fittedParameters[0],
+                'b': fittedParameters[1],
+                'prediction': prediction,
+                'deviation': deviation,
+                'abs deviation': abs_deviation}
+
+        df_Cum_origin_dp[patient] = df_Cum_origin_dp[patient].append(dict, ignore_index=True)
+
+    return df_Cum_origin_dp[patient]
+
 # Plotting
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
