@@ -50,6 +50,10 @@ df_Q_RW = {}
 df_L_RW_input = {}
 df_L_RW = {}
 df_RW = {}
+df_Q_Cum_origin_dp_input = {}
+df_Q_Cum_origin_dp = {}
+df_L_Cum_origin_dp_input = {}
+df_L_Cum_origin_dp = {}
 
 # Define lists and parameters
 patients_to_exclude = []
@@ -87,7 +91,7 @@ patient_list = [patient for patient in patient_list if patient not in patients_t
 # Loop through patients
 for patient in patient_list:
 
-    # Perform all methods except rolling window
+    # Perform all methods except rolling window and origin_dp methods
     df_Q_Cum[patient] = Q_Cum(cal_pred[patient])
     df_Q_Cum_origin_int[patient] = Q_Cum_origin_int(cal_pred[patient])
     df_Q_PPM[patient] = Q_PPM(cal_pred[patient])
@@ -97,31 +101,20 @@ for patient in patient_list:
     df_L_PPM[patient] = L_PPM(cal_pred[patient])
     df_L_PPM_origin_int[patient] = L_PPM_origin_int(cal_pred[patient])
     
-    # Perform rolling window methods
-    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], 3) # Extra data selection step for RW
+    # Perform rolling window methods which require extra data selection step
+    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], 3) 
     df_Q_RW[patient] = RW(df_Q_RW_input[patient], patient, df_RW, 3)
-    df_L_RW_input[patient] = select_RW_data(cal_pred[patient], 2) # Extra data selection step for RW
+    df_L_RW_input[patient] = select_RW_data(cal_pred[patient], 2)
     df_L_RW[patient] = RW(df_L_RW_input[patient], patient, df_RW, 2)
     
+    # Perform origin_dp methods with require extra data selection step
+    df_Q_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(cal_pred[patient], 4, 2)
+    df_Q_Cum_origin_dp[patient] = Cum_origin_dp(df_Cum_origin_dp, patient, df_Q_Cum_origin_dp_input[patient], 4, 2)
+    df_L_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(cal_pred[patient], 3, 1)
+    df_L_Cum_origin_dp[patient] = Cum_origin_dp(df_Cum_origin_dp, patient, df_L_Cum_origin_dp_input[patient], 3, 1)
+    
 # 4. Plot results
-cal_pred_dataframe = cal_pred['114']
 
-# -
-
-
-prediction_dataframe = {}
-index_first_prediction = 4 # linear is 3, quadratic is 4
-deg = 2 # degree of fitting polynomial: linear is 1, quadratic is 2
-patient = '114'
-prediction_dataframe[patient] = prep_Cum_origin_dp_data(cal_pred[patient], index_first_prediction, deg)
-df_Cum_origin_dp = {}
-df_Cum_origin_dp[patient] = Cum_origin_dp(df_Cum_origin_dp, patient, prediction_dataframe[patient], 4, 2)
-df_Cum_origin_dp[patient]
-
-cal_pred_dataframe = cal_pred['114'].copy()
-len(cal_pred_dataframe)
-
-prediction_dataframe.loc[i, 'Dose_1':'Dose_' + str(max_cum_length)]
 
 
 
