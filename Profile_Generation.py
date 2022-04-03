@@ -784,6 +784,55 @@ def L_RW_origin_int(df):
     df_L_RW_origin_int = df_L_RW_origin_int.reset_index(drop = True)
     return df_L_RW_origin_int
 
+def prep_Cum_origin_dp_data(cal_pred_dataframe, index_first_prediction, deg):
+    """
+    Insert row with 0 tac dose and 0 tac level as origin data point and prepare prediction-ready dataframe for 
+    Cum_origin_dp methods (both linear and quadratic).
+    
+    Input:
+        cal_pred_dataframe: calibration and prediction dataframe, cal_pred[patient]
+        index_first_prediction: index after inserting row for origin (3 for linear, 4 for quadratic)
+        deg: degree of fitting polynomial (1 for linear, 2 for quadratic)
+        
+    Output: 
+        Prediction-ready dataframe for Cum_origin_dp method
+    """
+
+    max_cum_length = len(cal_pred_dataframe)
+    col_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, max_cum_length + 1)] + \
+                ['Response_' + str(i) for i in range(1, max_cum_length + 1)] + \
+                ['New_Dose', 'New_Response']
+    prediction_dataframe = pd.DataFrame(columns = col_names)
+
+    # Insert origin row
+    cal_pred_dataframe.loc[-1] = [-1, 0, 0]  # add a row
+    cal_pred_dataframe.index = cal_pred_dataframe.index + 1  # shift index
+    cal_pred_dataframe.sort_index(inplace=True)
+
+    # Prepare dataframe for prediction:
+    # Loop through rows starting from first prediction
+    for i in range(index_first_prediction, len(cal_pred_dataframe)):
+
+        # Find prediction day, doses, and responses for each prediction
+        pred_day = cal_pred_dataframe['Day #'][i]
+        dose = cal_pred_dataframe['Eff 24h Tac Dose'][0: i].tolist()
+        response = cal_pred_dataframe['Tac level (prior to am dose)'][0: i].tolist()
+        new_dose = cal_pred_dataframe['Eff 24h Tac Dose'][i]
+        new_response = cal_pred_dataframe['Tac level (prior to am dose)'][i]
+
+        # Append results to prediction dataframe
+        each_prediction = pd.DataFrame(columns = col_names)
+        each_prediction.loc[0, 'Pred_Day'] = pred_day
+        each_prediction.loc[0, 'Dose_1':'Dose_' + str(i)] = dose
+        each_prediction.loc[0, 'Response_1':'Response_' + str(i)] = response
+        each_prediction.loc[0, 'New_Dose'] = new_dose
+        each_prediction.loc[0, 'New_Response'] = new_response
+        prediction_dataframe = pd.concat([prediction_dataframe, each_prediction])
+
+    prediction_dataframe = prediction_dataframe.reset_index(drop=True)
+    
+    return prediction_dataframe
+
 # Plotting
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,

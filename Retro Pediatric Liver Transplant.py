@@ -104,7 +104,62 @@ for patient in patient_list:
     df_L_RW[patient] = RW(df_L_RW_input[patient], patient, df_RW, 2)
     
 # 4. Plot results
+cal_pred_dataframe = cal_pred['114']
 
+
+
+# +
+prediction_dataframe = {}
+index_first_prediction = 4 # linear is 3, quadratic is 4
+deg = 2 # degree of fitting polynomial: linear is 1, quadratic is 2
+patient = '114'
+prediction_dataframe[patient] = prep_Cum_origin_dp_data(cal_pred[patient], index_first_prediction, deg)
+
+# Perform Cum_origin_dp method:
+# Define dataframe output for Cum method
+df_Cum_origin_dp[patient] = pd.DataFrame(columns = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation'])
+
+# Loop through rows
+for i in range(0, len(prediction_dataframe)):
+
+    # Fit equation
+    x = prediction_dataframe.loc[i, 'Dose_1':'Dose_' + str(max_cum_length)].dropna().astype(float)
+    y = prediction_dataframe.loc[i, 'Response_1':'Response_' + str(max_cum_length)].dropna().astype(float)
+    fittedParameters = (np.polyfit(x, y, deg))
+
+    # Predict new response
+    prediction = np.polyval(fittedParameters, prediction_dataframe.loc[i, 'New_Dose'])
+
+    # Calculate deviation
+    deviation = prediction - prediction_dataframe.loc[i, 'New_Response']
+    abs_deviation = abs(deviation)
+
+    # Append results into dataframe
+    if deg == 2:
+        dict = {'prediction day': prediction_dataframe.loc[i, 'Pred_Day'],
+            'a': fittedParameters[0],
+            'b': fittedParameters[1],
+            'c': fittedParameters[2],
+            'prediction': prediction,
+            'deviation': deviation,
+            'abs deviation': abs_deviation}
+    else:
+        dict = {'prediction day': prediction_dataframe.loc[i, 'Pred_Day'],
+            'a': fittedParameters[0],
+            'b': fittedParameters[1],
+            'prediction': prediction,
+            'deviation': deviation,
+            'abs deviation': abs_deviation}
+
+    df_Cum_origin_dp[patient] = df_Cum_origin_dp[patient].append(dict, ignore_index=True)
+
+df_Cum_origin_dp[patient]
+# -
+
+cal_pred_dataframe = cal_pred['114'].copy()
+len(cal_pred_dataframe)
+
+prediction_dataframe.loc[i, 'Dose_1':'Dose_' + str(max_cum_length)]
 
 
 
