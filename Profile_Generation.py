@@ -80,14 +80,15 @@ def keep_ideal_data(df):
 
 # Combine calibration and prediction data into one dataframe
 
-def quad_cal_pred_data(df, patient, cal_pred, quad_patients_to_exclude):
+def cal_pred_data(df, patient, cal_pred, patients_to_exclude, deg):
     """
     Find calibration points and combine calibration data with the rest of data,
-    to perform quadratic CURATE methods later.
+    to perform CURATE methods later.
     
     Input: 
     df - dataframe
     patient - string of patient number
+    deg - degree of fitting polynomial (1 for linear, 2 for quadratic)
 
     Output: 
     Dataframe of calibration data and data for subsequent predictions.
@@ -118,33 +119,51 @@ def quad_cal_pred_data(df, patient, cal_pred, quad_patients_to_exclude):
     # Combine calibration and prediction rows
     cal_pred[patient] = []
     
-    if df[patient]['Eff 24h Tac Dose'].nunique() > 2:
-        # If third cal point is the same as first 2 cal points, keep looking
-        first_cal_dose = df[patient]['Eff 24h Tac Dose'][last_unique_doses_idx[0]]
-        second_cal_dose = df[patient]['Eff 24h Tac Dose'][last_unique_doses_idx[1]]
-        n = 2
-        for i in range(n, len(df[patient])+1):
-            third_cal_dose = df[patient]['Eff 24h Tac Dose'][first_unique_doses_idx[n]]
-            if (third_cal_dose == first_cal_dose) | (third_cal_dose == second_cal_dose):
-                n = n + 1
+    # Do for quadratic method
+    if deg == 2:
+        if df[patient]['Eff 24h Tac Dose'].nunique() > 2:
+            # If third cal point is the same as first 2 cal points, keep looking
+            first_cal_dose = df[patient]['Eff 24h Tac Dose'][last_unique_doses_idx[0]]
+            second_cal_dose = df[patient]['Eff 24h Tac Dose'][last_unique_doses_idx[1]]
+            n = 2
+            for i in range(n, len(df[patient])+1):
+                third_cal_dose = df[patient]['Eff 24h Tac Dose'][first_unique_doses_idx[n]]
+                if (third_cal_dose == first_cal_dose) | (third_cal_dose == second_cal_dose):
+                    n = n + 1
 
-        first_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[0],:]).T
-        second_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[1],:]).T
-        third_cal_point = pd.DataFrame(df[patient].iloc[first_unique_doses_idx[n],:]).T
-        rest_of_data = df[patient].iloc[first_unique_doses_idx[n]+1:,:]
-        cal_pred[patient] = pd.concat([first_cal_point, second_cal_point, third_cal_point, 
-                                    rest_of_data]).reset_index(drop=True)
-    else:
-        quad_patients_to_exclude.append(str(patient))
-        print(patient, ": Insufficient unique dose-response pairs for calibration!")
+            first_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[0],:]).T
+            second_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[1],:]).T
+            third_cal_point = pd.DataFrame(df[patient].iloc[first_unique_doses_idx[n],:]).T
+            rest_of_data = df[patient].iloc[first_unique_doses_idx[n]+1:,:]
+            cal_pred[patient] = pd.concat([first_cal_point, second_cal_point, third_cal_point, 
+                                        rest_of_data]).reset_index(drop=True)
+        else:
+            patients_to_exclude.append(str(patient))
+            print(patient, ": Insufficient unique dose-response pairs for quadratic calibration!")
+
+    # Do for linear method
+    if deg == 1:
+        if df[patient]['Eff 24h Tac Dose'].nunique() > 1:
+            first_cal_point = pd.DataFrame(df[patient].iloc[last_unique_doses_idx[0],:]).T
+            second_cal_point = pd.DataFrame(df[patient].iloc[first_unique_doses_idx[1],:]).T
+            rest_of_data = df[patient].iloc[first_unique_doses_idx[1]+1:,:]
+            cal_pred[patient] = pd.concat([first_cal_point, second_cal_point, 
+                                        rest_of_data]).reset_index(drop=True)
+        else:
+            patients_to_exclude.append(str(patient))
+            print(patient, ": Insufficient unique dose-response pairs for linear calibration!")
 
     # Print error msg if number of predictions is less than 3
     if df[patient]['Eff 24h Tac Dose'].nunique() < 3:
         pass # there are insufficient data for calibration already, don't need
              # this error msg
-    elif len(cal_pred[patient]) - 3 < 3:
-        quad_patients_to_exclude.append(str(patient))
-        print(patient, ": No. of predictions is <3: ", len(cal_pred[patient]) - 3)
+    elif len(cal_pred[patient]) - (deg + 1) < 3:
+        patients_to_exclude.append(str(patient))
+        if deg == 1:
+            error_string = '(for linear)'
+        else:
+            error_string = '(for quadratic)'
+        print(patient, ": No. of predictions ", error_string," is <3: ", len(cal_pred[patient]) - (deg + 1))
 
     return cal_pred[patient]
 
@@ -418,7 +437,7 @@ def L_Cum(df):
         pred_day = day_num + 2 
 
         # Find coefficients of quadratic fit
-        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num], df["Tac level (prior to am dose)"][0:day_num], 1))
+        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num].astype(float), df["Tac level (prior to am dose)"][0:day_num].astype(float), 1))
 
         # Calculate prediction based on quad fit
         prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
@@ -451,7 +470,7 @@ def L_PPM(df):
     day_num = 2
 
     # Find coefficients of quadratic fit
-    fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num], df["Tac level (prior to am dose)"][0:day_num], 1))
+    fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num].astype(float), df["Tac level (prior to am dose)"][0:day_num].astype(float), 1))
 
     # Calculate prediction based on quad fit
     prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])

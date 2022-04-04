@@ -36,7 +36,8 @@ input_file = 'Retrospective Liver Transplant Data.xlsx'
 
 # Create dictionaries to store information for individual patients
 df = {}
-cal_pred = {}
+quad_cal_pred = {}
+linear_cal_pred = {}
 df_Q_Cum = {}
 df_Q_Cum_origin_int = {}
 df_Q_PPM = {}
@@ -56,7 +57,7 @@ df_L_Cum_origin_dp_input = {}
 df_L_Cum_origin_dp = {}
 
 # Define lists and parameters
-quad_patients_to_exclude = []
+patients_to_exclude = []
 rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 patient_list = ['84', '114', '117', '118', '120', '121', '122', '123', '125', '126', 
                '129', '130', '131', '132', '133', '138']
@@ -77,13 +78,16 @@ for patient in patient_list:
     
     # Select data for calibration and subsequent predictions
     # Print patients with insufficient data for calibration and with <3 predictions
-    cal_pred[patient] = quad_cal_pred_data(df, patient, cal_pred, quad_patients_to_exclude)
-    
-# Print list of patients to exclude generated from cal_pred function
-print("Patients to exclude from quadratic CURATE.AI predictions: ", quad_patients_to_exclude)
+    quad_cal_pred[patient] = cal_pred_data(df, patient, cal_pred, patients_to_exclude, 2)
+    linear_cal_pred[patient] = cal_pred_data(df, patient, cal_pred, patients_to_exclude, 1)
+
+# Print list of unique patients to exclude generated from cal_pred function
+patients_to_exclude = np.array(patients_to_exclude)
+patients_to_exclude = np.unique(patients_to_exclude)
+print("Patients to exclude from CURATE.AI predictions: ", patients_to_exclude)
 
 # Exclude chosen patients from list
-patient_list = [patient for patient in patient_list if patient not in quad_patients_to_exclude]
+patient_list = [patient for patient in patient_list if patient not in patients_to_exclude]
 
 # 3. Apply CURATE.AI methods to all remaining patients:
 
@@ -91,25 +95,25 @@ patient_list = [patient for patient in patient_list if patient not in quad_patie
 for patient in patient_list:
 
     # Perform all methods except rolling window and origin_dp methods
-    df_Q_Cum[patient] = Q_Cum(cal_pred[patient])
-    df_Q_Cum_origin_int[patient] = Q_Cum_origin_int(cal_pred[patient])
-    df_Q_PPM[patient] = Q_PPM(cal_pred[patient])
-    df_Q_PPM_origin_int[patient] = Q_PPM_origin_int(cal_pred[patient])
-    df_L_Cum[patient] = L_Cum(cal_pred[patient])
-    df_L_Cum_origin_int[patient] = L_Cum_origin_int(cal_pred[patient])
-    df_L_PPM[patient] = L_PPM(cal_pred[patient])
-    df_L_PPM_origin_int[patient] = L_PPM_origin_int(cal_pred[patient])
+    df_Q_Cum[patient] = Q_Cum(quad_cal_pred[patient])
+    df_Q_Cum_origin_int[patient] = Q_Cum_origin_int(quad_cal_pred[patient])
+    df_Q_PPM[patient] = Q_PPM(quad_cal_pred[patient])
+    df_Q_PPM_origin_int[patient] = Q_PPM_origin_int(quad_cal_pred[patient])
+    df_L_Cum[patient] = L_Cum(linear_cal_pred[patient])
+    df_L_Cum_origin_int[patient] = L_Cum_origin_int(linear_cal_pred[patient])
+    df_L_PPM[patient] = L_PPM(linear_cal_pred[patient])
+    df_L_PPM_origin_int[patient] = L_PPM_origin_int(linear_cal_pred[patient])
     
     # Perform rolling window methods which require extra data selection step
-    df_Q_RW_input[patient] = select_RW_data(cal_pred[patient], 3) 
+    df_Q_RW_input[patient] = select_RW_data(quad_cal_pred[patient], 3) 
     df_Q_RW[patient] = RW(df_Q_RW_input[patient], patient, df_RW, 3)
-    df_L_RW_input[patient] = select_RW_data(cal_pred[patient], 2)
+    df_L_RW_input[patient] = select_RW_data(linear_cal_pred[patient], 2)
     df_L_RW[patient] = RW(df_L_RW_input[patient], patient, df_RW, 2)
     
     # Perform origin_dp methods with require extra data selection step
-    df_Q_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(cal_pred[patient], 4, 2)
+    df_Q_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(quad_cal_pred[patient], 4, 2)
     df_Q_Cum_origin_dp[patient] = Cum_origin_dp(df_Q_Cum_origin_dp, patient, df_Q_Cum_origin_dp_input[patient], 4, 2)
-    df_L_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(cal_pred[patient], 3, 1)
+    df_L_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(linear_cal_pred[patient], 3, 1)
     df_L_Cum_origin_dp[patient] = Cum_origin_dp(df_L_Cum_origin_dp, patient, df_L_Cum_origin_dp_input[patient], 3, 1)
     
 # 4. Plot results
