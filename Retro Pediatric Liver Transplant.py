@@ -109,9 +109,9 @@ for patient in patient_list:
     
     # Perform origin_dp methods with require extra data selection step
     df_Q_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(cal_pred[patient], 4, 2)
-    df_Q_Cum_origin_dp[patient] = Cum_origin_dp(df_Cum_origin_dp, patient, df_Q_Cum_origin_dp_input[patient], 4, 2)
+    df_Q_Cum_origin_dp[patient] = Cum_origin_dp(df_Q_Cum_origin_dp, patient, df_Q_Cum_origin_dp_input[patient], 4, 2)
     df_L_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(cal_pred[patient], 3, 1)
-    df_L_Cum_origin_dp[patient] = Cum_origin_dp(df_Cum_origin_dp, patient, df_L_Cum_origin_dp_input[patient], 3, 1)
+    df_L_Cum_origin_dp[patient] = Cum_origin_dp(df_L_Cum_origin_dp, patient, df_L_Cum_origin_dp_input[patient], 3, 1)
     
 # 4. Plot results
 
