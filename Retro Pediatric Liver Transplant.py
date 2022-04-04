@@ -56,7 +56,7 @@ df_L_Cum_origin_dp_input = {}
 df_L_Cum_origin_dp = {}
 
 # Define lists and parameters
-patients_to_exclude = []
+quad_patients_to_exclude = []
 rows_to_skip = 17 # Number of rows to skip before reaching patient tac data
 patient_list = ['84', '114', '117', '118', '120', '121', '122', '123', '125', '126', 
                '129', '130', '131', '132', '133', '138']
@@ -77,14 +77,13 @@ for patient in patient_list:
     
     # Select data for calibration and subsequent predictions
     # Print patients with insufficient data for calibration and with <3 predictions
-    cal_pred[patient] = select_calibration_prediction_data(df, patient, cal_pred,
-                                                          patients_to_exclude)
+    cal_pred[patient] = quad_cal_pred_data(df, patient, cal_pred, quad_patients_to_exclude)
     
 # Print list of patients to exclude generated from cal_pred function
-print("Patients to exclude from CURATE.AI predictions: ", patients_to_exclude)
+print("Patients to exclude from quadratic CURATE.AI predictions: ", quad_patients_to_exclude)
 
 # Exclude chosen patients from list
-patient_list = [patient for patient in patient_list if patient not in patients_to_exclude]
+patient_list = [patient for patient in patient_list if patient not in quad_patients_to_exclude]
 
 # 3. Apply CURATE.AI methods to all remaining patients:
 
