@@ -123,10 +123,99 @@ for patient in patient_list:
     df_Q_PPM_origin_dp[patient] = PPM_origin_dp(quad_cal_pred[patient], 2, df_Q_PPM_origin_dp, patient)
     df_L_PPM_origin_dp[patient] = PPM_origin_dp(linear_cal_pred[patient], 1, df_L_PPM_origin_dp, patient)
     
-# 4. Plot results
+# 4. Prepare results for plotting (will refactor this giant part later!)
+
+# Create giant combined dataframe
+combined_df = pd.DataFrame(columns = ['patient', 'method', 'prediction day',
+                                     'a', 'b', 'c', 'prediction', 'deviation',
+                                     'abs deviation'])
+
+# Create list of method dictionaries
+dict_list = [df_Q_Cum, df_Q_Cum_origin_int, df_Q_Cum_origin_dp,
+            df_Q_PPM, df_Q_PPM_origin_int, df_Q_PPM_origin_dp, df_Q_RW,
+            df_L_Cum, df_L_Cum_origin_int, df_L_Cum_origin_dp,
+            df_L_PPM, df_L_PPM_origin_int, df_L_PPM_origin_dp,
+            df_L_RW]
+
+# Create list of method names
+method_names = ["Q_Cum", "Q_Cum_origin_int", "Q_Cum_origin_dp",
+                "Q_PPM", "Q_PPM_origin_int", "Q_PPM_origin_dp", "Q_RW",
+                "L_Cum", "L_Cum_origin_int", "L_Cum_origin_dp",
+                "L_PPM", "L_PPM_origin_int", "L_PPM_origin_dp", "L_RW"]
+i = 0 # Create counter for methods in method list
+
+# Loop through method dictionaries
+for a_dict in dict_list:
+    
+    # Create method dataframe
+    method_df = pd.DataFrame()
+    
+    # Loop through patient dataframes
+    for patient in patient_list:
+        
+        # Add patient and method column
+        a_dict[patient].insert(0, "patient", patient)
+        a_dict[patient].insert(0, "method", method_names[i])
+        method_df = method_df.append(a_dict[patient])
+    
+    i = i + 1 # Add to counter for methods in method list
+    
+    # Append to combined dataframe
+    combined_df = combined_df.append(method_df)
+
+# Drop last 2 columns of new_dose and new_response which are inconsistently present
+combined_df = combined_df.iloc[:,:-2]
+
+combined_df = combined_df.reset_index(drop=True)
+
+# Write combined dataframe to excel
+# combined_df.set_index('patient').to_excel('combined_df.xlsx', engine='xlsxwriter') 
+
+# 5. Plot results
+# -
 
 
 
+
+df_Q_PPM
+
+# +
+# # Create dataframe for every method
+# dfnames = ['Q_Cum', 'Q_Cum_origin_int', 'Q_Cum_origin_dp']
+
+# for x in dfnames: exec(x + ' = pd.DataFrame()')
+
+# i = 0
+
+# # Loop through methods
+# method_dataframes = [df_Q_Cum, df_Q_Cum_origin_int, df_Q_Cum_origin_dp,
+#                     df_Q_PPM, df_Q_PPM_origin_int, df_Q_Cum_origin_dp,
+#                     df_Q_RW,
+#                     df_L_Cum, df_L_Cum_origin_int, df_L_Cum_origin_dp,
+#                     df_L_PPM, df_L_PPM_origin_int, df_L_Cum_origin_dp,
+#                     df_L_RW]
+# for dataframe in range(1, len(method_dataframes) - 1):
+
+#     # Loop through patients
+#     for patient in patient_list:
+#         print(i)
+#         i = i + 1
+#         # Add patient column to all sub-dataframes per methods
+#         dataframe[patient].insert(0, 'patient', patient)
+
+#         # Concat sub-dataframes 
+        
+
+# # Write to excel
+
+# print(df_Q_Cum['138'])
+# -
+
+print()
+
+Q_Cum, Q_PPM = pd.DataFrame() * 2
+Q_Cum = pd.concat([Q_Cum, df_Q_Cum['138']])
+Q_Cum
 
 # +
 methods = ['Q_Cum', 'Q_PPM', 'Q_RW', 'L_Cum', 'L_PPM', 'L_RW']
