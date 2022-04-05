@@ -55,6 +55,9 @@ df_Q_Cum_origin_dp_input = {}
 df_Q_Cum_origin_dp = {}
 df_L_Cum_origin_dp_input = {}
 df_L_Cum_origin_dp = {}
+df_Q_PPM_origin_dp = {}
+df_L_PPM_origin_dp = {}
+df_PPM_origin_dp = {}
 
 # Define lists and parameters
 patients_to_exclude = []
@@ -78,8 +81,8 @@ for patient in patient_list:
     
     # Select data for calibration and subsequent predictions
     # Print patients with insufficient data for calibration and with <3 predictions
-    quad_cal_pred[patient] = cal_pred_data(df, patient, cal_pred, patients_to_exclude, 2)
-    linear_cal_pred[patient] = cal_pred_data(df, patient, cal_pred, patients_to_exclude, 1)
+    quad_cal_pred[patient] = cal_pred_data(df, patient, quad_cal_pred, patients_to_exclude, 2)
+    linear_cal_pred[patient] = cal_pred_data(df, patient, linear_cal_pred, patients_to_exclude, 1)
 
 # Print list of unique patients to exclude generated from cal_pred function
 patients_to_exclude = np.array(patients_to_exclude)
@@ -110,11 +113,15 @@ for patient in patient_list:
     df_L_RW_input[patient] = select_RW_data(linear_cal_pred[patient], 2)
     df_L_RW[patient] = RW(df_L_RW_input[patient], patient, df_RW, 2)
     
-    # Perform origin_dp methods with require extra data selection step
+    # Perform Cumulative origin_dp methods with require extra data selection step
     df_Q_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(quad_cal_pred[patient], 4, 2)
     df_Q_Cum_origin_dp[patient] = Cum_origin_dp(df_Q_Cum_origin_dp, patient, df_Q_Cum_origin_dp_input[patient], 4, 2)
     df_L_Cum_origin_dp_input[patient] = prep_Cum_origin_dp_data(linear_cal_pred[patient], 3, 1)
     df_L_Cum_origin_dp[patient] = Cum_origin_dp(df_L_Cum_origin_dp, patient, df_L_Cum_origin_dp_input[patient], 3, 1)
+    
+    # Perform PPM origin_dp methods
+    df_Q_PPM_origin_dp[patient] = PPM_origin_dp(quad_cal_pred[patient], 2, df_Q_PPM_origin_dp, patient)
+    df_L_PPM_origin_dp[patient] = PPM_origin_dp(linear_cal_pred[patient], 1, df_L_PPM_origin_dp, patient)
     
 # 4. Plot results
 

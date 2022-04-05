@@ -908,6 +908,116 @@ def Cum_origin_dp(df_Cum_origin_dp, patient, prediction_dataframe, min_num_of_pa
 
     return df_Cum_origin_dp[patient]
 
+def PPM_origin_dp(cal_pred_dataframe, deg, df_PPM_origin_dp, patient):
+    """
+    Use PPM method with origin inserted as the first data point to generate predictions and calculate deviations.
+    
+    Input:
+        cal_pred_dataframe: calibration and prediction data (linear_cal_pred[patient] or quad_cal_pred[patient])
+        deg: degree of fitting polynomial (1 for linear, 2 for quadratic)
+        df_PPM_origin_dp: dictionary (as it is)
+        patient: string of patient (as it is)
+        
+    Output:
+        Results of PPM_origin_dp method
+    """
+
+    # 1. Fit equation for the first prediction
+
+    # Create output dataframe
+    col_names = ['prediction day', 'a', 'b', 'c', 'new_dose', 'new_response', 'prediction', 'deviation', 'abs deviation']
+    df_PPM_origin_dp[patient] = pd.DataFrame(columns = col_names)
+
+    # Fit equation for first prediction
+    x = cal_pred_dataframe['Eff 24h Tac Dose'][0:deg+2].astype(float)
+    y = cal_pred_dataframe['Tac level (prior to am dose)'][0:deg+2].astype(float)
+    fittedParameters = (np.polyfit(x, y, deg))
+
+    # Add results to output dataframe:
+    # Fill in prediction day, fittedParameters, new_dose and new_response
+    dict = {'prediction day': cal_pred_dataframe['Day #'][deg+2],
+           'a': fittedParameters[0],
+           'b': fittedParameters[1],
+           'new_dose': cal_pred_dataframe['Eff 24h Tac Dose'][deg+2],
+           'new_response': cal_pred_dataframe['Tac level (prior to am dose)'][deg+2]}
+    if deg == 2: # If quadratic, add 'c' to dict
+        dict['c'] = fittedParameters[2]
+
+    # Append results to dataframe
+    df_PPM_origin_dp[patient] = df_PPM_origin_dp[patient].append(dict, ignore_index=True)
+
+    # Predict new response
+    prediction = np.polyval(fittedParameters, df_PPM_origin_dp[patient].loc[0, 'new_dose'])
+
+    # Calculate deviations
+    deviation = prediction - df_PPM_origin_dp[patient].loc[0, 'new_response']
+    abs_deviation = abs(deviation)
+
+    # Append prediction and deviations to dataframe
+    df_PPM_origin_dp[patient].loc[0, 'prediction':'abs deviation'] = [prediction, deviation, abs_deviation]
+
+    # 2. Fill in data for subsequent predictions
+
+    # Loop through rows after data for first prediction
+    for i in range(1, len(cal_pred_dataframe) - (deg + 2)):
+
+        if deg == 2:
+
+            # Find new c
+            c = (df_PPM_origin_dp[patient].loc[i-1, 'c']) - (df_PPM_origin_dp[patient].loc[i-1, 'deviation'])
+
+            # Create dict of prediction day, a, b, c, new_dose, new_response
+            dict = {'prediction day': df_PPM_origin_dp[patient].loc[i-1,'prediction day'] + 1,
+                   'a': df_PPM_origin_dp[patient].loc[i-1,'a'],
+                   'b': df_PPM_origin_dp[patient].loc[i-1,'b'],
+                   'c': c,
+                   'new_dose': cal_pred_dataframe['Eff 24h Tac Dose'][deg+2+i],
+                   'new_response': cal_pred_dataframe['Tac level (prior to am dose)'][deg+2+i]}
+
+            # Append results to dataframe
+            df_PPM_origin_dp[patient] = df_PPM_origin_dp[patient].append(dict, ignore_index=True)
+
+            # Predict response
+            prediction = np.polyval([df_PPM_origin_dp[patient].loc[i, 'a'], 
+                                     df_PPM_origin_dp[patient].loc[i, 'b'],
+                                     df_PPM_origin_dp[patient].loc[i, 'c']], 
+                                     df_PPM_origin_dp[patient].loc[i, 'new_dose'])
+
+            # Calculate deviations
+            deviation = prediction - df_PPM_origin_dp[patient].loc[i, 'new_response']
+            abs_deviation = abs(deviation)
+
+            # Append prediction and deviations to dataframe
+            df_PPM_origin_dp[patient].loc[i, 'prediction':'abs deviation'] = [prediction, deviation, abs_deviation]
+        
+        else: # Repeat all with one less fitted parameter
+            # Find new b
+            b = (df_PPM_origin_dp[patient].loc[i-1, 'b']) - (df_PPM_origin_dp[patient].loc[i-1, 'deviation'])
+
+            # Create dict of prediction day, a, b, new_dose, new_response
+            dict = {'prediction day': df_PPM_origin_dp[patient].loc[i-1,'prediction day'] + 1,
+                   'a': df_PPM_origin_dp[patient].loc[i-1,'a'],
+                   'b': b,
+                   'new_dose': cal_pred_dataframe['Eff 24h Tac Dose'][deg+2+i],
+                   'new_response': cal_pred_dataframe['Tac level (prior to am dose)'][deg+2+i]}
+
+            # Append results to dataframe
+            df_PPM_origin_dp[patient] = df_PPM_origin_dp[patient].append(dict, ignore_index=True)
+
+            # Predict response
+            prediction = np.polyval([df_PPM_origin_dp[patient].loc[i, 'a'], 
+                                     df_PPM_origin_dp[patient].loc[i, 'b']],
+                                     df_PPM_origin_dp[patient].loc[i, 'new_dose'])
+
+            # Calculate deviations
+            deviation = prediction - df_PPM_origin_dp[patient].loc[i, 'new_response']
+            abs_deviation = abs(deviation)
+
+            # Append prediction and deviations to dataframe
+            df_PPM_origin_dp[patient].loc[i, 'prediction':'abs deviation'] = [prediction, deviation, abs_deviation]
+            
+    return df_PPM_origin_dp[patient]
+
 # Plotting
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
