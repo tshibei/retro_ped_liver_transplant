@@ -212,7 +212,42 @@ def Q_Cum(df):
     Input: Individual patient data
     Output: Q_Cum results
     """
-    # Create dataframe for Q-Cum
+    # 1. Create input dataframe for prediction
+    
+    # Create column names
+    column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['New_Dose', 'New_Response']
+
+    # Create dataframe
+    df_Q_Cum_input = pd.DataFrame(columns = column_names)
+
+    # Loop through rows from first to last prediction
+    for i in range(3, len(df)):
+
+        # Find doses and responses from previous rows
+        doses = df["Eff 24h Tac Dose"][0:i].to_numpy()
+        responses = df["Tac level (prior to am dose)"][0:i].to_numpy()
+
+        # Create temporary dataframe of doses, responses, new dose, new response
+        column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['New_Dose', 'New_Response']
+
+        df_temp = pd.DataFrame(columns = column_names)
+
+        # Fill in values in one row in df_temp
+        df_temp.loc[0, 'Pred_Day'] = df["Day #"][i]
+        df_temp.loc[0, 'Dose_1':'Dose_' + str(i)] = doses
+        df_temp.loc[0, 'Response_1':'Response_' + str(i)] = responses
+        df_temp.loc[0, 'New_Dose'] = df["Eff 24h Tac Dose"][i]
+        df_temp.loc[0, 'New_Response'] = df["Tac level (prior to am dose)"][i]
+
+        # Concat input dataframe with df_temp
+        df_Q_Cum_input = pd.concat([df_Q_Cum_input, df_temp])
+        df_Q_Cum_input = df_Q_Cum_input.reset_index(drop=True)
+
+    # 2. Create dataframe for Q-Cum results
     column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
     df_Q_Cum = pd.DataFrame(columns = column_names)
 
@@ -239,7 +274,7 @@ def Q_Cum(df):
 
     df_Q_Cum = df_Q_Cum.reset_index(drop = True)
     
-    return df_Q_Cum
+    return df_Q_Cum_input, df_Q_Cum
 
 def Q_PPM(df):  
     """

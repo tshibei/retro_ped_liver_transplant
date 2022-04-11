@@ -39,6 +39,7 @@ df = {}
 quad_cal_pred = {}
 linear_cal_pred = {}
 df_Q_Cum = {}
+df_Q_Cum_input = {}
 df_Q_Cum_origin_int = {}
 df_Q_PPM = {}
 df_Q_PPM_origin_int = {}
@@ -154,6 +155,7 @@ for a_dict in dict_list:
     for patient in patient_list:
         
         # Add patient and method column
+        a_dict[patient] = pd.DataFrame(a_dict[patient], dtype=object)
         a_dict[patient].insert(0, "patient", patient)
         a_dict[patient].insert(0, "method", method_names[i])
         method_df = method_df.append(a_dict[patient])
@@ -175,7 +177,39 @@ combined_df = combined_df.reset_index(drop=True)
 # -
 
 
+patient = '114'
+df_Q_Cum_input[patient], df_Q_Cum[patient] = Q_Cum(quad_cal_pred[patient])
+print(df_Q_Cum_input[patient], quad_cal_pred[patient], df_Q_Cum[patient])
 
+# +
+x = 13
+column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                ['New_Dose', 'New_Response']
+
+df_temp = pd.DataFrame(columns = column_names)
+
+df_temp.loc[0, 'Dose_1': 'Dose_' + str(3)] = [1,2,3]
+
+
+# +
+# Create one plot
+patient_df = combined_df.loc[combined_df['patient'] == '138']
+
+# Set index to prediction day
+patient_df = patient_df.set_index('prediction day')
+
+fig = plt.figure()
+ax = plt.subplot(111)
+
+patient_df.groupby('method')['deviation'].plot(ax=ax, legend=True)
+
+ax.legend(bbox_to_anchor=(1.1, 1.05))
+
+plt.show()
+
+
+# -
 
 df_Q_PPM
 
