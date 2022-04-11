@@ -1157,7 +1157,7 @@ def PPM_origin_dp(cal_pred_dataframe, deg, df_PPM_origin_dp, patient):
             
     return df_PPM_origin_dp[patient]
 
-# Plotting
+# Prepare dataframes for plotting
 
 def create_results_df(dict_list, method_names, patient_list):
     """
@@ -1263,9 +1263,63 @@ def create_cal_pred_df(patient_list, linear_cal_pred, quad_cal_pred):
 
     # Return dataframe
     cal_pred_df = cal_pred_df.reset_index(drop=True)
-    
+
     return cal_pred_df
 
+def create_prediction_input_df(input_dict_list, patient_list, method_names):
+    """
+    Combine dataframes with each row representing data required for one prediction.
+    
+    Input:
+    - input_dict_list: list of dictionaries of input dataframes with each row representing
+                       data required for one prediction
+    - patient_list: list of patients
+    
+    Output:
+    Combined dataframe with each row representing data required for one prediction.
+    """
+    
+    # Create large combined dataframe for prediction input
+    prediction_input_df = pd.DataFrame()
+
+    # Create counter for method names
+    i = 0
+
+    # Loop through dictionaries
+    for a_dict in input_dict_list:
+
+        # Create input dataframe
+        input_df = pd.DataFrame()
+
+        # Loop through patient dataframes
+        for patient in patient_list:
+
+            # Add patient and method column
+            a_dict[patient] = pd.DataFrame(a_dict[patient], dtype=object)
+            a_dict[patient].insert(0, "patient", patient)
+            a_dict[patient].insert(0, "method", method_names[i])     
+
+            # Append to method_input dataframe
+            input_df = input_df.append(a_dict[patient])
+
+        # Add to counter for methods in method list
+        i = i + 1
+
+        # Append to prediction input dataframe
+        prediction_input_df = prediction_input_df.append(input_df)
+
+    # Rearrange columns
+    max_num_of_pairs = int((len(prediction_input_df.columns) - 5) / 2)
+    col_names = ['patient', 'method', 'Pred_Day', 'New_Dose', 'New_Response'] + \
+                ['Dose_' + str(i) for i in range(1, max_num_of_pairs + 1)] + \
+                ['Response_' + str(i) for i in range(1, max_num_of_pairs + 1)]
+    prediction_input_df = prediction_input_df.reindex(col_names, axis=1)
+
+    prediction_input_df = prediction_input_df.reset_index(drop=True)
+    
+    return prediction_input_df
+
+# Plotting
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
                                 df_L_Cum, df_L_PPM, df_L_RW):
