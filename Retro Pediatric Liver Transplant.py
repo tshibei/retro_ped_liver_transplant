@@ -146,7 +146,11 @@ method_names = ["Q_Cum", "Q_Cum_origin_int", "Q_Cum_origin_dp",
 
 # Create list of method_input dictionaries
 input_dict_list = [df_Q_Cum_input, df_Q_Cum_origin_int_input, df_Q_Cum_origin_dp_input, df_Q_RW_input,
-                   df_L_Cum_input, df_L_Cum_origin_int_input, df_L_Cum_origin_dp_input,df_L_RW_input]
+                   df_L_Cum_input, df_L_Cum_origin_int_input, df_L_Cum_origin_dp_input, df_L_RW_input]
+
+# Create list of method names for prediction input dataframes
+input_method_names = ["Q_Cum", "Q_Cum_origin_int", "Q_Cum_origin_dp", "Q_RW",
+                "L_Cum", "L_Cum_origin_int", "L_Cum_origin_dp", "L_RW"]
 
 # Create combined dataframe of raw patient data
 patients_df = create_patients_df(patient_list, df)
@@ -158,72 +162,18 @@ results_df = create_results_df(dict_list, method_names, patient_list)
 cal_pred_df = create_cal_pred_df(patient_list, linear_cal_pred, quad_cal_pred)
 
 # Create combined dataframe with each row containing data required for one prediciton
-prediction_input_df = create_prediction_input_df(input_dict_list, patient_list, method_names)
+prediction_input_df = create_prediction_input_df(input_dict_list, patient_list, input_method_names)
 
-# Write combined dataframes to excel
-# results_df.set_index('patient').to_excel('results_df.xlsx', engine='xlsxwriter') 
-# 5. Plot results
+# Write dataframes to excel
+# List of dataframes and sheet names
+dfs = [patients_df.set_index('patient'), cal_pred_df.set_index('patient'),\
+       prediction_input_df.set_index('patient'), results_df.set_index('patient')]
+sheets = ['Patient','Calibration Prediction','Prediction Input', 'Results']    
 
-print(f"patients_df {patients_df} \n results_df {results_df} \n \
-      cal_pred_df {cal_pred_df} \n prediction_input_df {prediction_input_df}")
-
-# -
-
-
-print()
-
-# +
-# prediction_input_df.columns
-# prediction_input_df.reindex(['B', 'C', 'A'], axis=1)
+# Run function
+dfs_tabs(dfs, sheets, 'All_Data.xlsx')
 
 
-max_num_of_pairs = int((len(prediction_input_df.columns) - 5) / 2)
-col_names = ['method', 'patient', 'Pred_Day', 'New_Dose', 'New_Response'] + \
-            ['Dose_' + str(i) for i in range(1, max_num_of_pairs + 1)] + \
-            ['Response_' + str(i) for i in range(1, max_num_of_pairs + 1)]
-prediction_input_df = prediction_input_df.reindex(col_names, axis=1)
-
-prediction_input_df
-# -
-
-prediction_input_df.columns
-
-df_L_Cum_input = {}
-patient = '114'
-df_L_Cum_input[patient], df_L_Cum[patient] = L_Cum(linear_cal_pred[patient])
-print(df_L_Cum_input[patient], linear_cal_pred[patient], df_L_Cum[patient])
-
-# +
-x = 13
-column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
-                ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
-                ['New_Dose', 'New_Response']
-
-df_temp = pd.DataFrame(columns = column_names)
-
-df_temp.loc[0, 'Dose_1': 'Dose_' + str(3)] = [1,2,3]
-
-
-# +
-# Create one plot
-patient_df = combined_df.loc[combined_df['patient'] == '138']
-
-# Set index to prediction day
-patient_df = patient_df.set_index('prediction day')
-
-fig = plt.figure()
-ax = plt.subplot(111)
-
-patient_df.groupby('method')['deviation'].plot(ax=ax, legend=True)
-
-ax.legend(bbox_to_anchor=(1.1, 1.05))
-
-plt.show()
-
-
-# -
-
-df_Q_PPM
 
 # +
 # # Create dataframe for every method

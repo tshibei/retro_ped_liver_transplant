@@ -1319,6 +1319,15 @@ def create_prediction_input_df(input_dict_list, patient_list, method_names):
     
     return prediction_input_df
 
+def dfs_tabs(df_list, sheet_list, file_name):
+    """
+    Write all dataframes into excel
+    """
+    writer = pd.ExcelWriter(file_name, engine='xlsxwriter')   
+    for dataframe, sheet in zip(df_list, sheet_list):
+        dataframe.to_excel(writer, sheet_name=sheet, startrow=0 , startcol=0)   
+    writer.save()
+
 # Plotting
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
