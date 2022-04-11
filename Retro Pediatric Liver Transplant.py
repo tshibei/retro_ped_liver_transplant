@@ -99,7 +99,7 @@ patient_list = [patient for patient in patient_list if patient not in patients_t
 for patient in patient_list:
 
     # Perform all methods except rolling window and origin_dp methods
-    df_Q_Cum[patient] = Q_Cum(quad_cal_pred[patient])
+    df_Q_Cum_input[patient], df_Q_Cum[patient] = Q_Cum(quad_cal_pred[patient])
     df_Q_Cum_origin_int[patient] = Q_Cum_origin_int(quad_cal_pred[patient])
     df_Q_PPM[patient] = Q_PPM(quad_cal_pred[patient])
     df_Q_PPM_origin_int[patient] = Q_PPM_origin_int(quad_cal_pred[patient])
@@ -179,7 +179,7 @@ combined_df = combined_df.reset_index(drop=True)
 
 patient = '114'
 df_Q_Cum_input[patient], df_Q_Cum[patient] = Q_Cum(quad_cal_pred[patient])
-print(df_Q_Cum_input[patient], quad_cal_pred[patient], df_Q_Cum[patient])
+print(df_Q_Cum[patient])
 
 # +
 x = 13
