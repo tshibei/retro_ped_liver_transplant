@@ -1230,6 +1230,42 @@ def create_patients_df(patient_list, df):
 
     return patients_df
 
+def create_cal_pred_df(patient_list, linear_cal_pred, quad_cal_pred):
+    """
+    Create combined dataframe with all data chosen for calibration and prediction.
+    Add "type" column and label rows with "linear"/"quadratic" types. 
+    Add "patient" column.
+    
+    Input:
+    - patient_list: list of patients
+    - linear_cal_pred: dictionary of dataframes for linear methods
+    - quad_cal_pred: dictionary of dataframes for quadratic methods
+    
+    Output:
+    Combined dataframe with calibration and prediction data for linear and quadratic methods.
+    """
+    
+    # Create combined dataframe for calibration and prediction
+    cal_pred_df = pd.DataFrame()
+
+    # Loop through patients
+    for patient in patient_list:
+
+        # Add type of method (quadratic or linear) column 
+        linear_cal_pred[patient].insert(0, "type", "linear")
+        linear_cal_pred[patient].insert(0, "patient", patient)
+        quad_cal_pred[patient].insert(0, "type", "quadratic")
+        quad_cal_pred[patient].insert(0, "patient", patient)
+
+        # Append to combined dataframe
+        cal_pred_df = cal_pred_df.append(linear_cal_pred[patient])
+        cal_pred_df = cal_pred_df.append(quad_cal_pred[patient])
+
+    # Return dataframe
+    cal_pred_df = cal_pred_df.reset_index(drop=True)
+    
+    return cal_pred_df
+
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
                                 df_L_Cum, df_L_PPM, df_L_RW):

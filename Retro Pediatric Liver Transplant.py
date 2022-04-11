@@ -144,20 +144,26 @@ method_names = ["Q_Cum", "Q_Cum_origin_int", "Q_Cum_origin_dp",
                 "L_Cum", "L_Cum_origin_int", "L_Cum_origin_dp",
                 "L_PPM", "L_PPM_origin_int", "L_PPM_origin_dp", "L_RW"]
 
-# Create dataframe of raw patient data
-patient_df = create_patient_df(patient_list, df)
+# Create combined dataframe of raw patient data
+patients_df = create_patients_df(patient_list, df)
 
-# Create dataframe of results of predictions
+# Create combined dataframe of results of predictions
 results_df = create_results_df(dict_list, method_names, patient_list)
+
+# Create dataframe with calibration and prediction data for linear and quadratic methods
+cal_pred_df = create_cal_pred_df(patient_list, linear_cal_pred, quad_cal_pred)
 
 # Write combined dataframes to excel
 # results_df.set_index('patient').to_excel('results_df.xlsx', engine='xlsxwriter') 
 # 5. Plot results
 
+
+
+# +
+
+
+cal_pred_df
 # -
-
-
-
 
 df_L_Cum_input = {}
 patient = '114'
