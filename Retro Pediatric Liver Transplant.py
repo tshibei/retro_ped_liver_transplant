@@ -40,6 +40,7 @@ quad_cal_pred = {}
 linear_cal_pred = {}
 df_Q_Cum = {}
 df_Q_Cum_input = {}
+df_Q_Cum_origin_int_input = {}
 df_Q_Cum_origin_int = {}
 df_Q_PPM = {}
 df_Q_PPM_origin_int = {}
@@ -101,7 +102,7 @@ for patient in patient_list:
 
     # Perform all methods except rolling window and origin_dp methods
     df_Q_Cum_input[patient], df_Q_Cum[patient] = Q_Cum(quad_cal_pred[patient])
-    df_Q_Cum_origin_int[patient] = Q_Cum_origin_int(quad_cal_pred[patient])
+    df_Q_Cum_origin_int_input[patient], df_Q_Cum_origin_int[patient] = Q_Cum_origin_int(quad_cal_pred[patient])
     df_Q_PPM[patient] = Q_PPM(quad_cal_pred[patient])
     df_Q_PPM_origin_int[patient] = Q_PPM_origin_int(quad_cal_pred[patient])
     df_L_Cum_input[patient], df_L_Cum[patient] = L_Cum(linear_cal_pred[patient])
@@ -173,10 +174,9 @@ combined_df = combined_df.reset_index(drop=True)
 
 # Write combined dataframe to excel
 # combined_df.set_index('patient').to_excel('combined_df.xlsx', engine='xlsxwriter') 
-
 # 5. Plot results
 
-
+df_Q_Cum_origin_int_input['114'], df_Q_Cum_origin_int['114'], quad_cal_pred['114']
 # -
 
 

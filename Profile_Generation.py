@@ -605,14 +605,45 @@ def Q_Cum_origin_int(df):
     Input: Individual patient data
     Output: Q_Cum_origin_int results
     """
+    # 1. Create input dataframe for prediction
+    
+    # Create column names
+    column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['New_Dose', 'New_Response']
+
+    # Create dataframe
+    df_Q_Cum_origin_int_input = pd.DataFrame(columns = column_names)
+
+    # Loop through rows from first to last prediction
+    for i in range(3, len(df)):
+
+        # Find doses and responses from previous rows
+        doses = df["Eff 24h Tac Dose"][0:i].to_numpy()
+        responses = df["Tac level (prior to am dose)"][0:i].to_numpy()
+
+        # Create temporary dataframe of doses, responses, new dose, new response
+        column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['New_Dose', 'New_Response']
+
+        df_temp = pd.DataFrame(columns = column_names)
+
+        # Fill in values in one row in df_temp
+        df_temp.loc[0, 'Pred_Day'] = df["Day #"][i]
+        df_temp.loc[0, 'Dose_1':'Dose_' + str(i)] = doses
+        df_temp.loc[0, 'Response_1':'Response_' + str(i)] = responses
+        df_temp.loc[0, 'New_Dose'] = df["Eff 24h Tac Dose"][i]
+        df_temp.loc[0, 'New_Response'] = df["Tac level (prior to am dose)"][i]
+
+        # Concat input dataframe with df_temp
+        df_Q_Cum_origin_int_input = pd.concat([df_Q_Cum_origin_int_input, df_temp])
+        df_Q_Cum_origin_int_input = df_Q_Cum_origin_int_input.reset_index(drop=True)
+
     def f(x, a, b):
         return a*x**2 + b*x
 
-    x = df["Eff 24h Tac Dose"][0:3].to_numpy()
-    y = df["Tac level (prior to am dose)"][0:3].to_numpy()
-    popt, pcov = curve_fit(f, x, y)
-
-    # Create dataframe for Q-Cum
+    # 2. Create dataframe for Q-Cum results
     column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
     df_Q_Cum_origin_int = pd.DataFrame(columns = column_names)
 
@@ -620,8 +651,12 @@ def Q_Cum_origin_int(df):
         pred_day = int(df["Day #"][day_num])
 
         # Find coefficients of quadratic fit
-        x = df["Eff 24h Tac Dose"][0:day_num].to_numpy()
-        y = df["Tac level (prior to am dose)"][0:day_num].to_numpy()
+        # x = df["Eff 24h Tac Dose"][0:day_num].to_numpy()
+        # y = df["Tac level (prior to am dose)"][0:day_num].to_numpy()
+
+        x = df_Q_Cum_origin_int_input.loc[day_num-3, 'Dose_1':'Dose_' + str(day_num)].to_numpy()
+        y = df_Q_Cum_origin_int_input.loc[day_num-3, 'Response_1':'Response_' + str(day_num)].to_numpy()
+
         popt, pcov = curve_fit(f, x, y)
 
         fittedParameters = [popt[0], popt[1], 0]
@@ -639,7 +674,8 @@ def Q_Cum_origin_int(df):
         df_Q_Cum_origin_int = df_Q_Cum_origin_int.append(df_Q_Cum_origin_int_day)
 
     df_Q_Cum_origin_int = df_Q_Cum_origin_int.reset_index(drop = True)
-    return df_Q_Cum_origin_int
+
+    return df_Q_Cum_origin_int_input, df_Q_Cum_origin_int
 
 def Q_PPM_origin_int(df):
     """
