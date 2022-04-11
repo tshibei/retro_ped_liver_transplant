@@ -47,6 +47,7 @@ df_Q_PPM_origin_int = {}
 df_L_Cum = {}
 df_L_Cum_input = {}
 df_L_Cum_origin_int = {}
+df_L_Cum_origin_int_input = {}
 df_L_PPM = {}
 df_L_PPM_origin_int = {}
 df_Q_RW_input = {}
@@ -106,7 +107,7 @@ for patient in patient_list:
     df_Q_PPM[patient] = Q_PPM(quad_cal_pred[patient])
     df_Q_PPM_origin_int[patient] = Q_PPM_origin_int(quad_cal_pred[patient])
     df_L_Cum_input[patient], df_L_Cum[patient] = L_Cum(linear_cal_pred[patient])
-    df_L_Cum_origin_int[patient] = L_Cum_origin_int(linear_cal_pred[patient])
+    df_L_Cum_origin_int_input[patient], df_L_Cum_origin_int[patient] = L_Cum_origin_int(linear_cal_pred[patient])
     df_L_PPM[patient] = L_PPM(linear_cal_pred[patient])
     df_L_PPM_origin_int[patient] = L_PPM_origin_int(linear_cal_pred[patient])
     
@@ -125,13 +126,10 @@ for patient in patient_list:
     # Perform PPM origin_dp methods
     df_Q_PPM_origin_dp[patient] = PPM_origin_dp(quad_cal_pred[patient], 2, df_Q_PPM_origin_dp, patient)
     df_L_PPM_origin_dp[patient] = PPM_origin_dp(linear_cal_pred[patient], 1, df_L_PPM_origin_dp, patient)
-    
-# 4. Prepare results for plotting (will refactor this giant part later!)
 
-# Create giant combined dataframe
-combined_df = pd.DataFrame(columns = ['patient', 'method', 'prediction day',
-                                     'a', 'b', 'c', 'prediction', 'deviation',
-                                     'abs deviation'])
+    
+
+# 4. Export results for checking (will refactor this giant part later!)
 
 # Create list of method dictionaries
 dict_list = [df_Q_Cum, df_Q_Cum_origin_int, df_Q_Cum_origin_dp,
@@ -145,39 +143,20 @@ method_names = ["Q_Cum", "Q_Cum_origin_int", "Q_Cum_origin_dp",
                 "Q_PPM", "Q_PPM_origin_int", "Q_PPM_origin_dp", "Q_RW",
                 "L_Cum", "L_Cum_origin_int", "L_Cum_origin_dp",
                 "L_PPM", "L_PPM_origin_int", "L_PPM_origin_dp", "L_RW"]
-i = 0 # Create counter for methods in method list
 
-# Loop through method dictionaries
-for a_dict in dict_list:
-    
-    # Create method dataframe
-    method_df = pd.DataFrame()
-    
-    # Loop through patient dataframes
-    for patient in patient_list:
-        
-        # Add patient and method column
-        a_dict[patient] = pd.DataFrame(a_dict[patient], dtype=object)
-        a_dict[patient].insert(0, "patient", patient)
-        a_dict[patient].insert(0, "method", method_names[i])
-        method_df = method_df.append(a_dict[patient])
-    
-    i = i + 1 # Add to counter for methods in method list
-    
-    # Append to combined dataframe
-    combined_df = combined_df.append(method_df)
+# Create dataframe of raw patient data
+patient_df = create_patient_df(patient_list, df)
 
-# Drop last 2 columns of new_dose and new_response which are inconsistently present
-combined_df = combined_df.iloc[:,:-2]
+# Create dataframe of results of predictions
+results_df = create_results_df(dict_list, method_names, patient_list)
 
-combined_df = combined_df.reset_index(drop=True)
-
-# Write combined dataframe to excel
-# combined_df.set_index('patient').to_excel('combined_df.xlsx', engine='xlsxwriter') 
+# Write combined dataframes to excel
+# results_df.set_index('patient').to_excel('results_df.xlsx', engine='xlsxwriter') 
 # 5. Plot results
 
-df_Q_Cum_origin_int_input['114'], df_Q_Cum_origin_int['114'], quad_cal_pred['114']
 # -
+
+
 
 
 df_L_Cum_input = {}

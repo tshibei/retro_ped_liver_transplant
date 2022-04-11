@@ -647,25 +647,25 @@ def Q_Cum_origin_int(df):
     column_names = ['prediction day', 'a', 'b', 'c', 'prediction', 'deviation', 'abs deviation']
     df_Q_Cum_origin_int = pd.DataFrame(columns = column_names)
 
-    for day_num in range(3, len(df)):
-        pred_day = int(df["Day #"][day_num])
+    for i in range(0, len(df_Q_Cum_origin_int_input)):
+        pred_day = int(df_Q_Cum_origin_int_input["Pred_Day"][i])
 
         # Find coefficients of quadratic fit
         # x = df["Eff 24h Tac Dose"][0:day_num].to_numpy()
         # y = df["Tac level (prior to am dose)"][0:day_num].to_numpy()
 
-        x = df_Q_Cum_origin_int_input.loc[day_num-3, 'Dose_1':'Dose_' + str(day_num)].to_numpy()
-        y = df_Q_Cum_origin_int_input.loc[day_num-3, 'Response_1':'Response_' + str(day_num)].to_numpy()
+        x = df_Q_Cum_origin_int_input.loc[i, 'Dose_1':'Dose_' + str(i+3)].to_numpy()
+        y = df_Q_Cum_origin_int_input.loc[i, 'Response_1':'Response_' + str(i+3)].to_numpy()
 
         popt, pcov = curve_fit(f, x, y)
 
         fittedParameters = [popt[0], popt[1], 0]
 
         # Calculate prediction based on quad fit
-        prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
+        prediction = np.polyval(fittedParameters,  df_Q_Cum_origin_int_input["New_Dose"][i])
 
         # Calculate deviation from prediction
-        deviation = prediction - df["Tac level (prior to am dose)"][day_num]
+        deviation = prediction - df_Q_Cum_origin_int_input["New_Response"][i]
         abs_deviation = abs(deviation)
 
         # Add the prediction day, coefficients, prediction, and deviation below dataframe
@@ -778,38 +778,74 @@ def L_Cum_origin_int(df):
     Output: L_Cum_origin_int results
     """
     from scipy.optimize import curve_fit
+    
+    # 1. Create input dataframe for prediction
+    
+    # Create column names
+    column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['New_Dose', 'New_Response']
+
+    # Create dataframe
+    df_L_Cum_origin_int_input = pd.DataFrame(columns = column_names)
+
+    # Loop through rows from first to last prediction
+    for i in range(2, len(df)):
+
+        # Find doses and responses from previous rows
+        doses = df["Eff 24h Tac Dose"][0:i].to_numpy()
+        responses = df["Tac level (prior to am dose)"][0:i].to_numpy()
+
+        # Create temporary dataframe of doses, responses, new dose, new response
+        column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['New_Dose', 'New_Response']
+
+        df_temp = pd.DataFrame(columns = column_names)
+
+        # Fill in values in one row in df_temp
+        df_temp.loc[0, 'Pred_Day'] = df["Day #"][i]
+        df_temp.loc[0, 'Dose_1':'Dose_' + str(i)] = doses
+        df_temp.loc[0, 'Response_1':'Response_' + str(i)] = responses
+        df_temp.loc[0, 'New_Dose'] = df["Eff 24h Tac Dose"][i]
+        df_temp.loc[0, 'New_Response'] = df["Tac level (prior to am dose)"][i]
+
+        # Concat input dataframe with df_temp
+        df_L_Cum_origin_int_input = pd.concat([df_L_Cum_origin_int_input, df_temp])
+        df_L_Cum_origin_int_input = df_L_Cum_origin_int_input.reset_index(drop=True)
+
+    # 2. Create dataframe for L-Cum_origin_int results
 
     def f(x, a):
         return a*x
 
-    # Create dataframe for L-Cum_origin_int
     column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
     df_L_Cum_origin_int = pd.DataFrame(columns = column_names)
 
-    for day_num in range(2, len(df)):
-        pred_day = int(df["Day #"][day_num])
+    for i in range(0, len(df_L_Cum_origin_int_input)):
+        pred_day = int(df_L_Cum_origin_int_input["Pred_Day"][i])
 
         # Find coefficients of quadratic fit
-        x = df["Eff 24h Tac Dose"][0:day_num].to_numpy()
-        y = df["Tac level (prior to am dose)"][0:day_num].to_numpy()
+        x = df_L_Cum_origin_int_input.loc[i, 'Dose_1':'Dose_' + str(i+2)].to_numpy()
+        y = df_L_Cum_origin_int_input.loc[i, 'Response_1':'Response_' + str(i+2)].to_numpy()
         popt, pcov = curve_fit(f, x, y)
 
         fittedParameters = [popt[0], 0]
 
         # Calculate prediction based on quad fit
-        prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
+        prediction = np.polyval(fittedParameters, df_L_Cum_origin_int_input["New_Dose"][i])
 
         # Calculate deviation from prediction
-        deviation = prediction - df["Tac level (prior to am dose)"][day_num]
+        deviation = prediction - df_L_Cum_origin_int_input["New_Response"][i]
         abs_deviation = abs(deviation)
 
         # Add the prediction day, coefficients, prediction, and deviation below dataframe
-        df_L_Cum_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
+        df_L_Cum_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation], dtype=object)
         df_L_Cum_origin_int_day = pd.DataFrame(df_L_Cum_origin_int_day.reshape(-1, len(df_L_Cum_origin_int_day)),columns=column_names)
         df_L_Cum_origin_int = df_L_Cum_origin_int.append(df_L_Cum_origin_int_day)
 
     df_L_Cum_origin_int = df_L_Cum_origin_int.reset_index(drop = True)
-    return df_L_Cum_origin_int
+    return df_L_Cum_origin_int_input, df_L_Cum_origin_int
 
 def L_PPM_origin_int(df):
     """
@@ -1122,6 +1158,78 @@ def PPM_origin_dp(cal_pred_dataframe, deg, df_PPM_origin_dp, patient):
     return df_PPM_origin_dp[patient]
 
 # Plotting
+
+def create_results_df(dict_list, method_names, patient_list):
+    """
+    Add method and patient column to all result dataframes. Combine all dataframes into a giant one.
+    
+    Input: 
+    - dict_list: list of dictionaries with dataframes of results
+    - method_names: list of method names
+    - patient_list: list of patients
+
+    Output: 
+    - One dataframe with results of all methods
+    """
+    # Create giant combined dataframe
+    results_df = pd.DataFrame(columns = ['patient', 'method', 'prediction day',
+                                         'a', 'b', 'c', 'prediction', 'deviation',
+                                         'abs deviation'])
+
+    i = 0 # Create counter for methods in method list
+
+    # Loop through method dictionaries
+    for a_dict in dict_list:
+
+        # Create method dataframe
+        method_df = pd.DataFrame()
+
+        # Loop through patient dataframes
+        for patient in patient_list:
+
+            # Add patient and method column
+            a_dict[patient] = pd.DataFrame(a_dict[patient], dtype=object)
+            a_dict[patient].insert(0, "patient", patient)
+            a_dict[patient].insert(0, "method", method_names[i])
+            method_df = method_df.append(a_dict[patient])
+
+        i = i + 1 # Add to counter for methods in method list
+
+        # Append to combined dataframe
+        results_df = results_df.append(method_df)
+
+    # Drop last 2 columns of new_dose and new_response which are inconsistently present
+    results_df = results_df.iloc[:,:-2]
+
+    results_df = results_df.reset_index(drop=True)
+
+    return results_df
+
+def create_patients_df(patient_list, df):
+    """
+    Input:
+    - patient_list: list of patients
+    - df: dataframes of each patient's raw data extracted from excel sheet
+    
+    Output:
+    Combined dataframe with all patients' raw data
+    """
+    # Create patient dataframe
+    patients_df = pd.DataFrame()
+
+    # Loop through patients
+    for patient in patient_list:
+
+        # Add patient column to each dataframe
+        df[patient].insert(0, "patient", patient)
+
+        # Append each patient dataframe to combined patient dataframe
+        patients_df = patients_df.append(df[patient])
+
+    patients_df = patients_df.reset_index(drop=True)
+
+    return patients_df
+
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
                                 df_L_Cum, df_L_PPM, df_L_RW):
