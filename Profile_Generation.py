@@ -461,21 +461,56 @@ def L_Cum(df):
     Input: Individual patient data
     Output: L_Cum results
     """
-    # Create dataframe for L-Cum
+    # 1. Create input dataframe for prediction
+    
+    # Create column names
+    column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                   ['New_Dose', 'New_Response']
+
+    # Create dataframe
+    df_L_Cum_input = pd.DataFrame(columns = column_names)
+
+    # Loop through rows from first to last prediction
+    for i in range(2, len(df)):
+
+        # Find doses and responses from previous rows
+        doses = df["Eff 24h Tac Dose"][0:i].to_numpy()
+        responses = df["Tac level (prior to am dose)"][0:i].to_numpy()
+
+        # Create temporary dataframe of doses, responses, new dose, new response
+        column_names = ['Pred_Day'] + ['Dose_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['Response_' + str(i) for i in range(1, len(df) + 1)] + \
+                    ['New_Dose', 'New_Response']
+
+        df_temp = pd.DataFrame(columns = column_names)
+
+        # Fill in values in one row in df_temp
+        df_temp.loc[0, 'Pred_Day'] = df["Day #"][i]
+        df_temp.loc[0, 'Dose_1':'Dose_' + str(i)] = doses
+        df_temp.loc[0, 'Response_1':'Response_' + str(i)] = responses
+        df_temp.loc[0, 'New_Dose'] = df["Eff 24h Tac Dose"][i]
+        df_temp.loc[0, 'New_Response'] = df["Tac level (prior to am dose)"][i]
+
+        # Concat input dataframe with df_temp
+        df_L_Cum_input = pd.concat([df_L_Cum_input, df_temp])
+        df_L_Cum_input = df_L_Cum_input.reset_index(drop=True)
+    
+    # 2. Create dataframe for L-Cum results 
     column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
     df_L_Cum = pd.DataFrame(columns = column_names)
 
-    for day_num in range(2, len(df)):
-        pred_day = day_num + 2 
+    for i in range(0, len(df_L_Cum_input)):
+        pred_day = int(df_L_Cum_input["Pred_Day"][i])
 
         # Find coefficients of quadratic fit
-        fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num].astype(float), df["Tac level (prior to am dose)"][0:day_num].astype(float), 1))
+        fittedParameters = (np.polyfit(df_L_Cum_input.loc[i, 'Dose_1':'Dose_' + str(i+2)].astype(float), df_L_Cum_input.loc[i, 'Dose_1':'Dose_' + str(i+2)].astype(float), 1))
 
         # Calculate prediction based on quad fit
-        prediction = np.polyval(fittedParameters, df["Eff 24h Tac Dose"][day_num])
+        prediction = np.polyval(fittedParameters, df_L_Cum_input["New_Dose"][i])
 
         # Calculate deviation from prediction
-        deviation = prediction - df["Tac level (prior to am dose)"][day_num]
+        deviation = prediction - df_L_Cum_input["New_Response"][i]
         abs_deviation = abs(deviation)
 
         # Add the prediction day, coefficients, prediction, and deviation below dataframe
@@ -485,7 +520,7 @@ def L_Cum(df):
 
     df_L_Cum = df_L_Cum.reset_index(drop = True)
 
-    return df_L_Cum
+    return df_L_Cum_input, df_L_Cum
 
 def L_PPM(df):
     """
