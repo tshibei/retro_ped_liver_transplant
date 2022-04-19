@@ -533,9 +533,9 @@ def L_PPM(df):
     df_L_PPM = pd.DataFrame(columns = column_names)
 
     # Fill in prediction day, quadratic fit, prediction, deviation for prediction of day 5
-    pred_day = 4
     day_num = 2
-
+    pred_day = df["Day #"][day_num]
+    
     # Find coefficients of quadratic fit
     fittedParameters = (np.polyfit(df["Eff 24h Tac Dose"][0:day_num].astype(float), df["Tac level (prior to am dose)"][0:day_num].astype(float), 1))
 
@@ -552,7 +552,7 @@ def L_PPM(df):
     df_L_PPM = df_L_PPM.append(df_L_PPM_day)
 
     # Add subsequent predictions
-    for day_num in range(3, len(df)):
+    for day_num in range(2, len(df)):
         pred_day, a = df_L_PPM["prediction day"].iloc[-1] + 1, df_L_PPM['a'].iloc[-1]
         b = df_L_PPM['b'].iloc[-1] - df_L_PPM['deviation'].iloc[-1]
         fittedParameters = a, b
@@ -859,9 +859,10 @@ def L_PPM_origin_int(df):
     column_names = ['prediction day', 'a', 'b', 'prediction', 'deviation', 'abs deviation']
     df_L_PPM_origin_int = pd.DataFrame(columns = column_names)
 
-    # Fill in prediction day, linearratic fit, prediction, deviation for prediction of day 5
-    pred_day = 4
+    # Fill in prediction day, linearratic fit, prediction, deviation for first prediction
     day_num = 2
+    pred_day = df["Day #"][day_num]
+    print(pred_day)
 
     def f(x, a):
         return a*x
@@ -880,13 +881,13 @@ def L_PPM_origin_int(df):
     deviation = prediction - df["Tac level (prior to am dose)"][day_num]
     abs_deviation = abs(deviation)
 
-    # Add prediction of day 5 into dataframe
+    # Add first prediction into dataframe
     df_L_PPM_origin_int_day = np.array([pred_day, fittedParameters[0], fittedParameters[1], prediction, deviation, abs_deviation])
     df_L_PPM_origin_int_day = pd.DataFrame(df_L_PPM_origin_int_day.reshape(-1, len(df_L_PPM_origin_int_day)),columns=column_names)
     df_L_PPM_origin_int = df_L_PPM_origin_int.append(df_L_PPM_origin_int_day)
 
     # Add subsequent predictions
-    for day_num in range(3, len(df)):
+    for day_num in range(2, len(df)):
         pred_day, a = df_L_PPM_origin_int["prediction day"].iloc[-1] + 1, df_L_PPM_origin_int['a'].iloc[-1]
         b = df_L_PPM_origin_int['b'].iloc[-1] - df_L_PPM_origin_int['deviation'].iloc[-1]
         fittedParameters = a, b

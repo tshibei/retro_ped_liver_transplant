@@ -175,7 +175,66 @@ dfs_tabs(dfs, sheets, 'All_Data.xlsx')
 
 
 
-# +
+# + tags=[]
+# Plot deviation against prediction day for all method
+for method_temp in method_names:
+       
+    # Extract information from one method only    
+    plot_df = results_df.copy()
+    plot_df = plot_df[plot_df['method']==method_temp]
+
+    # Set palette
+    sns.set_palette("Paired")
+
+    # Plot
+    plt.figure(figsize=(20,5))
+    ax = sns.catplot(x="prediction day", y="deviation", hue="patient", kind="point", data=plot_df, aspect=1.25)
+    plt.xticks(rotation=45, horizontalalignment='right', fontweight='light', fontsize=10)
+    plt.xlabel("Prediction Day")
+    plt.ylabel("Deviation")
+    plt.title(method_temp)
+    plt.show()
+
+    # Count percentage of points with abs deviation <=2
+    (sum(plot_df['abs deviation'] <= 2))/len(plot_df)*100
+
+    # Calculate mean absolute error
+    mean(plot_df['abs deviation'])
+
+
+# + tags=[]
+patient_df = {}
+# Plot deviation against prediction day for one patient across all methods
+
+# Loop through patients
+for patient_temp in patient_list:
+    
+    # Extract information from one patient only    
+    patient_df[patient_temp] = results_df[results_df['patient']==patient_temp]
+
+    # Set palette
+    sns.set_palette("Paired")
+
+    # Plot
+    plt.figure(figsize=(20,5))
+    ax = sns.catplot(x="prediction day", y="deviation", hue="method", kind="point", data=patient_df[patient_temp], aspect=1.25)
+    plt.xticks(rotation=45, horizontalalignment='right', fontweight='light', fontsize=10)
+    plt.xlabel("Prediction Day")
+    plt.ylabel("Deviation")
+    plt.title("Patient " + patient_temp)
+    # plt.show()
+
+sub_df = patient_df['132']
+sub_df[sub_df['method']=='L_PPM_origin_int']
+# sub_df = results_df[results_df['method']=='L_Cum_origin_int']
+# sub_df[sub_df['patient']=='132']
+# -
+
+[patient for patient in patient_list]
+# ['84', '114', '117', '118', '120', '121', '122', '123', '125', '126', 
+               # '129', '130', '131', '132', '133', '138']
+
+# + tags=[]
 # # Create dataframe for every method
 # dfnames = ['Q_Cum', 'Q_Cum_origin_int', 'Q_Cum_origin_dp']
 
