@@ -1328,6 +1328,62 @@ def dfs_tabs(df_list, sheet_list, file_name):
         dataframe.to_excel(writer, sheet_name=sheet, startrow=0 , startcol=0)   
     writer.save()
 
+def prep_df_for_export(cal_pred_temp_df, pred_temp_df, results_temp_df, 
+                       patient_list, method_names):
+
+    """ 
+    Prepare dataframes for export:
+        Add type column to cal_pred_df, pred_input_df, result_input_df 
+        Sort dataframes
+        Reset index for all dataframes
+
+    Input: 
+        cal_pred_df
+        prediction_input_df
+        results_df
+        patient_list
+        method_names
+
+    Return:Dataframes prepared for exporting to excel
+        cal_pred_df
+        prediction_input_df
+        results_df
+    """
+
+    # Add 'type' column to dataframes
+    for dataframe in [pred_temp_df, results_temp_df]:
+
+        # Create empty type column
+        dataframe['type'] = ""
+
+        # Loop through rows
+        for i in range(0, len(dataframe)):
+
+            # If method contain Q, fill in type as "quadratic"
+            dataframe['type'][i] = 'quadratic' if 'Q' in dataframe['method'][i] else 'linear'
+
+    # Sort dataframe by patient, type, method (if any), prediction day
+
+    # Loop through dataframes
+    for dataframe in [cal_pred_temp_df, pred_temp_df, results_temp_df]:
+
+        # Define sorting order
+        dataframe['type'] = pd.Categorical(dataframe['type'], ['linear', 'quadratic'])
+        dataframe['patient'] = pd.Categorical(dataframe['patient'], patient_list)
+        if 'method' in dataframe.columns:
+            dataframe['method'] = pd.Categorical(dataframe['method'], method_names)
+
+    # Sort columns
+    cal_pred_temp_df = cal_pred_temp_df.sort_values(['patient', 'type', 'Day #'])
+    pred_temp_df = pred_temp_df.sort_values(['patient', 'type', 'method', 'Pred_Day'])
+    results_temp_df = results_temp_df.sort_values(['patient', 'type', 'method', 'prediction day'])
+
+    # Reset index of all dataframes
+    for dataframe in [cal_pred_temp_df, pred_temp_df, results_temp_df]:
+        dataframe = dataframe.reset_index(drop=True, inplace=True)
+        
+    return(cal_pred_temp_df, pred_temp_df, results_temp_df)
+
 # Plotting
 
 def deviation_without_intercept(df_Q_Cum, df_Q_PPM, df_Q_RW,
