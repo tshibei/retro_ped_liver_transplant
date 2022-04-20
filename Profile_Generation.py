@@ -689,8 +689,8 @@ def Q_PPM_origin_int(df):
     df_Q_PPM_origin_int = pd.DataFrame(columns = column_names)
 
     # Fill in prediction day, quadratic fit, prediction, deviation for prediction of day 5
-    pred_day = 5
     day_num = 3
+    pred_day = df["Day #"][day_num]
 
     def f(x, a, b):
         return a*x**2 + b*x
@@ -862,7 +862,6 @@ def L_PPM_origin_int(df):
     # Fill in prediction day, linearratic fit, prediction, deviation for first prediction
     day_num = 2
     pred_day = df["Day #"][day_num]
-    print(pred_day)
 
     def f(x, a):
         return a*x

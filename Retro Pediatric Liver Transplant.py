@@ -29,6 +29,7 @@ from Profile_Generation import *
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit
+import matplotlib.patches as patches
 
 # +
 from scipy.optimize import curve_fit
@@ -127,8 +128,6 @@ for patient in patient_list:
     df_Q_PPM_origin_dp[patient] = PPM_origin_dp(quad_cal_pred[patient], 2, df_Q_PPM_origin_dp, patient)
     df_L_PPM_origin_dp[patient] = PPM_origin_dp(linear_cal_pred[patient], 1, df_L_PPM_origin_dp, patient)
 
-    
-
 # 4. Export results for checking (will refactor this giant part later!)
 
 # Create list of method dictionaries
@@ -164,43 +163,212 @@ cal_pred_df = create_cal_pred_df(patient_list, linear_cal_pred, quad_cal_pred)
 # Create combined dataframe with each row containing data required for one prediciton
 prediction_input_df = create_prediction_input_df(input_dict_list, patient_list, input_method_names)
 
+# # Write dataframes to excel
+# # List of dataframes and sheet names
+# dfs = [patients_df.set_index('patient'), cal_pred_df.set_index('patient'),\
+#        prediction_input_df.set_index('patient'), results_df.set_index('patient')]
+# sheets = ['Patient','Calibration Prediction','Prediction Input', 'Results']    
+
+# # Run function
+# dfs_tabs(dfs, sheets, 'All_Data.xlsx')
+
+
+
+# +
+# Data quality check: prepare dataframes for quality check and write to excel
+    # Add type column to cal_pred_df, pred_input_df, result_input_df 
+    # Sort dataframes
+    # Standardise column names for checking
+    # Reset index for all dataframes
+    # Write to excel
+
+pred_temp_df = prediction_input_df.copy()
+results_temp_df = results_df.copy()
+cal_pred_temp_df = cal_pred_df.copy()
+
+# Add 'type' column to dataframes
+for dataframe in [pred_temp_df, results_temp_df]:
+    
+    # Create empty type column
+    dataframe['type'] = ""
+
+    # Loop through rows
+    for i in range(0, len(dataframe)):
+
+        # If method contain Q, fill in type as "quadratic"
+        dataframe['type'][i] = 'quadratic' if 'Q' in dataframe['method'][i] else 'linear'
+        
+# Sort dataframe by patient, type, method (if any), prediction day
+
+# Loop through dataframes
+for dataframe in [cal_pred_temp_df, pred_temp_df, results_temp_df]:
+
+    # Define sorting order
+    dataframe['type'] = pd.Categorical(dataframe['type'], ['linear', 'quadratic'])
+    dataframe['patient'] = pd.Categorical(dataframe['patient'], patient_list)
+    if 'method' in dataframe.columns:
+        dataframe['method'] = pd.Categorical(dataframe['method'], method_names)
+
+# Sort columns
+cal_pred_temp_df = cal_pred_temp_df.sort_values(['patient', 'type', 'Day #'])
+pred_temp_df = pred_temp_df.sort_values(['patient', 'type', 'method', 'Pred_Day'])
+results_temp_df = results_temp_df.sort_values(['patient', 'type', 'method', 'prediction day'])
+
+# Reset index of all dataframes
+for dataframe in [cal_pred_temp_df, pred_temp_df, results_temp_df]:
+    dataframe = dataframe.reset_index(drop=True, inplace=True)
+    
 # Write dataframes to excel
 # List of dataframes and sheet names
-dfs = [patients_df.set_index('patient'), cal_pred_df.set_index('patient'),\
-       prediction_input_df.set_index('patient'), results_df.set_index('patient')]
+dfs = [patients_df.set_index('patient'), cal_pred_temp_df.set_index('patient'),\
+       pred_temp_df.set_index('patient'), results_temp_df.set_index('patient')]
 sheets = ['Patient','Calibration Prediction','Prediction Input', 'Results']    
 
 # Run function
 dfs_tabs(dfs, sheets, 'All_Data.xlsx')
 
+# +
+pd.set_option('display.max_rows', None)
+
+df = pred_temp_df.copy()
+df = df[['patient', 'type', 'method', 'Pred_Day']]
+grouped_df = df.groupby(['patient', 'type'])['Pred_Day'].min().dropna()
+# -
+
+df = results_temp_df.copy()
+df = df[['patient', 'type', 'method', 'prediction day']]
+grouped_df = df.groupby(['patient', 'type','method'])['prediction day'].min().dropna()
+grouped_df
+
+# cal_pred_temp_df.groupby(['patient', 'type'])['Day #'].min()
+cal_pred_temp_df
+
+# +
+##### PLOTTING #####
+# FacetGrid Plot by Method
+
+# Subset dataframe with deviation, prediction day, method, patient
+plot_df = results_df[['deviation', 'prediction day', 'method', 'patient']]
+
+# Set up lists
+hue_order = [patient for patient in patient_list]
+order = [num for num in range(int(plot_df['prediction day'].min()),
+                                  int(plot_df['prediction day'].max()+1))]
+labels = hue_order
+colors = sns.color_palette("Paired").as_hex()[:len(labels)]
+handles = [patches.Patch(color=col, label=lab) for col, lab in zip(colors, labels)]
+
+# Set up facet grid
+g = sns.FacetGrid(plot_df, col_wrap=5, col="method", hue="patient", palette=colors, aspect=1.4)
+
+# Visualise data on grid
+
+g.map(sns.pointplot, "prediction day", "deviation", hue_order=hue_order, order=order)
+
+# Set xtick labels to rotate
+g.set_xticklabels(rotation=45)
+
+# Add legend with plt.legend, add_legend has a bug
+plt.legend(handles=handles, title="patient", loc="upper left", bbox_to_anchor=(1.25,0.9))
+
+
+# +
+##### PLOTTING #####
+# FacetGrid Plot by Patient
+
+# Subset dataframe with deviation, prediction day, method, patient
+plot_df = results_df[['deviation', 'prediction day', 'method', 'patient']]
+
+# Set up lists
+hue_order = [method for method in method_names]
+order = [num for num in range(int(plot_df['prediction day'].min()),
+                                  int(plot_df['prediction day'].max()+1))]
+labels = hue_order
+colors = sns.color_palette("Paired").as_hex()[:len(labels)]
+handles = [patches.Patch(color=col, label=lab) for col, lab in zip(colors, labels)]
+
+# Set up facet grid
+g = sns.FacetGrid(plot_df, col_wrap=4, col="patient", hue="method", palette=colors, aspect=1.4)
+
+# Visualise data on grid
+
+g.map(sns.pointplot, "prediction day", "deviation", hue_order=hue_order, order=order)
+
+# Set xtick labels to rotate
+g.set_xticklabels(rotation=45)
+
+# Add legend with plt.legend, add_legend has a bug
+plt.legend(handles=handles, title="method", loc="upper left", bbox_to_anchor=(1.25,0.9))
 
 
 # + tags=[]
-# Plot deviation against prediction day for all method
-for method_temp in method_names:
+# # Plot deviation against prediction day for all method
+# for method_temp in method_names:
        
-    # Extract information from one method only    
-    plot_df = results_df.copy()
-    plot_df = plot_df[plot_df['method']==method_temp]
+#     # Extract information from one method only    
+#     plot_df = results_df.copy()
+#     plot_df = plot_df[plot_df['method']==method_temp]
 
-    # Set palette
-    sns.set_palette("Paired")
+#     # Set palette
+#     sns.set_palette("Paired")
+# # 
+#     # Plot
+#     plt.figure(figsize=(20,5))
+#     ax = sns.catplot(x="prediction day", y="deviation", hue="patient", kind="point", data=plot_df, aspect=1.25)
+#     plt.xticks(rotation=45, horizontalalignment='right', fontweight='light', fontsize=10)
+#     plt.xlabel("Prediction Day")
+#     plt.ylabel("Deviation")
+#     plt.title(method_temp)
+#     plt.show()
 
-    # Plot
-    plt.figure(figsize=(20,5))
-    ax = sns.catplot(x="prediction day", y="deviation", hue="patient", kind="point", data=plot_df, aspect=1.25)
-    plt.xticks(rotation=45, horizontalalignment='right', fontweight='light', fontsize=10)
-    plt.xlabel("Prediction Day")
-    plt.ylabel("Deviation")
-    plt.title(method_temp)
-    plt.show()
+#     # Count percentage of points with abs deviation <=2
+#     (sum(plot_df['abs deviation'] <= 2))/len(plot_df)*100
 
-    # Count percentage of points with abs deviation <=2
-    (sum(plot_df['abs deviation'] <= 2))/len(plot_df)*100
+#     # Calculate mean absolute error
+#     mean(plot_df['abs deviation'])
 
-    # Calculate mean absolute error
-    mean(plot_df['abs deviation'])
 
+# +
+# fig = plt.figure()
+
+# # Set counter for number of plots
+# i = 1
+
+# # Plot deviation against prediction day for all method
+# for method_temp in method_names:
+       
+#     # Extract information from one method only    
+#     plot_df = results_df.copy()
+#     plot_df = plot_df[plot_df['method']==method_temp]
+
+#     # Set palette
+#     sns.set_palette("Paired")
+
+#     # Plot
+#     # plt.figure(figsize=(20,5))
+#     ax = fig.add_subplot(3, 5, i)
+#     ax = sns.catplot(x="prediction day", y="deviation", hue="patient", kind="point", data=plot_df, aspect=1.25)
+#     plt.xticks(rotation=45, horizontalalignment='right', fontweight='light', fontsize=10)
+#     plt.xlabel("Prediction Day")
+#     plt.ylabel("Deviation")
+#     plt.title(method_temp)
+    
+#     # Add 1 to plot counter
+#     i = i + 1
+    
+    
+#     # plt.show()
+
+# #     # Count percentage of points with abs deviation <=2
+# #     (sum(plot_df['abs deviation'] <= 2))/len(plot_df)*100
+
+# #     # Calculate mean absolute error
+# #     mean(plot_df['abs deviation'])
+# -
+
+fig, ax = plt.subplots()
+plot_df = results_df[['deviation', 'prediction day', 'method', 'patient']]
+g = sns.FacetGrid(plot_df, col_wrap=5, col="method", hue="patient")
 
 # + tags=[]
 patient_df = {}
