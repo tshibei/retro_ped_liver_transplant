@@ -13,4 +13,33 @@
 #     name: python3
 # ---
 
+# %load_ext autoreload
+# %autoreload 2
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
+import numpy as np
+from scipy import stats
+import seaborn as sns
+from functools import reduce
+pd.options.mode.chained_assignment = None 
+from statistics import mean
+from profile_generation import *
+import warnings
+warnings.simplefilter('ignore', np.RankWarning)
+from scipy.optimize import curve_fit
+import matplotlib.patches as patches
+from scipy.optimize import curve_fit
+from openpyxl import load_workbook
+
+# +
+input_file = 'Retrospective Liver Transplant Data.xlsx'
+rows_to_skip = 17
+
+# Get sheet names
+patient_list = get_sheet_names(input_file)
+
+# Clean and append patient data from each sheet to dataframe
+patient_df = clean_data(patient_list, input_file, rows_to_skip)
 

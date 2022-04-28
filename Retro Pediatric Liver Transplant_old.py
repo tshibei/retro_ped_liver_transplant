@@ -41,7 +41,7 @@ main
 
 
 # +
-from scipy.optimize import curve_fit
+
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 
 # Create dictionaries to store information for individual patients
