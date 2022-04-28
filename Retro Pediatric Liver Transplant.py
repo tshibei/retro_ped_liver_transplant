@@ -25,15 +25,19 @@ import seaborn as sns
 from functools import reduce
 pd.options.mode.chained_assignment = None 
 from statistics import mean
-from Profile_Generation import *
+from Profile_Generation_old import *
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 from scipy.optimize import curve_fit
 import matplotlib.patches as patches
 
+# +
 sections = ['main', 'errdict', 'excdict']
 section_dict = {sec : {} for sec in sections}
-section_dict['main']
+for key, value in section_dict.items():
+    key = {}
+    
+main
 
 
 # +
@@ -41,33 +45,33 @@ from scipy.optimize import curve_fit
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 
 # Create dictionaries to store information for individual patients
-# df = {}
-# quad_cal_pred = {}
-# linear_cal_pred = {}
-# df_Q_Cum = {}
-# df_Q_Cum_input = {}
-# df_Q_Cum_origin_int_input = {}
-# df_Q_Cum_origin_int = {}
-# df_Q_PPM = {}
-# df_Q_PPM_origin_int = {}
-# df_L_Cum = {}
-# df_L_Cum_input = {}
-# df_L_Cum_origin_int = {}
-# df_L_Cum_origin_int_input = {}
-# df_L_PPM = {}
-# df_L_PPM_origin_int = {}
-# df_Q_RW_input = {}
-# df_Q_RW = {}
-# df_L_RW_input = {}
-# df_L_RW = {}
-# df_RW = {}
-# df_Q_Cum_origin_dp_input = {}
-# df_Q_Cum_origin_dp = {}
-# df_L_Cum_origin_dp_input = {}
-# df_L_Cum_origin_dp = {}
-# df_Q_PPM_origin_dp = {}
-# df_L_PPM_origin_dp = {}
-# df_PPM_origin_dp = {}
+df = {}
+quad_cal_pred = {}
+linear_cal_pred = {}
+df_Q_Cum = {}
+df_Q_Cum_input = {}
+df_Q_Cum_origin_int_input = {}
+df_Q_Cum_origin_int = {}
+df_Q_PPM = {}
+df_Q_PPM_origin_int = {}
+df_L_Cum = {}
+df_L_Cum_input = {}
+df_L_Cum_origin_int = {}
+df_L_Cum_origin_int_input = {}
+df_L_PPM = {}
+df_L_PPM_origin_int = {}
+df_Q_RW_input = {}
+df_Q_RW = {}
+df_L_RW_input = {}
+df_L_RW = {}
+df_RW = {}
+df_Q_Cum_origin_dp_input = {}
+df_Q_Cum_origin_dp = {}
+df_L_Cum_origin_dp_input = {}
+df_L_Cum_origin_dp = {}
+df_Q_PPM_origin_dp = {}
+df_L_PPM_origin_dp = {}
+df_PPM_origin_dp = {}
 
 # dicts = ['df', 'quad_cal_pred', 'linear_cal_pred', 
 #         'df_Q_Cum', 'df_Q_Cum_input', 'df_Q_Cum_origin_int_input', 'df_Q_Cum_origin_int',
@@ -198,7 +202,10 @@ sheets = ['Patient','Calibration Prediction','Prediction Input', 'Results']
 
 # Run function
 dfs_tabs(dfs, sheets, 'All_Data.xlsx')
+# -
 
+
+df
 
 # +
 ##### PLOTTING #####
