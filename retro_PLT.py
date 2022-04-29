@@ -38,10 +38,26 @@ input_file = 'Retrospective Liver Transplant Data.xlsx'
 rows_to_skip = 17
 
 # Get list of patients/sheet names
-patient_list = get_sheet_names(input_file)
+list_of_patients = get_sheet_names(input_file)
+list_of_patient_df = []
 
-# Create and clean patient dataframe
-patient_df = clean_data(patient_list, input_file, rows_to_skip)
-patient_df
+for patient in list_of_patients:
+        
+    df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
+    
+    # Clean data
+    df = clean_data(df, patient)
+    
+    # Keep ideal data 
+    
+
+    # Add patient column
+    df['patient'] = patient
+    
+    df.columns = ['day', 'response', 'dose', 'patient']
+    
+    list_of_patient_df.append(df)
+
+df = pd.concat(list_of_patient_df)
 
 
