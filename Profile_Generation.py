@@ -12,7 +12,7 @@ def clean_data(patient_list, input_file, rows_to_skip):
     """
     Clean and append patient data from each sheet to dataframe.
     Read each sheet into dataframe, keep target columns, shift tac level one cell up,
-    remove "mg"/"ng" from dose, add patient column
+    remove "mg"/"ng" from dose, add patient column, fill NaN dose with 0
     
     Input:
     patient_list - sheet names which are also patient names
@@ -23,7 +23,7 @@ def clean_data(patient_list, input_file, rows_to_skip):
     patient_df - filled dataframe with cleaned patient data    
     """
     # Create empty patient dataframe
-    patient_df = pd.DataFrame(columns=["Day #", "Tac level (prior to am dose)", "Eff 24h Tac Dose"])
+    patient_df = pd.DataFrame(columns=['day', 'response', 'dose', 'patient'])
 
     # Loop through sheets
     for sheet in patient_list:
@@ -43,6 +43,11 @@ def clean_data(patient_list, input_file, rows_to_skip):
 
         # Add patient column
         df['patient'] = sheet
+
+        # Replace NA with 0 in dose column
+        df["Eff 24h Tac Dose"] = df["Eff 24h Tac Dose"].fillna(0)
+
+        df.columns = ['day', 'response', 'dose', 'patient']
 
         patient_df = patient_df.append(df)
         

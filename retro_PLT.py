@@ -37,9 +37,11 @@ from openpyxl import load_workbook
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 rows_to_skip = 17
 
-# Get sheet names
+# Get list of patients/sheet names
 patient_list = get_sheet_names(input_file)
 
-# Clean and append patient data from each sheet to dataframe
+# Create and clean patient dataframe
 patient_df = clean_data(patient_list, input_file, rows_to_skip)
+patient_df
+
 
