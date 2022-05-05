@@ -62,7 +62,6 @@ for patient in list_of_patients:
     cal_pred, list_of_cal_pred_df = keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclude_quad, 
                                                      cal_pred_linear, cal_pred_quad, list_of_cal_pred_df)
     
-    
 
 # Print patients to exclude        
 patients_to_exclude_linear = sorted(set(patients_to_exclude_linear))

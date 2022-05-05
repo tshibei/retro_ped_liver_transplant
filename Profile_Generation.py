@@ -57,6 +57,11 @@ def keep_ideal_data(df, patient, list_of_patient_df):
                                (df_temp['Tac level (prior to am dose)'] == '<2') | \
                                (df_temp["Tac level (prior to am dose)"].astype(str).str.contains("/"))
 
+    # Set boolean for non_ideal as True if all dose including and above current row is 0
+    for i in range(len(df_temp)):
+        if (df_temp.loc[0:i, 'Eff 24h Tac Dose'] == 0).all():
+            df_temp.loc[i, 'non_ideal'] = True
+
     # Create index column
     df_temp.reset_index(inplace=True) 
 
