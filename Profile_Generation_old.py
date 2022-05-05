@@ -165,6 +165,7 @@ def cal_pred_data(df, patient, cal_pred, patients_to_exclude, deg):
             error_string = '(for quadratic)'
         print(patient, ": No. of predictions ", error_string," is <3: ", len(cal_pred[patient]) - (deg + 1))
 
+    
     return cal_pred[patient]
 
 # Tests
