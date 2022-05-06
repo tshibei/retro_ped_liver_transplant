@@ -223,4 +223,7 @@ def keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclud
         cal_pred = cal_pred_linear
         list_of_cal_pred_df.append(cal_pred)
     else: cal_pred = pd.DataFrame()
+
+    cal_pred.reset_index(inplace=True, drop=True)
+
     return cal_pred, list_of_cal_pred_df
