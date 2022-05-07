@@ -62,41 +62,30 @@ for patient in list_of_patients:
     
     # Keep patient data with sufficient dose-response pairs and predictions
     cal_pred, list_of_cal_pred_df = keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclude_quad, 
-                                                     cal_pred_linear, cal_pred_quad, list_of_cal_pred_df)
-
-    # Prepare dataframe for prediction
-    # Create result DataFrame
-#     max_count_input = len(cal_pred[cal_pred['type'] =='linear'])
-#     print(f"{patient}: max_count_input {max_count_input} | {cal_pred}")
-#     col_names = ['patient', 'method', 'pred_day'] + \
-#                 ['fit_dose_' + str(i) for i in range(1, max_count_input + 1)] + \
-#                 ['fit_response_' + str(i) for i in range(1, max_count_input + 1)] + \
-#                 ['dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
-#                  'prev_deviation', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation',
-#                  'abs_deviation']
-#     result = pd.DataFrame(columns=col_names)
+                                                     cal_pred_linear, cal_pred_quad, list_of_cal_pred_df)   
     
-#     j = 0
-#     if patient not in patients_to_exclude_linear:
-#         deg = 1
+    if len(cal_pred) != 0:
+    
+        # Prepare dataframe for prediction
+        # Create result DataFrame
+        max_count_input = len(cal_pred_linear)
+
+        col_names = ['patient', 'method', 'pred_day'] + \
+                    ['fit_dose_' + str(i) for i in range(1, max_count_input + 1)] + \
+                    ['fit_response_' + str(i) for i in range(1, max_count_input + 1)] + \
+                    ['dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
+                     'prev_deviation', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation',
+                     'abs_deviation']
+        result = pd.DataFrame(columns=col_names)
+
+        if patient not in patients_to_exclude_linear:
+            deg = 1
+            list_of_result_df = Cum_wo_origin(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df)
+
+        if patient not in patients_to_exclude_quad:
+            deg = 2
+            list_of_result_df = Cum_wo_origin(deg, cal_pred_quad, result, 'Q_Cum_wo_origin', list_of_result_df)
         
-#         # Prepare dataframe for L_Cum_wo_origin
-#         for i in range(deg + 1, len(cal_pred[cal_pred['type']=='linear'])):
-#             result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
-#             result.loc[j, 'method'] = 'L_Cum_wo_origin'
-#             result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
-#             # result.loc[j, 'fit_dose_1':'fit_dose_' + str(i + deg + 1)] = cal_pred.loc[0:i-1, 'dose']
-#             result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
-#             result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
-#             result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
-#             result.loc[j, 'response'] = cal_pred.loc[i, 'response']
-#             j = j + 1
-            
-        # list_of_result_df.append(result)
-            
-        # print(result)
-
-
 # Print patients to exclude        
 patients_to_exclude_linear = sorted(set(patients_to_exclude_linear))
 patients_to_exclude_quad = sorted(set(patients_to_exclude_quad))
@@ -106,10 +95,22 @@ print(f"Patients to exclude for quad methods: {patients_to_exclude_quad}")
 # Join dataframes from individual patients
 df = pd.concat(list_of_patient_df)
 df.reset_index(inplace=True, drop=True)
-cal_pred = pd.concat(list_of_cal_pred_df)
-# result_df = pd.concat(list_of_result_df)
 
-# result_df.columns
+cal_pred = pd.concat(list_of_cal_pred_df)
+
+result_df = pd.concat(list_of_result_df)
+max_count_input = cal_pred[cal_pred['type']=='linear'].groupby('patient').count().max()['dose']
+col_names = ['patient', 'method', 'pred_day'] + \
+            ['fit_dose_' + str(i) for i in range(1, max_count_input + 1)] + \
+            ['fit_response_' + str(i) for i in range(1, max_count_input + 1)] + \
+            ['dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
+             'prev_deviation', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation',
+             'abs_deviation']
+result_df = result_df[col_names]
+result_df.patient = result_df.patient.apply(int)
+result_df.pred_day = result_df.pred_day.apply(int)
+result_df.sort_values(['patient', 'method', 'pred_day'], inplace=True)
+result_df
 
 # -
 

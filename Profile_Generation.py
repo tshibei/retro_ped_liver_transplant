@@ -1,6 +1,8 @@
 from openpyxl import load_workbook
 import pandas as pd
 
+# Create patient dataframe
+
 def get_sheet_names(input_file):
     """ Get sheet names which are also patient names """
     wb = load_workbook(input_file, read_only=True)
@@ -227,3 +229,40 @@ def keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclud
     cal_pred.reset_index(inplace=True, drop=True)
 
     return cal_pred, list_of_cal_pred_df
+
+    # Prepare patient dataframe for prediction
+
+def Cum_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
+    """
+    Prepare input dataframe for Cum_wo_origin method
+
+    Input:
+    deg - degree of polynomial fit, 1 for linear, 2 for quadratic
+    cal_pred - dataframe of calibration and efficacy-driven dosing data, 
+                cal_pred_linear for linear, cal_pred_quad for quad
+    result - dataframe of results
+    method_string - string of method
+    list_of_result_df - list of result dataframe from each patient
+
+    Output:
+    list_of_result_df
+    """
+    j = 0
+
+    result = result[0:0]
+
+    # Prepare dataframe for L_Cum_wo_origin
+    for i in range(deg + 1, len(cal_pred)):
+
+        result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
+        result.loc[j, 'method'] = method_string
+        result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
+        result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+        result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+        result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
+        result.loc[j, 'response'] = cal_pred.loc[i, 'response']
+        j = j + 1
+
+    list_of_result_df.append(result)
+
+    return list_of_result_df
