@@ -35,9 +35,6 @@ from openpyxl import load_workbook
 pd.set_option('display.max_rows', None)
 
 # +
-
-
-
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 rows_to_skip = 17
 

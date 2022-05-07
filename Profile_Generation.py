@@ -1,5 +1,7 @@
 from openpyxl import load_workbook
 import pandas as pd
+from scipy.optimize import curve_fit
+import numpy as np
 
 # Create patient dataframe
 
@@ -230,11 +232,11 @@ def keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclud
 
     return cal_pred, list_of_cal_pred_df
 
-    # Prepare patient dataframe for prediction
+# Prepare patient dataframe for prediction and apply method
 
 def Cum_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
     """
-    Prepare input dataframe for Cum_wo_origin method
+    Prepare dataframe and apply Cum_wo_origin method
 
     Input:
     deg - degree of polynomial fit, 1 for linear, 2 for quadratic
@@ -261,6 +263,34 @@ def Cum_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
         result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
         result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
         result.loc[j, 'response'] = cal_pred.loc[i, 'response']
+        
+
+        # Curve fit equation
+        x = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+        y = cal_pred.loc[0:i-1, 'response'].to_numpy()
+        
+        if deg == 1:
+            popt, pcov = curve_fit(linear_func, x, y)
+            result.loc[j, 'coeff_1x'] = popt[0]
+            result.loc[j, 'coeff_0x'] = popt[1]
+        else:
+            popt, pcov = curve_fit(quad_func, x, y)
+            result.loc[j, 'coeff_2x'] = popt[0]
+            result.loc[j, 'coeff_1x'] = popt[1]
+            result.loc[j, 'coeff_0x'] = popt[2]
+            
+        # Calculate prediction and deviation
+        if deg == 1:
+            prediction = cal_pred.loc[i, 'dose'] * popt[0] + popt[1]
+        else: 
+            prediction = (cal_pred.loc[i, 'dose'] ** 2) * popt[0] + cal_pred.loc[i, 'dose'] * popt[1] + popt[2]
+
+        result.loc[j, 'prediction'] = prediction
+        deviation = cal_pred.loc[i, 'response'] - prediction
+        result.loc[j, 'deviation'] = deviation
+        abs_deviation = abs(deviation)
+        result.loc[j, 'abs_deviation'] = abs_deviation
+        
         j = j + 1
 
     list_of_result_df.append(result)
@@ -298,6 +328,35 @@ def Cum_origin_dp(deg, cal_pred, result, method_string, list_of_result_df):
         result.loc[j, 'fit_response_2':'fit_response_' + str(i+1)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
         result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
         result.loc[j, 'response'] = cal_pred.loc[i, 'response']
+
+        # Curve fit equation
+        x = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+        x = np.insert(x, 0, 0)
+        y = cal_pred.loc[0:i-1, 'response'].to_numpy()
+        y = np.insert(y, 0, 0)
+        
+        if deg == 1:
+            popt, pcov = curve_fit(linear_func, x, y)
+            result.loc[j, 'coeff_1x'] = popt[0]
+            result.loc[j, 'coeff_0x'] = popt[1]
+        else:
+            popt, pcov = curve_fit(quad_func, x, y)
+            result.loc[j, 'coeff_2x'] = popt[0]
+            result.loc[j, 'coeff_1x'] = popt[1]
+            result.loc[j, 'coeff_0x'] = popt[2]
+            
+        # Calculate prediction and deviation
+        if deg == 1:
+            prediction = cal_pred.loc[i, 'dose'] * popt[0] + popt[1]
+        else: 
+            prediction = (cal_pred.loc[i, 'dose'] ** 2) * popt[0] + cal_pred.loc[i, 'dose'] * popt[1] + popt[2]
+
+        result.loc[j, 'prediction'] = prediction
+        deviation = cal_pred.loc[i, 'response'] - prediction
+        result.loc[j, 'deviation'] = deviation
+        abs_deviation = abs(deviation)
+        result.loc[j, 'abs_deviation'] = abs_deviation
+
         j = j + 1
 
     list_of_result_df.append(result)
@@ -329,8 +388,6 @@ def PPM_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
     Output:
     list_of_result_df
     """
-    
-    
     j = 0
 
     result = result[0:0]
