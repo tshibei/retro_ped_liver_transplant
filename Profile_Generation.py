@@ -266,3 +266,148 @@ def Cum_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
     list_of_result_df.append(result)
 
     return list_of_result_df
+
+def Cum_origin_dp(deg, cal_pred, result, method_string, list_of_result_df):
+    """
+    Prepare input dataframe for Cum_origin_dp method
+
+    Input:
+    deg - degree of polynomial fit, 1 for linear, 2 for quadratic
+    cal_pred - dataframe of calibration and efficacy-driven dosing data, 
+                cal_pred_linear for linear, cal_pred_quad for quad
+    result - dataframe of results
+    method_string - string of method
+    list_of_result_df - list of result dataframe from each patient
+
+    Output:
+    list_of_result_df
+    """
+    j = 0
+
+    result = result[0:0]
+
+    # Prepare dataframe for Cum_origin_dp
+    for i in range(deg + 1, len(cal_pred)):
+
+        result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
+        result.loc[j, 'method'] = method_string
+        result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
+        result.loc[j, 'fit_dose_1'] = 0
+        result.loc[j, 'fit_dose_2':'fit_dose_' + str(i+1)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+        result.loc[j, 'fit_response_1'] = 0
+        result.loc[j, 'fit_response_2':'fit_response_' + str(i+1)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+        result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
+        result.loc[j, 'response'] = cal_pred.loc[i, 'response']
+        j = j + 1
+
+    list_of_result_df.append(result)
+    
+    return list_of_result_df
+
+def linear_func(x, a, b):
+    return a * x + b
+
+def quad_func(x, a, b, c):
+    return a * (x ** 2) + b * x + c
+
+
+def PPM_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
+    """
+    Prepare input dataframe for PPM_wo_origin method. 
+    For first prediction, fill up dose and response to be fitted. Then fill in coefficients, prediction and deviation of fit.
+    For second and following predictions, fill up dose and response of prediction day, fill in previous coefficients and deviations,
+    shift last coefficient by previous deviation, fill in prediction and deviation of fit.
+
+    Input:
+    deg - degree of polynomial fit, 1 for linear, 2 for quadratic
+    cal_pred - dataframe of calibration and efficacy-driven dosing data, 
+                cal_pred_linear for linear, cal_pred_quad for quad
+    result - dataframe of results
+    method_string - string of method
+    list_of_result_df - list of result dataframe from each patient
+
+    Output:
+    list_of_result_df
+    """
+    
+    
+    j = 0
+
+    result = result[0:0]
+
+    for i in range(deg + 1, len(cal_pred)):
+
+        # First prediction
+        if j == 0:                    
+            result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
+            result.loc[j, 'method'] = method_string
+            result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
+            result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+            result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+            result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
+            result.loc[j, 'response'] = cal_pred.loc[i, 'response']
+
+            # Curve fit equation
+            x = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+            y = cal_pred.loc[0:i-1, 'response'].to_numpy()
+            
+            if deg == 1:
+                popt, pcov = curve_fit(linear_func, x, y)
+                result.loc[j, 'coeff_1x'] = popt[0]
+                result.loc[j, 'coeff_0x'] = popt[1]
+            else:
+                popt, pcov = curve_fit(quad_func, x, y)
+                result.loc[j, 'coeff_2x'] = popt[0]
+                result.loc[j, 'coeff_1x'] = popt[1]
+                result.loc[j, 'coeff_0x'] = popt[2]
+
+            # Calculate prediction and deviation
+            if deg == 1:
+                prediction = cal_pred.loc[i, 'dose'] * popt[0] + popt[1]
+            else: 
+                prediction = (cal_pred.loc[i, 'dose'] ** 2) * popt[0] + cal_pred.loc[i, 'dose'] * popt[1] + popt[2]
+                
+            result.loc[j, 'prediction'] = prediction
+            deviation = cal_pred.loc[i, 'response'] - prediction
+            result.loc[j, 'deviation'] = deviation
+            abs_deviation = abs(deviation)
+            result.loc[j, 'abs_deviation'] = abs_deviation
+
+            j = j + 1
+
+        # Second prediction onwards
+        else:               
+            result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
+            result.loc[j, 'method'] = method_string
+            result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
+            result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
+            result.loc[j, 'response'] = cal_pred.loc[i, 'response']
+
+            # Fill in previous coeff and deviation
+            result.loc[j, 'prev_coeff_2x'] = result.loc[j-1, 'coeff_2x']
+            result.loc[j, 'prev_coeff_1x'] = result.loc[j-1, 'coeff_1x']
+            result.loc[j, 'prev_coeff_0x'] = result.loc[j-1, 'coeff_0x']
+            result.loc[j, 'prev_deviation'] = result.loc[j-1, 'deviation']
+
+            # Shift last coefficient by previous deviation
+            result.loc[j, 'coeff_2x'] = result.loc[j, 'prev_coeff_2x']
+            result.loc[j, 'coeff_1x'] = result.loc[j, 'prev_coeff_1x']
+            result.loc[j, 'coeff_0x'] = result.loc[j, 'prev_coeff_0x'] + result.loc[j, 'prev_deviation']
+
+            # Calculate prediction and deviation
+            if deg == 1:
+                prediction = result.loc[j, 'dose'] * result.loc[j, 'coeff_1x'] +  result.loc[j, 'coeff_0x']
+            else:
+                prediction = (result.loc[j, 'dose'] ** 2) * result.loc[j, 'coeff_2x'] + result.loc[j, 'dose'] * result.loc[j, 'coeff_1x'] +  result.loc[j, 'coeff_0x']
+            
+            result.loc[j, 'prediction'] = prediction
+            deviation =  result.loc[j, 'response'] - prediction
+            result.loc[j, 'deviation'] = deviation
+            abs_deviation = abs(deviation)
+            result.loc[j, 'abs_deviation'] = abs_deviation
+
+            j = j + 1
+
+    list_of_result_df.append(result)
+    
+    return list_of_result_df
