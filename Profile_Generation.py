@@ -234,7 +234,7 @@ def keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclud
 
 # Prepare patient dataframe for prediction and apply method
 
-def Cum_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
+def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin'):
     """
     Prepare dataframe and apply Cum_wo_origin method
 
@@ -259,16 +259,24 @@ def Cum_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
         result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
         result.loc[j, 'method'] = method_string
         result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
-        result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
-        result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+        if origin_inclusion == 'wo_origin':
+            result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+            result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+        elif origin_inclusion == 'origin_dp':
+            result.loc[j, 'fit_dose_1'] = 0
+            result.loc[j, 'fit_dose_2':'fit_dose_' + str(i+1)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
+            result.loc[j, 'fit_response_1'] = 0
+            result.loc[j, 'fit_response_2':'fit_response_' + str(i+1)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
         result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
         result.loc[j, 'response'] = cal_pred.loc[i, 'response']
-        
 
         # Curve fit equation
-        x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)].to_numpy()
-        y = result.loc[j, 'fit_response_1':'fit_response_' + str(i)].to_numpy()
-        
+        if origin_inclusion == 'wo_origin':
+            x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)].to_numpy()
+            y = result.loc[j, 'fit_response_1':'fit_response_' + str(i)].to_numpy()
+        elif origin_inclusion == 'origin_dp':
+            x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i+1)].to_numpy()
+            y = result.loc[j, 'fit_response_1':'fit_response_' + str(i+1)].to_numpy()
         if deg == 1:
             popt, pcov = curve_fit(linear_func, x, y)
             result.loc[j, 'coeff_1x'] = popt[0]
@@ -295,70 +303,6 @@ def Cum_wo_origin(deg, cal_pred, result, method_string, list_of_result_df):
 
     list_of_result_df.append(result)
 
-    return list_of_result_df
-
-def Cum_origin_dp(deg, cal_pred, result, method_string, list_of_result_df):
-    """
-    Prepare input dataframe for Cum_origin_dp method
-
-    Input:
-    deg - degree of polynomial fit, 1 for linear, 2 for quadratic
-    cal_pred - dataframe of calibration and efficacy-driven dosing data, 
-                cal_pred_linear for linear, cal_pred_quad for quad
-    result - dataframe of results
-    method_string - string of method
-    list_of_result_df - list of result dataframe from each patient
-
-    Output:
-    list_of_result_df
-    """
-    j = 0
-
-    result = result[0:0]
-
-    # Prepare dataframe for Cum_origin_dp
-    for i in range(deg + 1, len(cal_pred)):
-
-        result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
-        result.loc[j, 'method'] = method_string
-        result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
-        result.loc[j, 'fit_dose_1'] = 0
-        result.loc[j, 'fit_dose_2':'fit_dose_' + str(i+1)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
-        result.loc[j, 'fit_response_1'] = 0
-        result.loc[j, 'fit_response_2':'fit_response_' + str(i+1)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
-        result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
-        result.loc[j, 'response'] = cal_pred.loc[i, 'response']
-
-        # Curve fit equation
-        x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i+1)].to_numpy()
-        y = result.loc[j, 'fit_response_1':'fit_response_' + str(i+1)].to_numpy()
-        
-        if deg == 1:
-            popt, pcov = curve_fit(linear_func, x, y)
-            result.loc[j, 'coeff_1x'] = popt[0]
-            result.loc[j, 'coeff_0x'] = popt[1]
-        else:
-            popt, pcov = curve_fit(quad_func, x, y)
-            result.loc[j, 'coeff_2x'] = popt[0]
-            result.loc[j, 'coeff_1x'] = popt[1]
-            result.loc[j, 'coeff_0x'] = popt[2]
-            
-        # Calculate prediction and deviation
-        if deg == 1:
-            prediction = cal_pred.loc[i, 'dose'] * popt[0] + popt[1]
-        else: 
-            prediction = (cal_pred.loc[i, 'dose'] ** 2) * popt[0] + cal_pred.loc[i, 'dose'] * popt[1] + popt[2]
-
-        result.loc[j, 'prediction'] = prediction
-        deviation = cal_pred.loc[i, 'response'] - prediction
-        result.loc[j, 'deviation'] = deviation
-        abs_deviation = abs(deviation)
-        result.loc[j, 'abs_deviation'] = abs_deviation
-
-        j = j + 1
-
-    list_of_result_df.append(result)
-    
     return list_of_result_df
 
 def linear_func(x, a, b):
@@ -477,4 +421,136 @@ def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 
     list_of_result_df.append(result)
     
+    return list_of_result_df
+
+def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin'):
+    """
+    Prepare input dataframe for RW method then apply method.
+    Choose last deg + 1 unique dose-response pairs for RW.  
+
+    Input:
+    deg - degree of polynomial fit, 1 for linear, 2 for quadratic
+    cal_pred - dataframe of calibration and efficacy-driven dosing data, 
+                cal_pred_linear for linear, cal_pred_quad for quad
+    result - dataframe of results
+    method_string - string of method
+    list_of_result_df - list of result dataframe from each patient
+
+    Output:
+    list_of_result_df
+    """
+    values = []
+    indices = []
+    
+    j = 0
+
+    result = result[0:0]
+
+    # Find values and indices of dose-response pairs for RW:
+
+    # Loop through rows
+    for i in range(0, len(cal_pred)-1):
+
+        # Define new dose
+        new_dose = cal_pred.loc[i, 'dose']
+
+        # Add values and indices of first three unique doses into list
+        if len(values) < deg + 1:
+
+            # Check if new dose in values list
+            # If not, append new dose into value list and append index into indices list
+            if new_dose not in values:
+                values.append(new_dose)
+                indices.append(i)
+
+        else:
+            # Check if new dose in value list
+            # If yes: remove value and index of repeat, and append new dose and index to list.
+            if new_dose in values:
+                repeated_dose_index = values.index(new_dose)
+                values.pop(repeated_dose_index)
+                indices.pop(repeated_dose_index)
+
+                values.append(new_dose)
+                indices.append(i)
+
+            # If no: remove the first element of list and append value and index of new dose
+            else:
+                values.pop(0)
+                indices.pop(0)
+
+                values.append(new_dose)
+                indices.append(i)
+
+        # Prepare dataframe of dose-response pairs for prediction
+        if len(indices) == deg + 1:
+            
+            result.loc[j, 'patient'] = cal_pred.loc[i + 1, 'patient']
+            result.loc[j, 'method'] = method_string
+            result.loc[j, 'pred_day'] = cal_pred.loc[i + 1, 'day']
+            
+            # Fill in fitted dose
+            if origin_inclusion == 'wo_origin':
+                result.loc[j, 'fit_dose_1'] = cal_pred.loc[indices[0], 'dose']
+                result.loc[j, 'fit_dose_2'] = cal_pred.loc[indices[1], 'dose']
+                if deg == 2:
+                    result.loc[j, 'fit_dose_3'] = cal_pred.loc[indices[2], 'dose']
+            elif origin_inclusion == 'origin_dp':
+                result.loc[j, 'fit_dose_1'] = 0
+                result.loc[j, 'fit_dose_2'] = cal_pred.loc[indices[0], 'dose']
+                result.loc[j, 'fit_dose_3'] = cal_pred.loc[indices[1], 'dose']
+                if deg == 2:
+                    result.loc[j, 'fit_dose_4'] = cal_pred.loc[indices[2], 'dose']
+            
+            # Fill in fitted response
+            if origin_inclusion == 'wo_origin':
+                result.loc[j, 'fit_response_1'] = cal_pred.loc[indices[0], 'response']
+                result.loc[j, 'fit_response_2'] = cal_pred.loc[indices[1], 'response']
+                if deg == 2:
+                    result.loc[j, 'fit_response_3'] = cal_pred.loc[indices[2], 'response']
+            elif origin_inclusion == 'origin_dp':
+                result.loc[j, 'fit_response_1'] = 0
+                result.loc[j, 'fit_response_2'] = cal_pred.loc[indices[0], 'response']
+                result.loc[j, 'fit_response_3'] = cal_pred.loc[indices[1], 'response']
+                if deg == 2:
+                    result.loc[j, 'fit_response_4'] = cal_pred.loc[indices[2], 'response']
+            
+            result.loc[j, 'dose'] = cal_pred.loc[i + 1, 'dose']
+            result.loc[j, 'response'] = cal_pred.loc[i + 1, 'response']
+            
+            # Curve fit equation
+            if origin_inclusion == 'wo_origin':
+                x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(deg + 1)].to_numpy()
+                y = result.loc[j, 'fit_response_1':'fit_response_' + str(deg + 1)].to_numpy()
+            elif origin_inclusion == 'origin_dp':
+                x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(deg + 2)].to_numpy()
+                y = result.loc[j, 'fit_response_1':'fit_response_' + str(deg + 2)].to_numpy()
+
+            if deg == 1:
+                popt, pcov = curve_fit(linear_func, x, y)
+                result.loc[j, 'coeff_1x'] = popt[0]
+                result.loc[j, 'coeff_0x'] = popt[1]
+            else:
+                popt, pcov = curve_fit(quad_func, x, y)
+                result.loc[j, 'coeff_2x'] = popt[0]
+                result.loc[j, 'coeff_1x'] = popt[1]
+                result.loc[j, 'coeff_0x'] = popt[2]
+                
+            # Calculate prediction and deviation
+            if deg == 1:
+                prediction = cal_pred.loc[i + 1, 'dose'] * popt[0] + popt[1]
+            else: 
+                prediction = (cal_pred.loc[i + 1, 'dose'] ** 2) * popt[0] + cal_pred.loc[i + 1, 'dose'] * popt[1] + popt[2]
+                
+            result.loc[j, 'prediction'] = prediction
+            deviation = cal_pred.loc[i + 1, 'response'] - prediction
+            result.loc[j, 'deviation'] = deviation
+            abs_deviation = abs(deviation)
+            result.loc[j, 'abs_deviation'] = abs_deviation
+            
+        j = j + 1
+    
+    list_of_result_df.append(result)
+        
+        
     return list_of_result_df

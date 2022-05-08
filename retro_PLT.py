@@ -80,18 +80,24 @@ for patient in list_of_patients:
 
         if patient not in patients_to_exclude_linear:
             deg = 1
-            list_of_result_df = Cum_wo_origin(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df)
-            list_of_result_df = Cum_origin_dp(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df)
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin', list_of_result_df)
+            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df, 'wo_origin')
+            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df, 'origin_dp')
+            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin', list_of_result_df, 'wo_origin')
             list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_dp', list_of_result_df, 'origin_dp')
-                    
+            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_wo_origin', list_of_result_df, 'wo_origin')
+            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_dp', list_of_result_df, 'origin_dp')
+            
+            
+            
         if patient not in patients_to_exclude_quad:
             deg = 2
-            list_of_result_df = Cum_wo_origin(deg, cal_pred_quad, result, 'Q_Cum_wo_origin', list_of_result_df)
-            list_of_result_df = Cum_origin_dp(deg, cal_pred_quad, result, 'Q_Cum_origin_dp', list_of_result_df)
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin', list_of_result_df)
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp', list_of_result_df)
-        
+            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin', list_of_result_df, 'wo_origin')
+            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp', list_of_result_df, 'origin_dp')
+            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin', list_of_result_df, 'wo_origin')
+            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp', list_of_result_df, 'origin_dp')
+            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_wo_origin', list_of_result_df, 'wo_origin')
+            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_dp', list_of_result_df, 'origin_dp')
+
 # Print patients to exclude        
 patients_to_exclude_linear = sorted(set(patients_to_exclude_linear))
 patients_to_exclude_quad = sorted(set(patients_to_exclude_quad))
@@ -120,6 +126,8 @@ result_df
 
 # -
 
+
+list().pop()
 
 cal_pred
 
