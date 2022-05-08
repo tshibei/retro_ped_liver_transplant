@@ -126,6 +126,7 @@ result_df = result_df[col_names]
 result_df.patient = result_df.patient.apply(int)
 result_df.pred_day = result_df.pred_day.apply(int)
 result_df.sort_values(['patient', 'method', 'pred_day'], inplace=True)
+result_df = result_df.reset_index(drop=True)
 result_df
 
 # -
