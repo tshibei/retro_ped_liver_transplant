@@ -513,14 +513,15 @@ def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion
                 indices.append(i)
 
         # Prepare dataframe of dose-response pairs for prediction
-        if len(indices) == deg + 1:
-            
+        counter_for_origin_int = 1
+        if len(indices) == deg + 1:            
+
             result.loc[j, 'patient'] = cal_pred.loc[i + 1, 'patient']
             result.loc[j, 'method'] = method_string
             result.loc[j, 'pred_day'] = cal_pred.loc[i + 1, 'day']
             
             # Fill in fitted dose
-            if origin_inclusion == 'wo_origin':
+            if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
                 result.loc[j, 'fit_dose_1'] = cal_pred.loc[indices[0], 'dose']
                 result.loc[j, 'fit_dose_2'] = cal_pred.loc[indices[1], 'dose']
                 if deg == 2:
@@ -533,7 +534,7 @@ def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion
                     result.loc[j, 'fit_dose_4'] = cal_pred.loc[indices[2], 'dose']
             
             # Fill in fitted response
-            if origin_inclusion == 'wo_origin':
+            if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
                 result.loc[j, 'fit_response_1'] = cal_pred.loc[indices[0], 'response']
                 result.loc[j, 'fit_response_2'] = cal_pred.loc[indices[1], 'response']
                 if deg == 2:
@@ -549,7 +550,7 @@ def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion
             result.loc[j, 'response'] = cal_pred.loc[i + 1, 'response']
             
             # Curve fit equation
-            if origin_inclusion == 'wo_origin':
+            if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
                 x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(deg + 1)].to_numpy()
                 y = result.loc[j, 'fit_response_1':'fit_response_' + str(deg + 1)].to_numpy()
             elif origin_inclusion == 'origin_dp':
@@ -557,14 +558,25 @@ def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion
                 y = result.loc[j, 'fit_response_1':'fit_response_' + str(deg + 2)].to_numpy()
 
             if deg == 1:
-                popt, pcov = curve_fit(linear_func, x, y)
-                result.loc[j, 'coeff_1x'] = popt[0]
-                result.loc[j, 'coeff_0x'] = popt[1]
+                if (counter_for_origin_int == 1) and (origin_inclusion == 'origin_int'):
+                    popt, pcov = curve_fit(linear_func_origin_int, x, y)
+                    result.loc[j, 'coeff_1x'] = popt[0]
+                    result.loc[j, 'coeff_0x'] = popt[1]
+                else:  
+                    popt, pcov = curve_fit(linear_func, x, y)
+                    result.loc[j, 'coeff_1x'] = popt[0]
+                    result.loc[j, 'coeff_0x'] = popt[1]
             else:
-                popt, pcov = curve_fit(quad_func, x, y)
-                result.loc[j, 'coeff_2x'] = popt[0]
-                result.loc[j, 'coeff_1x'] = popt[1]
-                result.loc[j, 'coeff_0x'] = popt[2]
+                if (counter_for_origin_int == 1) and (origin_inclusion == 'origin_int'):
+                    popt, pcov = curve_fit(quad_func_origin_int, x, y)
+                    result.loc[j, 'coeff_2x'] = popt[0]
+                    result.loc[j, 'coeff_1x'] = popt[1]
+                    result.loc[j, 'coeff_0x'] = popt[2]
+                else:
+                    popt, pcov = curve_fit(quad_func, x, y)
+                    result.loc[j, 'coeff_2x'] = popt[0]
+                    result.loc[j, 'coeff_1x'] = popt[1]
+                    result.loc[j, 'coeff_0x'] = popt[2]
                 
             # Calculate prediction and deviation
             if deg == 1:
@@ -577,6 +589,8 @@ def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion
             result.loc[j, 'deviation'] = deviation
             abs_deviation = abs(deviation)
             result.loc[j, 'abs_deviation'] = abs_deviation
+
+            counter_for_origin_int = counter_for_origin_int + 1
             
         j = j + 1
     
