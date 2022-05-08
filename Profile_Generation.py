@@ -259,7 +259,7 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
         result.loc[j, 'patient'] = cal_pred.loc[i, 'patient']
         result.loc[j, 'method'] = method_string
         result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
-        if origin_inclusion == 'wo_origin':
+        if (origin_inclusion == 'wo_origin') or (origin_inclusion =='origin_int'):
             result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
             result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
         elif origin_inclusion == 'origin_dp':
@@ -267,25 +267,38 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
             result.loc[j, 'fit_dose_2':'fit_dose_' + str(i+1)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
             result.loc[j, 'fit_response_1'] = 0
             result.loc[j, 'fit_response_2':'fit_response_' + str(i+1)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+        
         result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
         result.loc[j, 'response'] = cal_pred.loc[i, 'response']
 
         # Curve fit equation
-        if origin_inclusion == 'wo_origin':
+        if origin_inclusion == 'wo_origin' or origin_inclusion == 'origin_int':
             x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)].to_numpy()
             y = result.loc[j, 'fit_response_1':'fit_response_' + str(i)].to_numpy()
         elif origin_inclusion == 'origin_dp':
             x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i+1)].to_numpy()
             y = result.loc[j, 'fit_response_1':'fit_response_' + str(i+1)].to_numpy()
+        
         if deg == 1:
-            popt, pcov = curve_fit(linear_func, x, y)
-            result.loc[j, 'coeff_1x'] = popt[0]
-            result.loc[j, 'coeff_0x'] = popt[1]
+            if origin_inclusion == 'origin_int':
+                popt, pcov = curve_fit(linear_func_origin_int, x, y)
+                result.loc[j, 'coeff_1x'] = popt[0]
+                result.loc[j, 'coeff_0x'] = popt[1]
+            else:
+                popt, pcov = curve_fit(linear_func, x, y)
+                result.loc[j, 'coeff_1x'] = popt[0]
+                result.loc[j, 'coeff_0x'] = popt[1]
         else:
-            popt, pcov = curve_fit(quad_func, x, y)
-            result.loc[j, 'coeff_2x'] = popt[0]
-            result.loc[j, 'coeff_1x'] = popt[1]
-            result.loc[j, 'coeff_0x'] = popt[2]
+            if origin_inclusion == 'origin_int':
+                popt, pcov = curve_fit(quad_func_origin_int, x, y)
+                result.loc[j, 'coeff_2x'] = popt[0]
+                result.loc[j, 'coeff_1x'] = popt[1]
+                result.loc[j, 'coeff_0x'] = popt[2]
+            else:
+                popt, pcov = curve_fit(quad_func, x, y)
+                result.loc[j, 'coeff_2x'] = popt[0]
+                result.loc[j, 'coeff_1x'] = popt[1]
+                result.loc[j, 'coeff_0x'] = popt[2]
             
         # Calculate prediction and deviation
         if deg == 1:
@@ -308,8 +321,14 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 def linear_func(x, a, b):
     return a * x + b
 
+def linear_func_origin_int(x, a, b):
+    return a * x + 0
+
 def quad_func(x, a, b, c):
     return a * (x ** 2) + b * x + c
+
+def quad_func_origin_int(x, a, b, c):
+    return a * (x ** 2) + b * x + 0
 
 
 def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin'):
@@ -342,7 +361,7 @@ def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
             result.loc[j, 'method'] = method_string
             result.loc[j, 'pred_day'] = cal_pred.loc[i, 'day']
 
-            if origin_inclusion == 'wo_origin':
+            if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
                 result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
                 result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
             elif origin_inclusion == 'origin_dp':
@@ -355,7 +374,7 @@ def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
             result.loc[j, 'response'] = cal_pred.loc[i, 'response']
 
             # Curve fit equation
-            if origin_inclusion == 'wo_origin':
+            if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
                 x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)].to_numpy()
                 y = result.loc[j, 'fit_response_1':'fit_response_' + str(i)].to_numpy()
             elif origin_inclusion == 'origin_dp':
@@ -363,14 +382,25 @@ def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
                 y = result.loc[j, 'fit_response_1':'fit_response_' + str(i+1)].to_numpy()
 
             if deg == 1:
-                popt, pcov = curve_fit(linear_func, x, y)
-                result.loc[j, 'coeff_1x'] = popt[0]
-                result.loc[j, 'coeff_0x'] = popt[1]
+                if origin_inclusion == 'origin_int':
+                    popt, pcov = curve_fit(linear_func_origin_int, x, y)
+                    result.loc[j, 'coeff_1x'] = popt[0]
+                    result.loc[j, 'coeff_0x'] = popt[1]
+                else:
+                    popt, pcov = curve_fit(linear_func, x, y)
+                    result.loc[j, 'coeff_1x'] = popt[0]
+                    result.loc[j, 'coeff_0x'] = popt[1]
             else:
-                popt, pcov = curve_fit(quad_func, x, y)
-                result.loc[j, 'coeff_2x'] = popt[0]
-                result.loc[j, 'coeff_1x'] = popt[1]
-                result.loc[j, 'coeff_0x'] = popt[2]
+                if origin_inclusion == 'origin_int':
+                    popt, pcov = curve_fit(quad_func_origin_int, x, y)
+                    result.loc[j, 'coeff_2x'] = popt[0]
+                    result.loc[j, 'coeff_1x'] = popt[1]
+                    result.loc[j, 'coeff_0x'] = popt[2]
+                else:
+                    popt, pcov = curve_fit(quad_func, x, y)
+                    result.loc[j, 'coeff_2x'] = popt[0]
+                    result.loc[j, 'coeff_1x'] = popt[1]
+                    result.loc[j, 'coeff_0x'] = popt[2]
 
             # Calculate prediction and deviation
             if deg == 1:
