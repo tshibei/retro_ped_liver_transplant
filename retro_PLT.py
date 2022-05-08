@@ -45,62 +45,27 @@ list_of_patients = get_sheet_names(input_file)
 list_of_patient_df = []
 list_of_cal_pred_df = []
 list_of_result_df = []
-
 patients_to_exclude_linear = []
 patients_to_exclude_quad = []
 
 for patient in list_of_patients:
-        
-    df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
     
+    # Create and clean patient dataframe        
+    df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
     df = clean_data(df, patient)
     df = keep_ideal_data(df, patient, list_of_patient_df)
         
-    # Choose and keep data for calibration and efficacy-driven dosing
+    # Select data for calibration and efficacy-driven dosing
     cal_pred_linear, patients_to_exclude_linear = cal_pred_data(df, patient, patients_to_exclude_linear, 1)
     cal_pred_quad, patients_to_exclude_quad = cal_pred_data(df, patient, patients_to_exclude_quad, 2)
     
-    # Keep patient data with sufficient dose-response pairs and predictions
+    # Keep patients with sufficient dose-response pairs and predictions for each method
     cal_pred, list_of_cal_pred_df = keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclude_quad, 
                                                      cal_pred_linear, cal_pred_quad, list_of_cal_pred_df)   
     
-    if len(cal_pred) != 0:
-    
-        # Prepare dataframe for prediction
-        # Create result DataFrame
-        max_count_input = len(cal_pred_linear)
-
-        col_names = ['patient', 'method', 'pred_day'] + \
-                    ['fit_dose_' + str(i) for i in range(1, max_count_input + 1)] + \
-                    ['fit_response_' + str(i) for i in range(1, max_count_input + 1)] + \
-                    ['dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
-                     'prev_deviation', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation',
-                     'abs_deviation']
-        result = pd.DataFrame(columns=col_names)
-
-        if patient not in patients_to_exclude_linear:
-            deg = 1
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df, 'wo_origin')
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df, 'origin_dp')
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int', list_of_result_df, 'origin_int')
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin', list_of_result_df, 'wo_origin')
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_dp', list_of_result_df, 'origin_dp')
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_int', list_of_result_df, 'origin_int')
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_wo_origin', list_of_result_df, 'wo_origin')
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_dp', list_of_result_df, 'origin_dp')
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_int', list_of_result_df, 'origin_int')
-            
-        if patient not in patients_to_exclude_quad:
-            deg = 2
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin', list_of_result_df, 'wo_origin')
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp', list_of_result_df, 'origin_dp')
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_int', list_of_result_df, 'origin_int')
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin', list_of_result_df, 'wo_origin')
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp', list_of_result_df, 'origin_dp')
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_int', list_of_result_df, 'origin_int')
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_wo_origin', list_of_result_df, 'wo_origin')
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_dp', list_of_result_df, 'origin_dp')
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_int', list_of_result_df, 'origin_int')
+    # Apply methods
+    list_of_result_df = apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exclude_quad,
+              cal_pred_linear, cal_pred_quad, list_of_result_df)
 
 # Print patients to exclude        
 patients_to_exclude_linear = sorted(set(patients_to_exclude_linear))
@@ -111,24 +76,9 @@ print(f"Patients to exclude for quad methods: {patients_to_exclude_quad}")
 # Join dataframes from individual patients
 df = pd.concat(list_of_patient_df)
 df.reset_index(inplace=True, drop=True)
-
 cal_pred = pd.concat(list_of_cal_pred_df)
-
 result_df = pd.concat(list_of_result_df)
-max_count_input = cal_pred[cal_pred['type']=='linear'].groupby('patient').count().max()['dose']
-col_names = ['patient', 'method', 'pred_day'] + \
-            ['fit_dose_' + str(i) for i in range(1, max_count_input + 1)] + \
-            ['fit_response_' + str(i) for i in range(1, max_count_input + 1)] + \
-            ['dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
-             'prev_deviation', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation',
-             'abs_deviation']
-result_df = result_df[col_names]
-result_df.patient = result_df.patient.apply(int)
-result_df.pred_day = result_df.pred_day.apply(int)
-result_df.sort_values(['patient', 'method', 'pred_day'], inplace=True)
-result_df = result_df.reset_index(drop=True)
-result_df
-
+result_df = format_result_df(cal_pred, result_df)
 # -
 
 
