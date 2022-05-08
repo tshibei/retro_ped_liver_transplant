@@ -14,9 +14,6 @@ def get_sheet_names(input_file):
 
 def clean_data(df, patient):
     """ 
-    Clean data. Returns cleaned dataframe.
-    
-    Details:
     Keep target columns from excel, shift tac level one cell up, remove "mg"/"ng" 
     from dose, replace NaN with 0 in dose.
     
@@ -292,9 +289,21 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
 
     return list_of_result_df
 
+def linear_func(x, a, b):
+    return a * x + b
+
+def linear_func_origin_int(x, a, b):
+    return a * x + 0
+
+def quad_func(x, a, b, c):
+    return a * (x ** 2) + b * x + c
+
+def quad_func_origin_int(x, a, b, c):
+    return a * (x ** 2) + b * x + 0
+
 def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin'):
     """
-    Prepare dataframe and apply Cum_wo_origin method
+    Prepare dataframe for and apply Cum method.
 
     Input:
     deg - degree of polynomial fit, 1 for linear, 2 for quadratic
@@ -375,19 +384,6 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
     list_of_result_df.append(result)
 
     return list_of_result_df
-
-def linear_func(x, a, b):
-    return a * x + b
-
-def linear_func_origin_int(x, a, b):
-    return a * x + 0
-
-def quad_func(x, a, b, c):
-    return a * (x ** 2) + b * x + c
-
-def quad_func_origin_int(x, a, b, c):
-    return a * (x ** 2) + b * x + 0
-
 
 def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin'):
     """
@@ -513,8 +509,8 @@ def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 
 def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin'):
     """
-    Prepare input dataframe for RW method then apply method.
-    Choose last deg + 1 unique dose-response pairs for RW.  
+    Choose last deg + 1 unique dose-response pairs for RW as input for RW method,
+    prepare input dataframe, apply method.
 
     Input:
     deg - degree of polynomial fit, 1 for linear, 2 for quadratic

@@ -32,9 +32,10 @@ from scipy.optimize import curve_fit
 import matplotlib.patches as patches
 from scipy.optimize import curve_fit
 from openpyxl import load_workbook
-pd.set_option('display.max_rows', None)
 
 # +
+# %%capture cap --no-stderr
+
 input_file = 'Retrospective Liver Transplant Data.xlsx'
 rows_to_skip = 17
 
@@ -75,36 +76,19 @@ print(f"Patients to exclude for quad methods: {patients_to_exclude_quad}")
 
 # Join dataframes from individual patients
 df = pd.concat(list_of_patient_df)
+df.patient = df.patient.apply(int)
 df.reset_index(inplace=True, drop=True)
 cal_pred = pd.concat(list_of_cal_pred_df)
+cal_pred.patient = cal_pred.patient.apply(int)
 result_df = pd.concat(list_of_result_df)
 result_df = format_result_df(cal_pred, result_df)
-# -
 
-
-list().pop()
-
-cal_pred
-
-# +
-
-result
-
-
-
-# -
-a = pd.DataFrame(columns=['col1', 'col2', 'COL1'])
-a.loc[0,:] = [1,2,3]
-b = pd.DataFrame(columns=['col1', 'col2', 'col3', 'COL1'])
-b.loc[0,:] = [1,2,3,4]
-pd.concat([a, b])
-
-
-        
-
-a = pd.DataFrame(columns=['a', 'b', 'c'])
-a.loc[0,'a':'c'] = 5
-a.loc[1, 'a': 'c'] = 4
-a.loc[0:1-1, 'a']
-
+# Export output and dataframes
+with open('output.txt', 'w') as f:
+    f.write(cap.stdout)
+    
+with pd.ExcelWriter('output.xlsx') as writer:
+    df.to_excel(writer, sheet_name='clean', index=False)
+    cal_pred.to_excel(writer, sheet_name='calibration_and_efficacy_driven', index=False)
+    result_df.to_excel(writer, sheet_name='result', index=False)
 
