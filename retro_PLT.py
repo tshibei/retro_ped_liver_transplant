@@ -35,7 +35,7 @@ from scipy.optimize import curve_fit
 from openpyxl import load_workbook
 
 # +
-# %%capture cap --no-stderr
+# # %%capture cap --no-stderr
 
 # Profile Generation
 
@@ -87,8 +87,8 @@ result_df = pd.concat(list_of_result_df)
 result_df = format_result_df(cal_pred, result_df)
 
 # Export output and dataframes
-with open('output.txt', 'w') as f:
-    f.write(cap.stdout)
+# with open('output.txt', 'w') as f:
+#     f.write(cap.stdout)
     
 with pd.ExcelWriter('output.xlsx') as writer:
     df.to_excel(writer, sheet_name='clean', index=False)
@@ -96,10 +96,9 @@ with pd.ExcelWriter('output.xlsx') as writer:
     result_df.to_excel(writer, sheet_name='result', index=False)
 
 # Plotting
-# perc_days_within_target_tac(cal_pred)
-# perc_days_outside_target_tac(cal_pred)
+# perc_days_within_target_tac(result_df)
+# perc_days_outside_target_tac(result_df)
 # median_perc_within_acc_dev(result_df)
-# -
-
-
+# can_benefit(result_df)
+# modified_TTR(result_df)
 

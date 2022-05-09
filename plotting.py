@@ -2,7 +2,7 @@ import seaborn as sns
 from scipy import stats
 import matplotlib.pyplot as plt
 
-def perc_days_within_target_tac(cal_pred):
+def perc_days_within_target_tac(result_df):
     """
     Barplot of percentage of days within target tac range against each patient.
     
@@ -14,48 +14,18 @@ def perc_days_within_target_tac(cal_pred):
     sns.set(font_scale=2, rc={'figure.figsize':(10,10)})
     sns.set_style('whitegrid')
 
-    dat = cal_pred[cal_pred['type']=='quadratic']
+    dat = result_df.copy()
+
+    for i in range(len(dat)):
+        if 'L' in dat.loc[i, 'method']:
+            dat.loc[i, 'type'] = 'linear'
+        else: 
+            dat.loc[i, 'type'] = 'quadratic'
+    dat = dat[['pred_day', 'patient', 'method', 'type', 'response']]
     dat = dat.reset_index(drop=True)
+
     dat['within_tac_range'] = (dat['response'] >= 8) & (dat['response'] <= 10)
-    dat = (dat.groupby('patient')['within_tac_range'].sum())/ (dat.groupby('patient')['day'].count()) * 100
-    dat = dat.to_frame()
-    dat.columns = ['perc']
-    dat.reset_index(inplace=True)
-
-    p = sns.barplot(data=dat, x='patient', y='perc', palette='Paired')
-    p.set_xlabel('Patient')
-    p.set_ylabel('Days (%)')
-    p.set_title('Days within target tacrolimus range (%)')
-    p.set_ylim([0,95])
-
-    # Shapiro test for percentages
-    shapiro_test = stats.shapiro(dat.perc)
-    if shapiro_test.pvalue < 0.05:
-        print('reject null hypothesis, assume not normal')
-    else:
-        print('fail to reject null hypothesis, assume normal')
-
-    # Descriptive stats
-    dat.perc.describe()
-    
-    return None
-
-def perc_days_outside_target_tac(cal_pred):
-    """
-    Barplot of percentage of days outside target tac range against each patient.
-    
-    Input: cal_pred - calibration and efficacy-driven dosing data for each prediction day
-    
-    Output: dat - dataframe for plotting
-    """
-    # Plot percentage of days outside target tac range
-    sns.set(font_scale=2, rc={'figure.figsize':(10,10)})
-    sns.set_style('whitegrid')
-
-    dat = cal_pred[cal_pred['type']=='quadratic']
-    dat = dat.reset_index(drop=True)
-    dat['outside_tac_range'] = (dat['response'] < 8) | (dat['response'] > 10)
-    dat = (dat.groupby('patient')['outside_tac_range'].sum())/ (dat.groupby('patient')['day'].count()) * 100
+    dat = (dat.groupby('patient')['within_tac_range'].sum())/ (dat.groupby('patient')['pred_day'].count()) * 100
     dat = dat.to_frame()
     dat.columns = ['perc']
     dat.reset_index(inplace=True)
@@ -64,7 +34,7 @@ def perc_days_outside_target_tac(cal_pred):
     p.set_xlabel('Patient')
     p.set_ylabel('Days (%)')
     p.set_title('Days outside target tacrolimus range (%)')
-    p.set_ylim([0,95])
+    p.set_ylim([0,100])
 
     # Shapiro test for percentages
     shapiro_test = stats.shapiro(dat.perc)
@@ -74,8 +44,52 @@ def perc_days_outside_target_tac(cal_pred):
         print('fail to reject null hypothesis, assume normal')
 
     # Descriptive stats
-    dat.perc.describe()
+    print(dat.perc.describe())
 
+def perc_days_outside_target_tac(result_df):
+    """
+    Barplot of percentage of days outside target tac range against each patient.
+    
+    Input: cal_pred - calibration and efficacy-driven dosing data for each prediction day
+    
+    Output: dat - dataframe for plotting
+    """
+    # Plot percentage of days within target tac range
+    sns.set(font_scale=2, rc={'figure.figsize':(10,10)})
+    sns.set_style('whitegrid')
+
+    dat = result_df.copy()
+
+    for i in range(len(dat)):
+        if 'L' in dat.loc[i, 'method']:
+            dat.loc[i, 'type'] = 'linear'
+        else: 
+            dat.loc[i, 'type'] = 'quadratic'
+    dat = dat[['pred_day', 'patient', 'method', 'type', 'response']]
+    dat = dat.reset_index(drop=True)
+
+    dat['outside_tac_range'] = (dat['response'] < 8) | (dat['response'] > 10)
+    dat = (dat.groupby('patient')['outside_tac_range'].sum())/ (dat.groupby('patient')['pred_day'].count()) * 100
+    dat = dat.to_frame()
+    dat.columns = ['perc']
+    dat.reset_index(inplace=True)
+
+    p = sns.barplot(data=dat, x='patient', y='perc', palette='Paired')
+    p.set_xlabel('Patient')
+    p.set_ylabel('Days (%)')
+    p.set_title('Days outside target tacrolimus range (%)')
+    p.set_ylim([0,100])
+
+    # Shapiro test for percentages
+    shapiro_test = stats.shapiro(dat.perc)
+    if shapiro_test.pvalue < 0.05:
+        print('reject null hypothesis, assume not normal')
+    else:
+        print('fail to reject null hypothesis, assume normal')
+
+    # Descriptive stats
+    print(dat.perc.describe())
+    
 def median_perc_within_acc_dev(result_df):
     """
     Boxplot of median percentage of predictions within acceptable deviation. Conduct Kruskal Wallis and Levene's test.
@@ -180,3 +194,138 @@ def median_perc_within_acc_dev(result_df):
     stat, p = levene(method_dat[0], method_dat[1], method_dat[2], method_dat[3], method_dat[4], method_dat[5],
                   method_dat[6], method_dat[7], method_dat[8], method_dat[9], method_dat[10], method_dat[11],
                   method_dat[12], method_dat[13], method_dat[14], method_dat[15], method_dat[16], method_dat[17])
+
+
+def can_benefit(result_df):
+    """
+    Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range.
+    Find percentage of dosing events that our model can potentially outperform SOC (when both observed and predicted values are outside range, with
+    prediction within acceptable deviation). 
+    Create boxplot of dosing events (%) against method.
+    
+    Input:
+    result_df
+    """
+    # Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
+    dat = result_df[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
+
+    # for i in range(len(dat)):
+    #     # Create function
+    #     coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+    #     coeff = coeff[~np.isnan(coeff)]
+    #     p = np.poly1d(coeff)
+    #     x = np.linspace(0, max(dat.dose)+ 2)
+    #     y = p(x)
+    #     order = y.argsort()
+    #     y = y[order]
+    #     x = x[order]
+
+    #     dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+    #     dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+    #     dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    # dat[['interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe() # Minimum 0mg, all are possible dosing events
+
+    # Find percentage of predictions where both observed and prediction response are outside range
+    for i in range(len(dat)):
+        dat.loc[i, 'both_outside'] = False
+        if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+                dat.loc[i, 'both_outside'] = True
+
+    dat['acceptable_deviation'] = (dat['deviation'] > -3) & (dat['deviation'] < 1)
+
+    dat['can_benefit'] = dat['acceptable_deviation'] & dat['both_outside']
+
+    # If can correctly identify out of range, with acceptable deviation, can benefit
+    dat = (dat.groupby(['method', 'patient'])['can_benefit'].sum()) / (dat.groupby(['method', 'patient'])['can_benefit'].count()) * 100
+    dat = dat.to_frame().reset_index()
+
+    # Shapiro test
+    # Normality test (result: assume non-normal)
+    method_arr = dat.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr: 
+        method_dat[j] = dat[dat['method']==i].can_benefit
+        shapiro_test = stats.shapiro(method_dat[j])
+        print(shapiro_test.pvalue < 0.05)
+        j = j + 1
+
+    ax = sns.boxplot(data=dat, x='method', y='can_benefit', dodge=False)
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
+    ax.set_xlabel(None)
+    ax.set_ylabel('Dosing events (%)')
+    ax.set_title('Dosing events that can potentially outperform SOC with CURATE (%)')
+    plt.legend(loc='upper right', bbox_to_anchor=(1,1))
+
+    dat.can_benefit.describe() # Shapiro test reject null hypo, assume non-normal
+
+def modified_TTR(result_df):
+    """
+    Calculate CURATE modified TTR and physician modified TTR.
+    Create barplot of modified TTR vs method grouped under 'physician' and 'CURATE'
+    
+    Input: 
+    result_df - dataframe of results of applied methods.
+    """
+    sns.set(font_scale=2, rc={'figure.figsize':(15,10)})
+    sns.set_style('whitegrid')
+
+    # Find percentage of success instances
+    dat = result_df[['patient', 'method', 'response', 'prediction']]
+
+    # CURATE success
+    for i in range(len(dat)):
+        dat.loc[i, 'success'] = False
+        if (dat.loc[i, 'response'] < 10) and (dat.loc[i, 'response'] > 8): # if both within range
+            if (dat.loc[i, 'prediction'] < 10) and (dat.loc[i, 'prediction'] > 8):
+                dat.loc[i, 'success'] = True
+        elif (dat.loc[i, 'response'] >= 10) or (dat.loc[i, 'response'] <= 8): # if both outside range
+            if (dat.loc[i, 'prediction'] >= 10) or (dat.loc[i, 'prediction'] <= 8):
+                dat.loc[i, 'success'] = True
+
+    CURATE_TTR = (dat.groupby(['method','patient'])['success'].sum())/(dat.groupby(['method','patient'])['success'].count()) * 100
+
+    # Normality test (result: assume normal)
+    CURATE_TTR = CURATE_TTR.to_frame().reset_index()
+    method_arr = CURATE_TTR.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr:
+        method_dat[j] = CURATE_TTR[CURATE_TTR['method']==i].success
+        shapiro_test = stats.shapiro(method_dat[j])
+        # print(shapiro_test.pvalue)
+        j = j + 1
+    CURATE_TTR['source'] = 'CURATE'
+
+    # Physician success
+    phys_TTR = dat[(dat['method']=='L_Cum_wo_origin') | (dat['method']=='Q_Cum_wo_origin')]
+    phys_TTR['success'] = (phys_TTR['response'] < 10) & (phys_TTR['response'] > 8)
+    phys_TTR = (phys_TTR.groupby(['method', 'patient'])['success'].sum())/(phys_TTR.groupby(['method', 'patient'])['success'].count()) * 100
+    phys_TTR = phys_TTR.to_frame().reset_index()
+    for i in range(len(phys_TTR)):
+        if 'L' in phys_TTR.loc[i, 'method']:
+            phys_TTR.loc[i, 'method'] = 'linear'
+        else:
+            phys_TTR.loc[i, 'method'] = 'quadratic'
+    phys_TTR['source'] = 'Physician'
+
+    # Normality test (result: assume normal)
+    method_arr = phys_TTR.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr: 
+        method_dat[j] = phys_TTR[phys_TTR['method']==i].success
+        # shapiro_test = stats.shapiro(method_dat[j])
+        print(shapiro_test.pvalue < 0.05)
+        j = j + 1
+
+    dat = pd.concat([CURATE_TTR, phys_TTR])
+
+    ax = sns.barplot(data=dat, x='method', y='success', hue='source', ci='sd', capsize=.2, dodge=False)
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
+    ax.set_xlabel(None)
+    ax.set_ylabel('Modified TTR (%)')
+    ax.set_title('Modified TTR for Physician vs CURATE (%)')
+    plt.legend(loc='upper right', bbox_to_anchor=(1,1))
