@@ -101,4 +101,5 @@ with pd.ExcelWriter('output.xlsx') as writer:
 # median_perc_within_acc_dev(result_df)
 # can_benefit(result_df)
 # modified_TTR(result_df)
+# wrong_range(result_df)
 

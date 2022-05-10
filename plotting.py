@@ -1,6 +1,7 @@
 import seaborn as sns
 from scipy import stats
 import matplotlib.pyplot as plt
+import pandas as pd
 
 def perc_days_within_target_tac(result_df):
     """
@@ -152,6 +153,9 @@ def median_perc_within_acc_dev(result_df):
     ax.fig.subplots_adjust(top=0.8)
     ax.fig.suptitle('Percentage of predictions where deviation is within acceptable range (%)')
     
+    print(dat.groupby(['type','approach','origin_inclusion'])['patient'].count())
+    
+
     # # Boxplot by type
     # sns.set_theme(style="whitegrid",font_scale=1.2)
     # ax = sns.catplot(data=dat, x='approach', y='acceptable', col='type', hue='origin_inclusion', kind='box')
@@ -329,3 +333,83 @@ def modified_TTR(result_df):
     ax.set_ylabel('Modified TTR (%)')
     ax.set_title('Modified TTR for Physician vs CURATE (%)')
     plt.legend(loc='upper right', bbox_to_anchor=(1,1))
+
+def wrong_range(result_df):
+    """
+    Find percentage of dosing events when model predicted wrong range. 
+    Find percentage of dosing events when SOC is outside target range.
+    Conduct Shapiro test.
+    Boxplot of percentage of wrong range against each method. 
+    
+    Input: result_df - results after all methods are applied
+    Output: boxplot
+    """
+    
+    # Find dosing events when model predicted the wrong range
+    dat = result_df[['patient', 'method', 'prediction', 'response']]
+
+    # Create boolean, true when model predict wrong range
+    for i in range(len(dat)):
+        # All False
+        dat.loc[i, 'wrong_range'] = False
+        # Unless condition 1: prediction within range, response outside range
+        if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
+            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+                dat.loc[i, 'wrong_range'] = True
+        # Unless condition 2: prediction outside range, response within range
+        elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
+                dat.loc[i, 'wrong_range'] = True
+
+    dat = (dat.groupby(['method', 'patient'])['wrong_range'].sum()) / (dat.groupby(['method', 'patient'])['wrong_range'].count()) * 100
+    dat = dat.to_frame().reset_index()
+    dat['source'] = 'CURATE'
+
+    # Create another dataframe
+    dat_physician = result_df[['patient', 'method', 'prediction', 'response']]
+    dat_physician = dat_physician[(dat_physician['method']=='L_Cum_wo_origin') | (dat_physician['method']=='Q_Cum_wo_origin')]
+    dat_physician = dat_physician.reset_index(drop=True)
+
+    # Create boolean, true if response is outside range
+    for i in range(len(dat_physician)):
+        # Set boolean default as false
+        dat_physician.loc[i, 'wrong_range'] = False
+        # Create boolean as True if outside range
+        if (dat_physician.loc[i, 'response'] > 10) or (dat_physician.loc[i, 'response'] < 8):
+            dat_physician.loc[i, 'wrong_range'] = True
+
+    dat_physician.groupby(['method', 'patient'])['wrong_range'].count()
+    dat_physician = (dat_physician.groupby(['method', 'patient'])['wrong_range'].sum()) / (dat_physician.groupby(['method', 'patient'])['wrong_range'].count()) * 100
+    dat_physician = dat_physician.to_frame().reset_index()
+    dat_physician['source'] = 'Physician'
+
+    # Rename methods to linear and quadratic only
+    for i in range(len(dat_physician)):
+        if 'L' in dat_physician.loc[i, 'method']:
+            dat_physician.loc[i, 'method'] = 'linear'
+        else:
+            dat_physician.loc[i, 'method'] = 'quadratic'
+
+    dat = pd.concat([dat, dat_physician])
+
+    # Shapiro test
+    # Normality test (result: reject, assume non-normal)
+    method_arr = dat.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr: 
+        method_dat[j] = dat[dat['method']==i].wrong_range
+        shapiro_test = stats.shapiro(method_dat[j])
+        # print(shapiro_test.pvalue < 0.05)
+        j = j + 1
+
+    # Boxplot
+    # sns.set(font_scale=2, rc={'figure.figsize':(15,10)})
+    sns.set_theme(font_scale=2)
+    sns.set_style('whitegrid')
+    ax = sns.boxplot(data=dat, x='method', y='wrong_range', hue='source', dodge=False)
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
+    ax.set_xlabel(None)
+    ax.set_ylabel('Wrong Range Predicted (%)')
+    ax.set_title('Wrong Range Predicted  (%)')
+    plt.legend(loc='upper right', bbox_to_anchor=(1.25,1))
