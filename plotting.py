@@ -334,6 +334,8 @@ def modified_TTR(result_df):
     ax.set_title('Modified TTR for Physician vs CURATE (%)')
     plt.legend(loc='upper right', bbox_to_anchor=(1,1))
 
+    return dat
+
 def wrong_range(result_df):
     """
     Find percentage of dosing events when model predicted wrong range. 
@@ -413,3 +415,5 @@ def wrong_range(result_df):
     ax.set_ylabel('Wrong Range Predicted (%)')
     ax.set_title('Wrong Range Predicted  (%)')
     plt.legend(loc='upper right', bbox_to_anchor=(1.25,1))
+
+    return dat
