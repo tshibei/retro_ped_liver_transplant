@@ -3,8 +3,87 @@ import pandas as pd
 from scipy.optimize import curve_fit
 import numpy as np
 
-# Create patient dataframe
+##### MAIN FUNCTIONS #####
+# Generate profiles
+def generate_profiles():
+    """
+    Generate profiles for patients.
+    
+    Details:
+    Define parameters and lists. Loop through patients to clean data, select data for calibration and efficacy-driven dosing, keep patients with
+    sufficient dose-response pairs and predictions for each method, then apply method.
+    
+    Outputs:
+    - patients_to_exclude_linear: list of patients to exclude for linear methods.
+    - patients_to_exclude_quad: list of patients to exclude for quadratic methods.
+    - list_of_patient_df: list of dataframes of cleaned patient data.
+    - list_of_cal_pred_df: list of dataframes of data for calibration and efficacy-driven dosing, that has sufficient dose-response pairs and predictions
+    - list_of_result_df: list of dataframes with results after applying methods.
+    """
 
+    # Profile Generation
+    input_file = 'Retrospective Liver Transplant Data.xlsx'
+    rows_to_skip = 17
+
+    # Get list of patients/sheet names
+    list_of_patients = get_sheet_names(input_file)
+
+    # Define lists
+    list_of_patient_df = []
+    list_of_cal_pred_df = []
+    list_of_result_df = []
+    patients_to_exclude_linear = []
+    patients_to_exclude_quad = []
+
+    for patient in list_of_patients:
+
+        # Create and clean patient dataframe        
+        df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
+        df = clean_data(df, patient)
+        df = keep_ideal_data(df, patient, list_of_patient_df)
+
+        # Select data for calibration and efficacy-driven dosing
+        cal_pred_linear, patients_to_exclude_linear = cal_pred_data(df, patient, patients_to_exclude_linear, 1)
+        cal_pred_quad, patients_to_exclude_quad = cal_pred_data(df, patient, patients_to_exclude_quad, 2)
+
+        # Keep patients with sufficient dose-response pairs and predictions for each method
+        cal_pred, list_of_cal_pred_df = keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclude_quad, 
+                                                         cal_pred_linear, cal_pred_quad, list_of_cal_pred_df)   
+
+        # Apply methods
+        list_of_result_df = apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exclude_quad,
+                  cal_pred_linear, cal_pred_quad, list_of_result_df)
+        
+    return patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df
+
+def print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad):
+    """Print patients to exclude"""        
+    patients_to_exclude_linear = sorted(set(patients_to_exclude_linear))
+    patients_to_exclude_quad = sorted(set(patients_to_exclude_quad))
+    print(f"Patients to exclude for linear methods: {patients_to_exclude_linear}")
+    print(f"Patients to exclude for quad methods: {patients_to_exclude_quad}")
+
+def join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df):
+    """Join dataframes from individual patients"""
+    df = pd.concat(list_of_patient_df)
+    df.patient = df.patient.apply(int)
+    df.reset_index(inplace=True, drop=True)
+    cal_pred = pd.concat(list_of_cal_pred_df)
+    cal_pred.patient = cal_pred.patient.apply(int)
+    result_df = pd.concat(list_of_result_df)
+    result_df = format_result_df(cal_pred, result_df)
+    
+    return df, cal_pred, result_df
+
+def output_df_to_excel(df, cal_pred, result_df):
+    """Output dataframes to excel as individual sheets"""
+    with pd.ExcelWriter('output.xlsx') as writer:
+        df.to_excel(writer, sheet_name='clean', index=False)
+        cal_pred.to_excel(writer, sheet_name='calibration_and_efficacy_driven', index=False)
+        result_df.to_excel(writer, sheet_name='result', index=False)
+
+##### SUPPORTING FUNCTIONS ######
+# Create patient dataframe
 def get_sheet_names(input_file):
     """ Get sheet names which are also patient names """
     wb = load_workbook(input_file, read_only=True)
@@ -230,7 +309,6 @@ def keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclud
     return cal_pred, list_of_cal_pred_df
 
 # Prepare patient dataframe for prediction and apply method
-
 def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exclude_quad,
                   cal_pred_linear, cal_pred_quad, list_of_result_df):
     
@@ -654,7 +732,6 @@ def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion
     return list_of_result_df
 
 # Combine dataframes of individual patients
-
 def format_result_df(cal_pred, result_df):
     """
     Rerrange column names, make patient and prediction day series of integers, sort, reset index
