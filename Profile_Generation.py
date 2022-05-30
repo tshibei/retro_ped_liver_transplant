@@ -336,10 +336,12 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
         col_names = ['patient', 'method', 'pred_day'] + \
                     ['fit_dose_' + str(i) for i in range(1, max_count_input + 1)] + \
                     ['fit_response_' + str(i) for i in range(1, max_count_input + 1)] + \
-                    ['dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
+                    ['day_' + str(i) for i in range(1, max_count_input + 1)] + \
+                    ['weight_' + str(i) for i in range(1, max_count_input + 1)] + \
+                    ['tau', 'dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
                      'prev_deviation', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation',
                      'abs_deviation']
-        result = pd.DataFrame(columns=col_names)
+        result = pd.DataFrame(columns=col_names)    
 
         if patient not in patients_to_exclude_linear:
             deg = 1
@@ -407,11 +409,14 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
         if (origin_inclusion == 'wo_origin') or (origin_inclusion =='origin_int'):
             result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
             result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+            result.loc[j, 'day_1':'day_' + str(i)] = cal_pred.loc[0:i-1, 'day'].to_numpy()
         elif origin_inclusion == 'origin_dp':
             result.loc[j, 'fit_dose_1'] = 0
             result.loc[j, 'fit_dose_2':'fit_dose_' + str(i+1)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
             result.loc[j, 'fit_response_1'] = 0
             result.loc[j, 'fit_response_2':'fit_response_' + str(i+1)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+            result.loc[j, 'day_1'] = cal_pred.loc[0, 'day'] - 1
+            result.loc[j, 'day_2':'day_' + str(i+1)] = cal_pred.loc[0:i-1, 'day'].to_numpy()
         
         result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
         result.loc[j, 'response'] = cal_pred.loc[i, 'response']
@@ -496,11 +501,14 @@ def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
             if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
                 result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
                 result.loc[j, 'fit_response_1':'fit_response_' + str(i)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+                result.loc[j, 'day_1':'day_' + str(i)] = cal_pred.loc[0:i-1, 'day'].to_numpy()
             elif origin_inclusion == 'origin_dp':
                 result.loc[j, 'fit_dose_1'] = 0
                 result.loc[j, 'fit_dose_2':'fit_dose_' + str(i+1)] = cal_pred.loc[0:i-1, 'dose'].to_numpy()
                 result.loc[j, 'fit_response_1'] = 0
                 result.loc[j, 'fit_response_2':'fit_response_' + str(i+1)] = cal_pred.loc[0:i-1, 'response'].to_numpy()
+                result.loc[j, 'day_1'] = cal_pred.loc[0, 'day'] - 1
+                result.loc[j, 'day_2':'day_' + str(i+1)] = cal_pred.loc[0:i-1, 'day'].to_numpy()
 
             result.loc[j, 'dose'] = cal_pred.loc[i, 'dose']
             result.loc[j, 'response'] = cal_pred.loc[i, 'response']
@@ -652,32 +660,24 @@ def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion
             result.loc[j, 'method'] = method_string
             result.loc[j, 'pred_day'] = cal_pred.loc[i + 1, 'day']
             
-            # Fill in fitted dose
-            if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
-                result.loc[j, 'fit_dose_1'] = cal_pred.loc[indices[0], 'dose']
-                result.loc[j, 'fit_dose_2'] = cal_pred.loc[indices[1], 'dose']
-                if deg == 2:
-                    result.loc[j, 'fit_dose_3'] = cal_pred.loc[indices[2], 'dose']
-            elif origin_inclusion == 'origin_dp':
-                result.loc[j, 'fit_dose_1'] = 0
-                result.loc[j, 'fit_dose_2'] = cal_pred.loc[indices[0], 'dose']
-                result.loc[j, 'fit_dose_3'] = cal_pred.loc[indices[1], 'dose']
-                if deg == 2:
-                    result.loc[j, 'fit_dose_4'] = cal_pred.loc[indices[2], 'dose']
+            # Fill in dose, response, day to fit model
+            cal_pred_string = ['dose', 'response', 'day']
+            result_string = ['fit_dose', 'fit_response', 'day']
+            for string_num in range(0,len(cal_pred_string)):
+                if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
+                    result.loc[j, result_string[string_num] + '_1'] = cal_pred.loc[indices[0], cal_pred_string[string_num]]
+                    result.loc[j, result_string[string_num] + '_2'] = cal_pred.loc[indices[1], cal_pred_string[string_num]]
+                    if deg == 2:
+                        result.loc[j, result_string[string_num] + '_3'] = cal_pred.loc[indices[2], cal_pred_string[string_num]]
+                elif origin_inclusion == 'origin_dp':
+                    result.loc[j, result_string[string_num] + '_1'] = 0
+                    result.loc[j, 'day_1'] = cal_pred.loc[indices[0], 'day'] - 1
+                    result.loc[j, result_string[string_num] + '_2'] = cal_pred.loc[indices[0], cal_pred_string[string_num]]
+                    result.loc[j, result_string[string_num] + '_3'] = cal_pred.loc[indices[1], cal_pred_string[string_num]]
+                    if deg == 2:
+                        result.loc[j, result_string[string_num] + '_4'] = cal_pred.loc[indices[2], cal_pred_string[string_num]]
             
-            # Fill in fitted response
-            if (origin_inclusion == 'wo_origin') or (origin_inclusion == 'origin_int'):
-                result.loc[j, 'fit_response_1'] = cal_pred.loc[indices[0], 'response']
-                result.loc[j, 'fit_response_2'] = cal_pred.loc[indices[1], 'response']
-                if deg == 2:
-                    result.loc[j, 'fit_response_3'] = cal_pred.loc[indices[2], 'response']
-            elif origin_inclusion == 'origin_dp':
-                result.loc[j, 'fit_response_1'] = 0
-                result.loc[j, 'fit_response_2'] = cal_pred.loc[indices[0], 'response']
-                result.loc[j, 'fit_response_3'] = cal_pred.loc[indices[1], 'response']
-                if deg == 2:
-                    result.loc[j, 'fit_response_4'] = cal_pred.loc[indices[2], 'response']
-            
+            # Fill in new dose and response of prediction day
             result.loc[j, 'dose'] = cal_pred.loc[i + 1, 'dose']
             result.loc[j, 'response'] = cal_pred.loc[i + 1, 'response']
             
@@ -747,7 +747,9 @@ def format_result_df(cal_pred, result_df):
     col_names = ['patient', 'method', 'pred_day'] + \
                 ['fit_dose_' + str(i) for i in range(1, max_count_input + 1)] + \
                 ['fit_response_' + str(i) for i in range(1, max_count_input + 1)] + \
-                ['dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
+                ['day_' + str(i) for i in range(1, max_count_input + 1)] + \
+                ['weight_' + str(i) for i in range(1, max_count_input + 1)] + \
+                ['tau', 'dose', 'response', 'prev_coeff_2x', 'prev_coeff_1x', 'prev_coeff_0x',\
                  'prev_deviation', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation',
                  'abs_deviation']
     result_df = result_df[col_names]

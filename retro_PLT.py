@@ -33,6 +33,8 @@ from scipy.optimize import curve_fit
 import matplotlib.patches as patches
 from scipy.optimize import curve_fit
 from openpyxl import load_workbook
+# from scipy.optimize import OptimizeWarning
+# warnings.simplefilter("error", OptimizeWarning)
 
 # +
 # Generate profiles and join dataframes
@@ -68,7 +70,7 @@ decay_weight = []
 for i in range(len(df)):
     decay_weight.append(math.exp(-(24*(i))/(12/np.log(2))))
 
-# Fit mode
+# Fit model
 poly_reg = PolynomialFeatures(degree=2)
 X = np.array(df.dose).reshape(-1, 1)
 y = np.array(df.response)
@@ -78,10 +80,14 @@ new = np.array(3).reshape(-1, 1)
 prediction = result.predict(poly_reg.fit_transform(new))[0]
 prediction
 
-               
+# +
+d = {'col1': [1, 2, 3], 'col2': [4, 5, 6], 'col3': np.nan}
+df_1 = pd.DataFrame(data=d)
 
-# -
+d = {'col1': [1, 2, 3], 'col2': [4, 5, 7], 'col3': np.nan}
+df_2 = pd.DataFrame(data=d)
 
-z = np.ones(5)
-z.shape
+pd.concat([df_1, df_2])
+# df['col3'] = ""
+# df
 
