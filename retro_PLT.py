@@ -33,6 +33,7 @@ from scipy.optimize import curve_fit
 import matplotlib.patches as patches
 from scipy.optimize import curve_fit
 from openpyxl import load_workbook
+import math
 # from scipy.optimize import OptimizeWarning
 # warnings.simplefilter("error", OptimizeWarning)
 
@@ -53,6 +54,19 @@ output_df_to_excel(df, cal_pred, result_df)
 # can_benefit(result_df)
 # modified_TTR(result_df)
 # wrong_range(result_df)
+
+# +
+import numpy as np
+import math
+
+d = {'col1':[1,2,3], 'col2':[4,5,6]}
+a = pd.DataFrame(data=d)
+fixed_pred_day = a.loc[0,'col1']
+day_array = a.loc[0, 'col1':'col2']
+fixed_half_life = a.loc[1,'col1']
+a.loc[0, 'col1':'col2'] = np.exp(-(24*(fixed_pred_day - day_array)*(math.log(2)/fixed_half_life)))
+a
+
 
 # +
 import pandas as pd
@@ -91,3 +105,24 @@ pd.concat([df_1, df_2])
 # df['col3'] = ""
 # df
 
+
+# +
+list_of_result_df = []
+result = pd.DataFrame(columns=['col1', 'half_life'])
+result = result[0:0]
+half_life = np.arange(3.5, 41.5, 1)
+tau = 1
+j = 0
+if tau == 1:
+    for k in range(len(half_life)):
+        for i in range(2 + 1, 8):
+            result.loc[j, 'col1'] = i
+            result.loc[j, 'half_life'] = half_life[k]
+            j = j + 1
+            # print(half_life[k], i)
+        list_of_result_df.append(result)
+            
+else:
+    pass
+
+list_of_result_df
