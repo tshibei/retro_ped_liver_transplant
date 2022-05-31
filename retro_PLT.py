@@ -34,8 +34,8 @@ import matplotlib.patches as patches
 from scipy.optimize import curve_fit
 from openpyxl import load_workbook
 import math
-# from scipy.optimize import OptimizeWarning
-# warnings.simplefilter("error", OptimizeWarning)
+from scipy.optimize import OptimizeWarning
+warnings.simplefilter("ignore", OptimizeWarning)
 
 # +
 # Generate profiles and join dataframes
@@ -47,6 +47,17 @@ print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
 output_df_to_excel(df, cal_pred, result_df)
 
 # +
+dat = result_df.copy()
+dat = dat[['deviation', 'method', 'patient', 'pred_day', 'response', 'prediction']]
+dat = dat.loc[(dat.method == 'L_Cum_wo_origin_tau') | (dat.method == 'L_Cum_wo_origin')]
+
+# sns.lineplot(data=dat, x="patient", y="deviation", hue="method")
+
+sns.lineplot(data=dat.loc[dat.patient==84], x="pred_day", y="prediction", hue="method")
+
+# dat
+
+# +
 # Plotting
 # perc_days_within_target_tac(result_df)
 # perc_days_outside_target_tac(result_df)
@@ -54,19 +65,6 @@ output_df_to_excel(df, cal_pred, result_df)
 # can_benefit(result_df)
 # modified_TTR(result_df)
 # wrong_range(result_df)
-
-# +
-import numpy as np
-import math
-
-d = {'col1':[1,2,3], 'col2':[4,5,6]}
-a = pd.DataFrame(data=d)
-fixed_pred_day = a.loc[0,'col1']
-day_array = a.loc[0, 'col1':'col2']
-fixed_half_life = a.loc[1,'col1']
-a.loc[0, 'col1':'col2'] = np.exp(-(24*(fixed_pred_day - day_array)*(math.log(2)/fixed_half_life)))
-a
-
 
 # +
 import pandas as pd
@@ -90,39 +88,10 @@ X = np.array(df.dose).reshape(-1, 1)
 y = np.array(df.response)
 X = poly_reg.fit_transform(X)
 result = LinearRegression(fit_intercept=False).fit(X, y, decay_weight)
-new = np.array(3).reshape(-1, 1)
-prediction = result.predict(poly_reg.fit_transform(new))[0]
-prediction
+result.coef_
+# new = 3
+# prediction = result.predict(poly_reg.fit_transform([[new]]))[0]
+# prediction
+# -
 
-# +
-d = {'col1': [1, 2, 3], 'col2': [4, 5, 6], 'col3': np.nan}
-df_1 = pd.DataFrame(data=d)
-
-d = {'col1': [1, 2, 3], 'col2': [4, 5, 7], 'col3': np.nan}
-df_2 = pd.DataFrame(data=d)
-
-pd.concat([df_1, df_2])
-# df['col3'] = ""
-# df
-
-
-# +
-list_of_result_df = []
-result = pd.DataFrame(columns=['col1', 'half_life'])
-result = result[0:0]
-half_life = np.arange(3.5, 41.5, 1)
-tau = 1
-j = 0
-if tau == 1:
-    for k in range(len(half_life)):
-        for i in range(2 + 1, 8):
-            result.loc[j, 'col1'] = i
-            result.loc[j, 'half_life'] = half_life[k]
-            j = j + 1
-            # print(half_life[k], i)
-        list_of_result_df.append(result)
-            
-else:
-    pass
-
-list_of_result_df
+np.array(3).reshape(-1, 1)

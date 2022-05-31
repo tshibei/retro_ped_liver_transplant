@@ -3,6 +3,8 @@ import pandas as pd
 from scipy.optimize import curve_fit
 import numpy as np
 import math
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 
 ##### MAIN FUNCTIONS #####
 # Generate profiles
@@ -349,7 +351,9 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
+            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int', list_of_result_df, 'origin_int', tau="")
+            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
             list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin', list_of_result_df, 'wo_origin')
             list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_dp', list_of_result_df, 'origin_dp')
             list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_int', list_of_result_df, 'origin_int')
@@ -360,8 +364,11 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
         if patient not in patients_to_exclude_quad:
             deg = 2
             list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
+            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
             list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
+            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
             list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_int', list_of_result_df, 'origin_int', tau="")
+            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
             list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin', list_of_result_df, 'wo_origin')
             list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp', list_of_result_df, 'origin_dp')
             list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_int', list_of_result_df, 'origin_int')
@@ -450,38 +457,80 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 
                 # Curve fit equation
                 if origin_inclusion == 'wo_origin' or origin_inclusion == 'origin_int':
-                    x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)].to_numpy()
+                    X = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)].to_numpy()
                     y = result.loc[j, 'fit_response_1':'fit_response_' + str(i)].to_numpy()
+                    weight = result.loc[j, 'weight_1':'weight_' + str(i)]
                 elif origin_inclusion == 'origin_dp':
-                    x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i+1)].to_numpy()
+                    X = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i+1)].to_numpy()
                     y = result.loc[j, 'fit_response_1':'fit_response_' + str(i+1)].to_numpy()
+                    weight = result.loc[j, 'weight_1':'weight_' + str(i+1)]
                 
                 if deg == 1:
                     if origin_inclusion == 'origin_int':
-                        popt, pcov = curve_fit(linear_func_origin_int, x, y)
-                        result.loc[j, 'coeff_1x'] = popt[0]
-                        result.loc[j, 'coeff_0x'] = popt[1]
+                        poly_reg = PolynomialFeatures(degree=deg)
+                        X = X.reshape(-1,1)
+                        X = poly_reg.fit_transform(X)
+                        fitted_model = LinearRegression(fit_intercept=True).fit(X, y, weight)
+                        result.loc[j, 'coeff_0x'] = fitted_model.coef_[0]
+                        result.loc[j, 'coeff_1x'] = fitted_model.coef_[1]
                     else:
-                        popt, pcov = curve_fit(linear_func, x, y)
-                        result.loc[j, 'coeff_1x'] = popt[0]
-                        result.loc[j, 'coeff_0x'] = popt[1]
+                        poly_reg = PolynomialFeatures(degree=deg)
+                        X = X.reshape(-1,1)
+                        X = poly_reg.fit_transform(X)
+                        fitted_model = LinearRegression(fit_intercept=False).fit(X, y, weight)
+                        result.loc[j, 'coeff_0x'] = fitted_model.coef_[0]
+                        result.loc[j, 'coeff_1x'] = fitted_model.coef_[1]
                 else:
                     if origin_inclusion == 'origin_int':
-                        popt, pcov = curve_fit(quad_func_origin_int, x, y)
-                        result.loc[j, 'coeff_2x'] = popt[0]
-                        result.loc[j, 'coeff_1x'] = popt[1]
-                        result.loc[j, 'coeff_0x'] = popt[2]
+                        poly_reg = PolynomialFeatures(degree=deg)
+                        X = X.reshape(-1,1)
+                        X = poly_reg.fit_transform(X)
+                        fitted_model = LinearRegression(fit_intercept=True).fit(X, y, weight)
+                        result.loc[j, 'coeff_0x'] = fitted_model.coef_[0]
+                        result.loc[j, 'coeff_1x'] = fitted_model.coef_[1]
+                        result.loc[j, 'coeff_2x'] = fitted_model.coef_[2]
                     else:
-                        popt, pcov = curve_fit(quad_func, x, y)
-                        result.loc[j, 'coeff_2x'] = popt[0]
-                        result.loc[j, 'coeff_1x'] = popt[1]
-                        result.loc[j, 'coeff_0x'] = popt[2]
+                        poly_reg = PolynomialFeatures(degree=deg)
+                        X = X.reshape(-1,1)
+                        X = poly_reg.fit_transform(X)
+                        fitted_model = LinearRegression(fit_intercept=False).fit(X, y, weight)
+                        result.loc[j, 'coeff_0x'] = fitted_model.coef_[0]
+                        result.loc[j, 'coeff_1x'] = fitted_model.coef_[1]
+                        result.loc[j, 'coeff_2x'] = fitted_model.coef_[2]
+
+                # # Curve fit equation
+                # if origin_inclusion == 'wo_origin' or origin_inclusion == 'origin_int':
+                #     x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i)].to_numpy()
+                #     y = result.loc[j, 'fit_response_1':'fit_response_' + str(i)].to_numpy()
+                # elif origin_inclusion == 'origin_dp':
+                #     x = result.loc[j, 'fit_dose_1':'fit_dose_' + str(i+1)].to_numpy()
+                #     y = result.loc[j, 'fit_response_1':'fit_response_' + str(i+1)].to_numpy()
+                
+                # if deg == 1:
+                #     if origin_inclusion == 'origin_int':
+                #         popt, pcov = curve_fit(linear_func_origin_int, x, y)
+                #         result.loc[j, 'coeff_1x'] = popt[0]
+                #         result.loc[j, 'coeff_0x'] = popt[1]
+                #     else:
+                #         popt, pcov = curve_fit(linear_func, x, y)
+                #         result.loc[j, 'coeff_1x'] = popt[0]
+                #         result.loc[j, 'coeff_0x'] = popt[1]
+                # else:
+                #     if origin_inclusion == 'origin_int':
+                #         popt, pcov = curve_fit(quad_func_origin_int, x, y)
+                #         result.loc[j, 'coeff_2x'] = popt[0]
+                #         result.loc[j, 'coeff_1x'] = popt[1]
+                #         result.loc[j, 'coeff_0x'] = popt[2]
+                #     else:
+                #         popt, pcov = curve_fit(quad_func, x, y)
+                #         result.loc[j, 'coeff_2x'] = popt[0]
+                #         result.loc[j, 'coeff_1x'] = popt[1]
+                #         result.loc[j, 'coeff_0x'] = popt[2]
                     
                 # Calculate prediction and deviation
-                if deg == 1:
-                    prediction = cal_pred.loc[i, 'dose'] * popt[0] + popt[1]
-                else: 
-                    prediction = (cal_pred.loc[i, 'dose'] ** 2) * popt[0] + cal_pred.loc[i, 'dose'] * popt[1] + popt[2]
+                
+                prediction = fitted_model.predict(poly_reg.fit_transform([[cal_pred.loc[i, 'dose']]]))[0]
+                # prediction = cal_pred.loc[i, 'dose'] * popt[0] + popt[1]
 
                 result.loc[j, 'prediction'] = prediction
                 deviation = cal_pred.loc[i, 'response'] - prediction
