@@ -48,12 +48,18 @@ output_df_to_excel(df, cal_pred, result_df)
 
 # +
 dat = result_df.copy()
-dat = dat[['deviation', 'method', 'patient', 'pred_day', 'response', 'prediction']]
-dat = dat.loc[(dat.method == 'L_Cum_wo_origin_tau') | (dat.method == 'L_Cum_wo_origin')]
+dat = dat[['deviation', 'method', 'patient', 'pred_day', 'response', 'prediction', 'half_life']]
+dat['half_life'] = dat['half_life'].fillna('')
+dat = dat.loc[(dat.method == 'Q_Cum_origin_dp_tau') | (dat.method == 'Q_Cum_origin_dp')]
+dat['new_method'] = ""
+for i in range(len(dat)):
+    dat['new_method'].iloc[i] = dat['method'].iloc[i] + '_' + str(dat['half_life'].iloc[i])
+    # print(dat['method'].iloc[i])
+plot = sns.lineplot(data=dat, x="patient", y="deviation", hue="new_method", ci=None, legend=False)
+plot = sns.lineplot(data=dat.loc[dat.method=='Q_Cum_origin_dp_ '], x="patient", y="deviation", color='b', ci=None, legend=False)
+# dat.head()
 
-# sns.lineplot(data=dat, x="patient", y="deviation", hue="method")
-
-sns.lineplot(data=dat.loc[dat.patient==84], x="pred_day", y="prediction", hue="method")
+# sns.lineplot(data=dat.loc[dat.patient==84], x="pred_day", y="deviation", hue="method")
 
 # dat
 
@@ -95,3 +101,15 @@ result.coef_
 # -
 
 np.array(3).reshape(-1, 1)
+
+# +
+a = pd.DataFrame(columns=['col1','col2'])
+a = a[0:0]
+a.loc[2, :] = [1, 2]
+
+b = pd.DataFrame(columns=['col1','col2'])
+b = b[0:0]
+b.loc[0, :] = [1, 2]
+b.loc[1, :] = [1, 2]
+
+pd.concat([a, b])
