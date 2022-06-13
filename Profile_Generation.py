@@ -409,7 +409,7 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
     Details:
     (If the chosen method has tau, the following details are looped for each variation of half_life)
     Add a fresh line to result dataframe for each prediction and fill in the line with patient, method,
-    prediction day (and half-life).Fill in the dose-response pairs and days of the pairs that are 
+    prediction day (and half-life). Fill in the dose-response pairs and days of the pairs that are 
     required to fit the model, according to the origin inclusion chosen. Fill in the dose-response 
     pair of the day of the prediction to calculate the deviation of the prediction. (If chosen method 
     has tau, calculate the weights based on the number of days from prediction day). Fit the model 
@@ -426,8 +426,6 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 
     Output:
     list_of_result_df
-
-    test
     """
     j = 0
 
@@ -619,14 +617,14 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 
 def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin', tau=""):
     """
-    Execute PPM method. 
+    Execute cumulative approach for each variation of origin inclusion, type, and tau inclusion. 
 
     Details:
-
-
-    Prepare input dataframe for PPM_wo_origin method. 
-    For first prediction, fill up dose and response to be fitted. Then fill in coefficients, prediction and deviation of fit.
-    For second and following predictions, fill up dose and response of prediction day, fill in previous coefficients and deviations,
+    (If the chosen method has tau, the following details are looped for each variation of half_life)
+    Add a fresh line to result dataframe for each prediction and fill in the line with patient, method,
+    prediction day (and half-life). For first prediction, fill up dose and response to be fitted. 
+    Then fill in coefficients, prediction and deviation of fit. For second and following predictions, 
+    fill up dose and response of prediction day, fill in previous coefficients and deviations,
     shift last coefficient by previous deviation, fill in prediction and deviation of fit.
 
     Input:
@@ -899,9 +897,18 @@ def PPM(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 
 def RW(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin', tau=""):
     """
-    Choose last deg + 1 unique dose-response pairs for RW as input for RW method,
-    prepare input dataframe, apply method.
+    Execute rolling window approach for each variation of origin inclusion, type, and tau inclusion. 
 
+    Details:
+    (If the chosen method has tau, the following details are looped for each variation of half_life)
+    Add a fresh line to result dataframe for each prediction and fill in the line with patient, method,
+    prediction day (and half-life). Fill in the dose-response pairs and days of the pairs that are 
+    required to fit the model, based on last deg + 1 unique dose-response pairs, according to the origin 
+    inclusion chosen. Fill in the dose-response pair of the day of the prediction to calculate the 
+    deviation of the prediction. (If chosen method has tau, calculate the weights based on the number 
+    of days from prediction day). Fit the model (with weight if chosen method has tau). Calculate the 
+    prediction, deviation, and absolute deviation, and fill in the results to the result dataframe.
+    
     Input:
     deg - degree of polynomial fit, 1 for linear, 2 for quadratic
     cal_pred - dataframe of calibration and efficacy-driven dosing data, 
