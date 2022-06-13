@@ -36,15 +36,40 @@ from openpyxl import load_workbook
 import math
 from scipy.optimize import OptimizeWarning
 warnings.simplefilter("ignore", OptimizeWarning)
+import timeit
+
 
 # +
+# %%time
 # Generate profiles and join dataframes
 patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles()
 df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
 
-# Print patients to exclude and ouput dataframes to excel as individual sheets
+# Print patients to exclude anad ouput dataframes to excel as individual sheets
 print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
 output_df_to_excel(df, cal_pred, result_df)
+
+# +
+# How are the predictions different, between different half-lives, for each method compared to without tau?
+# Plot prediction vs prediction day, for each patient, colored by tau with different half-lives vs non-tau
+
+dat = result_df.copy()
+dat = dat[['prediction', 'pred_day', 'half_life', 'method', 'patient', 'deviation']]
+patient_list = dat.patient.unique()
+method_list = dat.method.unique()
+dat = dat[dat.patient == patient_list[6]]
+dat.half_life = dat.half_life.fillna(0)
+# L_Cum_origin_dp_tau
+palette = sns.color_palette("rocket_r", n_colors=len(dat.half_life.unique()))
+# a = np.arange(3.5, 41.5, 1)
+# dat.half_life.unique()
+sns.lineplot(data=dat[dat.method.str.contains("L_RW_origin_dp")], 
+             x="pred_day", y="deviation", hue="half_life", 
+             palette=palette, ci=None)
+plt.legend(bbox_to_anchor=(1.25,1), loc='upper right')
+# plt.plot(data=dat[dat.method == "L_Cum_origin_dp_tau"], 
+#          x="pred_day", y="prediction", color="half_life".map())
+
 
 # +
 dat = result_df.copy()
