@@ -25,7 +25,7 @@ import seaborn as sns
 from functools import reduce
 pd.options.mode.chained_assignment = None 
 from statistics import mean
-from profile_generation import *
+from Profile_Generation import *
 from plotting import *
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
@@ -39,15 +39,32 @@ warnings.simplefilter("ignore", OptimizeWarning)
 import timeit
 
 
-# +
 # %%time
-# Generate profiles and join dataframes
-patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles()
-df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
+execute_CURATE()
 
-# Print patients to exclude anad ouput dataframes to excel as individual sheets
-print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
-output_df_to_excel(df, cal_pred, result_df)
+import pandas as pd
+dat = pd.read_excel('output.xlsx', sheet_name='clean')
+
+# +
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+palette = sns.color_palette("viridis")
+dat.dose = dat.dose.astype(float)
+g = sns.FacetGrid(dat, col='patient', col_wrap=5, hue='dose', palette=sns.color_palette("rocket", dat.dose.nunique()), sharex=None)
+g.map_dataframe(sns.scatterplot, x='day', y='response')
+# g.map_dataframe(sns.lineplot, col='black', x='day', y='response')
+g.refline(y=8, color='black', lw=1, ls='--')
+g.refline(y=10, color='black', lw=1, ls='--')
+g.add_legend()
+# -
+
+dat.head()
+
+dat.dose.dtype
+
+dat = result_df.copy()
+dat.head()
 
 # +
 # How are the predictions different, between different half-lives, for each method compared to without tau?

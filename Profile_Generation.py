@@ -7,6 +7,22 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
 ##### MAIN FUNCTIONS #####
+def execute_CURATE():
+    """ 
+    Execute CURATE.
+    Output: Excel sheet with cleaned patient dataframe, 
+            dataframe for calibration and efficacy-driven dosing, 
+            result of all methods.
+    """
+    # Generate profiles and join dataframes
+    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles()
+    df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
+
+    # Print patients to exclude anad ouput dataframes to excel as individual sheets
+    print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
+    output_df_to_excel(df, cal_pred, result_df)
+
+##### SUPPORTING FUNCTIONS ######
 # Generate profiles
 def generate_profiles():
     """
@@ -85,8 +101,7 @@ def output_df_to_excel(df, cal_pred, result_df):
         cal_pred.to_excel(writer, sheet_name='calibration_and_efficacy_driven', index=False)
         result_df.to_excel(writer, sheet_name='result', index=False)
 
-##### SUPPORTING FUNCTIONS ######
-# Create patient dataframe
+# Create patient dataframe        
 def get_sheet_names(input_file):
     """ Get sheet names which are also patient names """
     wb = load_workbook(input_file, read_only=True)
