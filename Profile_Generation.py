@@ -5,9 +5,10 @@ import numpy as np
 import math
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
+import time
 
 ##### MAIN FUNCTIONS #####
-def execute_CURATE():
+def execute_CURATE(five_fold_cross_val_results_summary):
     """ 
     Execute CURATE.
     Output: Excel sheet with cleaned patient dataframe, 
@@ -15,7 +16,7 @@ def execute_CURATE():
             result of all methods.
     """
     # Generate profiles and join dataframes
-    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles()
+    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary)
     df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
 
     # Print patients to exclude anad ouput dataframes to excel as individual sheets
@@ -24,7 +25,7 @@ def execute_CURATE():
 
 ##### SUPPORTING FUNCTIONS ######
 # Generate profiles
-def generate_profiles():
+def generate_profiles(five_fold_cross_val_results_summary):
     """
     Generate profiles for patients.
     
@@ -71,7 +72,7 @@ def generate_profiles():
 
         # Apply methods
         list_of_result_df = apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exclude_quad,
-                  cal_pred_linear, cal_pred_quad, list_of_result_df)
+                  cal_pred_linear, cal_pred_quad, list_of_result_df, five_fold_cross_val_results_summary)
         
     return patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df
 
@@ -96,7 +97,8 @@ def join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df):
 
 def output_df_to_excel(df, cal_pred, result_df):
     """Output dataframes to excel as individual sheets"""
-    with pd.ExcelWriter('output.xlsx') as writer:
+    timestr = time.strftime("%Y%m%d-%H%M")
+    with pd.ExcelWriter('output_' + timestr + '.xlsx') as writer:
         df.to_excel(writer, sheet_name='clean', index=False)
         cal_pred.to_excel(writer, sheet_name='calibration_and_efficacy_driven', index=False)
         result_df.to_excel(writer, sheet_name='result', index=False)
@@ -328,7 +330,7 @@ def keep_target_patients(patient, patients_to_exclude_linear, patients_to_exclud
 
 # Prepare patient dataframe for prediction and apply method
 def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exclude_quad,
-                  cal_pred_linear, cal_pred_quad, list_of_result_df):
+                  cal_pred_linear, cal_pred_quad, list_of_result_df, five_fold_cross_val_results_summary):
     
     """
     If cal_pred is filled, create result dataframe and apply all methods.
@@ -363,6 +365,9 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
 
         if patient not in patients_to_exclude_linear:
             deg = 1
+
+            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index[five_fold_cross_val_results_summary.method == 'L_Cum_wo_origin_tau'], 'pop_half_life'])
+            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_pop_tau', list_of_result_df, 'wo_origin', tau=1, half_life=[pop_half_life])
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
@@ -417,7 +422,7 @@ def quad_func(x, a, b, c):
 def quad_func_origin_int(x, a, b, c):
     return a * (x ** 2) + b * x + 0
 
-def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin', tau=""):
+def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin', tau="", half_life=np.arange(3.5, 41.5, 1)):
     """
     Execute cumulative approach for each variation of origin inclusion, type, and tau inclusion. 
 
@@ -446,7 +451,7 @@ def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusio
 
     result = result[0:0]
     
-    half_life = np.arange(3.5, 41.5, 1)
+    # half_life = np.arange(3.5, 41.5, 1)
 
     if tau == 1:
 
