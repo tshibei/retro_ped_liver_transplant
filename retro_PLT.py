@@ -39,17 +39,21 @@ warnings.simplefilter("ignore", OptimizeWarning)
 import timeit
 
 
+# +
 # %%time
+
+# REMEMBER TO COMMENT POP TAU IN APPLY_METHODS() FIRST!
 execute_CURATE()
 
-import pandas as pd
-df = pd.read_excel('output_20220626-2223 (no pop tau).xlsx', sheet_name='result')
+# + magic_args="time"
 
-# +
+# Remember to uncomment Pop Tau section in apply_methods() first!
+
 from scipy import stats
 from statistics import mean
+import pandas as pd
 
-dat = df.copy()
+dat = pd.read_excel('output_20220626-2223 (no pop tau).xlsx', sheet_name='result')
 
 # Filter for tau methods only
 dat = dat[dat.method.str.contains('tau')]
@@ -113,7 +117,7 @@ list_of_quad_test = [quad_exp_1_test, quad_exp_2_test, quad_exp_3_test, quad_exp
 five_fold_cross_val_results = pd.DataFrame(columns=['method', 'fold', 'train_median', 'test_median', 'pop_half_life_fold', 'indiv_pop_half_life_fold'])
 five_fold_cross_val_results_summary = pd.DataFrame(columns=['method', 'train_median_mean', 'train_median_SEM', \
                                                             'test_median_mean', 'test_median_SEM', \
-                                                            'pop_half_life', 'all_patient_median'])
+                                                            'pop_half_life'])
 fold_counter = 1
 method_counter = 1
 
@@ -183,18 +187,50 @@ for method in method_list: # loop through methods
     
     method_counter = method_counter + 1
 
-five_fold_cross_val_results_summary    
+five_fold_cross_val_results = five_fold_cross_val_results.reset_index(drop=True)
+five_fold_cross_val_results_summary = five_fold_cross_val_results_summary.reset_index(drop=True)
 
-
-# +
-# Remember to uncomment Pop Tau section in apply_methods() first!
-
-# %%time
-five_fold_cross_val_results_summary
 execute_CURATE(five_fold_cross_val_results_summary)
+
+# Add pop_tau_method column
+five_fold_cross_val_results_summary['pop_tau_method'] = ""
+for i in range(len(five_fold_cross_val_results_summary)):
+    five_fold_cross_val_results_summary.pop_tau_method[i] = five_fold_cross_val_results_summary.method[i][:-3] + 'pop_tau'
+
+
+# + magic_args="time"
+
+# CHANGE OUTPUT FILE NAME ACCORDINGLY.
+
+# Import output with pop tau
+pop_tau_df = pd.read_excel('output_with_pop_tau.xlsx', sheet_name='result')
+
+# Filter pop tau methods
+pop_tau_df = pop_tau_df[pop_tau_df.method.str.contains('pop_tau')]
+
+# Calculate mean abs deviation by grouping by method, patient
+pop_tau_df = pop_tau_df.groupby(['method', 'patient'])['abs_deviation'].mean()
+pop_tau_df = pop_tau_df.to_frame(name='abs_deviation').reset_index()
+
+# Calculate median of 'mean of abs_deviation by patient' for each method
+pop_tau_df = pop_tau_df.groupby('method')['abs_deviation'].median()
+pop_tau_df = pop_tau_df.to_frame(name='abs_deviation').reset_index()
+
+# Rename pop_tau_df columns
+pop_tau_df.columns = ['pop_tau_method', 'all_patient_median']
+
+# Merge dataframes on 'pop_tau_method' column
+summary_df = five_fold_cross_val_results_summary.merge(temp, how='left', on='pop_tau_method')
+
+# Output dataframes to excel as individual sheets
+timestr = time.strftime("%Y%m%d-%H%M")
+with pd.ExcelWriter('pop_tau_' + timestr + '.xlsx') as writer:
+    five_fold_cross_val_results.to_excel(writer, sheet_name='Folds', index=False)
+    summary_df.to_excel(writer, sheet_name='Overall', index=False)
 # -
 
-five_fold_cross_val_results_summary
+string_a = 'Q_Cum_origin_int_tau'
+string_a[:-3]
 
 new_df = five_fold_cross_val_results_summary.copy()
 a = float(new_df.loc[new_df.index[new_df.method == 'L_Cum_origin_dp_tau'], 'pop_half_life'])
