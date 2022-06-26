@@ -43,7 +43,7 @@ import timeit
 execute_CURATE()
 
 import pandas as pd
-df = pd.read_excel('output_20220626-222353.xlsx', sheet_name='result')
+df = pd.read_excel('output_20220626-2223 (no pop tau).xlsx', sheet_name='result')
 
 # +
 from scipy import stats
@@ -186,11 +186,13 @@ for method in method_list: # loop through methods
 five_fold_cross_val_results_summary    
 
 
-# -
+# +
+# Remember to uncomment Pop Tau section in apply_methods() first!
 
 # %%time
 five_fold_cross_val_results_summary
 execute_CURATE(five_fold_cross_val_results_summary)
+# -
 
 five_fold_cross_val_results_summary
 
