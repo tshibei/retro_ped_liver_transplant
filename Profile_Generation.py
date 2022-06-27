@@ -1,14 +1,29 @@
 from openpyxl import load_workbook
-import pandas as pd
 from scipy.optimize import curve_fit
-import numpy as np
 import math
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
-import time
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
+import numpy as np
+from scipy import stats
+import seaborn as sns
+from functools import reduce
+pd.options.mode.chained_assignment = None 
+from statistics import mean
+from Profile_Generation import *
+from plotting import *
+import warnings
+warnings.simplefilter('ignore', np.RankWarning)
+import matplotlib.patches as patches
+import math
+from scipy.optimize import OptimizeWarning
+warnings.simplefilter("ignore", OptimizeWarning)
+import timeit
 
 ##### MAIN FUNCTIONS #####
-def execute_CURATE(five_fold_cross_val_results_summary):
+def execute_CURATE(five_fold_cross_val_results_summary="", pop_tau_string=' (no pop tau)'):
     """ 
     Execute CURATE.
     Output: Excel sheet with cleaned patient dataframe, 
@@ -21,7 +36,333 @@ def execute_CURATE(five_fold_cross_val_results_summary):
 
     # Print patients to exclude anad ouput dataframes to excel as individual sheets
     print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
-    output_df_to_excel(df, cal_pred, result_df)
+    output_df_to_excel(df, cal_pred, result_df, pop_tau_string)
+
+# Pop tau
+def find_pop_tau_with_CV():
+    """
+    Calculate pop tau with five fold cross validation.
+
+    Details:
+    For each experiment, find the half life with lowest absolute deviation in the training set, and use that half life to
+    find the absolute deviation of both training and test sets.
+
+    Output: 
+    - five_fold_cross_val_results: dataframe of results of cross validation per experiment
+    - five_fold_cross_val_results_summary: dataframe of results of cross validation per method
+    """
+    dat = pd.read_excel('output (no pop tau).xlsx', sheet_name='result')
+
+    # Filter for tau methods only
+    dat = dat[dat.method.str.contains('tau')]
+
+    # Create patient and method list
+    linear_patient_list = dat[dat.method.str.contains('L_')].patient.unique().tolist()
+    quad_patient_list = dat[dat.method.str.contains('Q_')].patient.unique().tolist()
+    method_list = dat.method.unique().tolist()
+
+    # Calculate mean abs deviation by grouping by method, patient, half-life 
+    dat = dat.groupby(['method', 'patient', 'half_life'])['abs_deviation'].mean()
+    dat = dat.to_frame(name='abs_deviation').reset_index()
+
+    # Run normality check (result p=0.0, reject normality)
+    # print(f'KS test for abs deviation: {scipy.stats.kstest(dat.abs_deviation, \'norm')}')
+
+    # Define each fold
+    linear_fold_1 = linear_patient_list[0:2]
+    linear_fold_2 = linear_patient_list[2:4]
+    linear_fold_3 = linear_patient_list[4:7]
+    linear_fold_4 = linear_patient_list[7:10]
+    linear_fold_5 = linear_patient_list[10:]
+
+    quad_fold_1 = quad_patient_list[0:2]
+    quad_fold_2 = quad_patient_list[2:4]
+    quad_fold_3 = quad_patient_list[4:6]
+    quad_fold_4 = quad_patient_list[6:8]
+    quad_fold_5 = quad_patient_list[8:]
+
+    # Define each experiment
+    linear_exp_1_train = linear_fold_1 + linear_fold_2 + linear_fold_3 + linear_fold_4
+    linear_exp_2_train = linear_fold_1 + linear_fold_2 + linear_fold_3 + linear_fold_5
+    linear_exp_3_train = linear_fold_1 + linear_fold_2 + linear_fold_4 + linear_fold_5
+    linear_exp_4_train = linear_fold_1 + linear_fold_3 + linear_fold_4 + linear_fold_5
+    linear_exp_5_train = linear_fold_2 + linear_fold_3 + linear_fold_4 + linear_fold_5
+
+    quad_exp_1_train = quad_fold_1 + quad_fold_2 + quad_fold_3 + quad_fold_4
+    quad_exp_2_train = quad_fold_1 + quad_fold_2 + quad_fold_3 + quad_fold_5
+    quad_exp_3_train = quad_fold_1 + quad_fold_2 + quad_fold_4 + quad_fold_5
+    quad_exp_4_train = quad_fold_1 + quad_fold_3 + quad_fold_4 + quad_fold_5
+    quad_exp_5_train = quad_fold_2 + quad_fold_3 + quad_fold_4 + quad_fold_5
+
+    linear_exp_1_test = linear_fold_5
+    linear_exp_2_test = linear_fold_4
+    linear_exp_3_test = linear_fold_3
+    linear_exp_4_test = linear_fold_2
+    linear_exp_5_test = linear_fold_1
+
+    quad_exp_1_test = quad_fold_5
+    quad_exp_2_test = quad_fold_4
+    quad_exp_3_test = quad_fold_3
+    quad_exp_4_test = quad_fold_2
+    quad_exp_5_test = quad_fold_1
+
+    list_of_linear_train = [linear_exp_1_train, linear_exp_2_train, linear_exp_3_train, linear_exp_4_train, linear_exp_5_train]
+    list_of_quad_train = [quad_exp_1_train, quad_exp_2_train, quad_exp_3_train, quad_exp_4_train, quad_exp_5_train]
+    list_of_linear_test = [linear_exp_1_test, linear_exp_2_test, linear_exp_3_test, linear_exp_4_test, linear_exp_5_test]
+    list_of_quad_test = [quad_exp_1_test, quad_exp_2_test, quad_exp_3_test, quad_exp_4_test, quad_exp_5_test]
+
+    # Define dataframe to store results
+    five_fold_cross_val_results = pd.DataFrame(columns=['method', 'experiment', 'train_median', 'test_median', 'pop_half_life_fold', 'indiv_pop_half_life_fold'])
+    five_fold_cross_val_results_summary = pd.DataFrame(columns=['method', 'train_median_mean', 'train_median_SEM', \
+                                                                'test_median_mean', 'test_median_SEM', \
+                                                                'pop_half_life'])
+    fold_counter = 1
+    method_counter = 1
+
+    for method in method_list: # loop through methods
+        list_of_pop_half_life_fold = []
+        list_of_median_abs_dev_train = []
+        list_of_median_abs_dev_test = []
+        method_df = dat[dat.method == method]
+
+        for i in range(5): # loop through experiments
+
+            # Define train_df
+            if 'L_' in method:
+                train_df = method_df[method_df.patient.isin(list_of_linear_train[i])]
+            else:
+                train_df = method_df[method_df.patient.isin(list_of_quad_train[i])]
+
+            # Find half_life at the index where abs_deviation is the lowest
+            train_df.reset_index()
+            pop_half_life_fold_index = train_df.index[train_df.abs_deviation == train_df.abs_deviation.min()].tolist()
+            pop_half_life_fold = train_df.loc[pop_half_life_fold_index, 'half_life'].tolist()
+
+            # Find median of abs_deviation among train_df with pop_half_life_fold
+            median_abs_dev_train = round(train_df[train_df.half_life.isin(pop_half_life_fold)].abs_deviation.median(), 2)
+
+            # Define test_df
+            if 'L_' in method:
+                test_df = method_df[method_df.patient.isin(list_of_linear_test[i])]
+            else:
+                test_df = method_df[method_df.patient.isin(list_of_quad_test[i])]
+
+            # Find median of abs_deviation among test_df with pop_half_life_fold
+            median_abs_dev_test = round(test_df[test_df.half_life.isin(pop_half_life_fold)].abs_deviation.median(), 2)
+
+            # If there are multiple half-lives with the lowest abs deviation, find average of the half lives to store as pop_half_life_fold
+            if len(pop_half_life_fold) > 1:
+                indiv_pop_half_life_fold = pop_half_life_fold
+                pop_half_life_fold = mean(pop_half_life_fold)
+                pop_half_life_fold = [pop_half_life_fold]
+            else: 
+                pop_half_life_fold = pop_half_life_fold
+                indiv_pop_half_life_fold = ""
+
+            pop_half_life_fold = pop_half_life_fold[0]
+
+            list_of_pop_half_life_fold.append(pop_half_life_fold)
+            list_of_median_abs_dev_train.append(median_abs_dev_train)
+            list_of_median_abs_dev_test.append(median_abs_dev_test)
+
+            # Fill in five_fold_cross_val_results for results per fold
+            five_fold_cross_val_results.loc[fold_counter, 'method'] = method
+            five_fold_cross_val_results.loc[fold_counter, 'experiment'] = i + 1
+            five_fold_cross_val_results.loc[fold_counter, 'train_median'] = median_abs_dev_train
+            five_fold_cross_val_results.loc[fold_counter, 'test_median'] = median_abs_dev_test
+            five_fold_cross_val_results.loc[fold_counter, 'pop_half_life_fold'] = pop_half_life_fold
+            five_fold_cross_val_results.loc[fold_counter, 'indiv_pop_half_life_fold'] = indiv_pop_half_life_fold
+
+            fold_counter = fold_counter + 1
+
+        # Fill in five_fold_cross_val_results_summary for results per method
+        five_fold_cross_val_results_summary.loc[fold_counter, 'method'] = method
+        five_fold_cross_val_results_summary.loc[fold_counter, 'train_median_mean'] = round(mean(list_of_median_abs_dev_train), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'train_median_SEM'] = round(stats.sem(list_of_median_abs_dev_train), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'test_median_mean'] = round(mean(list_of_median_abs_dev_test), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'test_median_SEM'] = round(stats.sem(list_of_median_abs_dev_test), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'pop_half_life'] = sum(list_of_pop_half_life_fold) / len(list_of_pop_half_life_fold)
+
+        method_counter = method_counter + 1
+
+    five_fold_cross_val_results = five_fold_cross_val_results.reset_index(drop=True)
+    five_fold_cross_val_results_summary = five_fold_cross_val_results_summary.reset_index(drop=True)
+    
+    return five_fold_cross_val_results, five_fold_cross_val_results_summary
+
+def find_pop_tau_with_LOOCV():
+    """
+    Calculate pop tau with leave one out cross validation (LOOCV).
+
+    Details:
+    For each experiment, find the half life with lowest absolute deviation in the training set, and use that half life to
+    find the absolute deviation of both training and test sets.
+
+    Output: 
+    - five_fold_cross_val_results: dataframe of results of LOOCV per experiment
+    - five_fold_cross_val_results_summary: dataframe of results of LOOCV per method
+    """
+
+    dat = pd.read_excel('output (no pop tau).xlsx', sheet_name='result')
+
+    # Filter for tau methods only
+    dat = dat[dat.method.str.contains('tau')]
+
+    # Create patient and method list
+    linear_patient_list = dat[dat.method.str.contains('L_')].patient.unique().tolist()
+    quad_patient_list = dat[dat.method.str.contains('Q_')].patient.unique().tolist()
+    method_list = dat.method.unique().tolist()
+
+    # Calculate mean abs deviation by grouping by method, patient, half-life 
+    dat = dat.groupby(['method', 'patient', 'half_life'])['abs_deviation'].mean()
+    dat = dat.to_frame(name='abs_deviation').reset_index()
+
+    # # Run normality check (result p=0.0, reject normality)
+    # scipy.stats.kstest(dat.abs_deviation, 'norm')
+
+    # Define dataframe to store results
+    five_fold_cross_val_results = pd.DataFrame(columns=['method', 'experiment', 'train_median', 'test_median', 'pop_half_life_fold', 'indiv_pop_half_life_fold'])
+    five_fold_cross_val_results_summary = pd.DataFrame(columns=['method', 'train_median_mean', 'train_median_SEM', \
+                                                                'test_median_mean', 'test_median_SEM', \
+                                                                'pop_half_life'])
+
+    method_counter = 1
+    fold_counter = 1
+
+    for method in method_list: # loop through methods
+        list_of_pop_half_life_fold = []
+        list_of_median_abs_dev_train = []
+        list_of_median_abs_dev_test = []
+        method_df = dat[dat.method == method]
+
+        # Check if linear/quad method
+
+        # If linear, loop through 13 times
+        if 'L_' in method:
+
+            list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter = \
+            LOOCV(linear_patient_list, method_df, list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter)
+
+        # If quad, loop through 11 times
+        if 'Q_' in method:
+
+            list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter = \
+            LOOCV(quad_patient_list, method_df, list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter)
+
+        # Fill in five_fold_cross_val_results_summary for results per method
+        five_fold_cross_val_results_summary.loc[fold_counter, 'method'] = method
+        five_fold_cross_val_results_summary.loc[fold_counter, 'train_median_mean'] = round(mean(list_of_median_abs_dev_train), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'train_median_SEM'] = round(stats.sem(list_of_median_abs_dev_train), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'test_median_mean'] = round(mean(list_of_median_abs_dev_test), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'test_median_SEM'] = round(stats.sem(list_of_median_abs_dev_test), 2)
+        five_fold_cross_val_results_summary.loc[fold_counter, 'pop_half_life'] = sum(list_of_pop_half_life_fold) / len(list_of_pop_half_life_fold)
+
+        method_counter = method_counter + 1
+
+    five_fold_cross_val_results = five_fold_cross_val_results.reset_index(drop=True)
+    five_fold_cross_val_results_summary = five_fold_cross_val_results_summary.reset_index(drop=True)
+
+    return five_fold_cross_val_results, five_fold_cross_val_results_summary
+
+def LOOCV(patient_list, method_df, list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter):
+    """
+    LOOCV method for both linear and quadratic
+    
+    Output:
+    - list_of_pop_half_life_fold: list of half-lives with the lowest absolute deviation in training set of that experiment
+    - list_of_median_abs_dev_train: list of medians of absolute deviation of the training set
+    - list_of_median_abs_dev_test: list of medians of absolute deviation of the test set
+    - five_fold_cross_val_results: dataframe of results of cross validation per experiment
+    - fold_counter: counter of number of folds thus far
+    """
+    for i in range(len(patient_list)):
+
+        # Define test_df (i training dataset)
+        test_df = method_df[method_df.patient == patient_list[i]]
+
+        # Define train_df (pop i)
+        train_list = patient_list.copy()
+        removed_element = train_list.pop(i)
+        train_df = method_df[method_df.patient.isin(train_list)]
+
+        # Find half_life at the index where abs_deviation is the lowest
+        train_df.reset_index()
+        pop_half_life_fold_index = train_df.index[train_df.abs_deviation == train_df.abs_deviation.min()].tolist()
+        pop_half_life_fold = train_df.loc[pop_half_life_fold_index, 'half_life'].tolist()
+
+        # Find median of abs_deviation among train_df with pop_half_life_fold
+        median_abs_dev_train = round(train_df[train_df.half_life.isin(pop_half_life_fold)].abs_deviation.median(), 2)
+
+        # Find median of abs_deviation among test_df with pop_half_life_fold
+        median_abs_dev_test = round(test_df[test_df.half_life.isin(pop_half_life_fold)].abs_deviation.median(), 2)
+
+        # If there are multiple half-lives with the lowest abs deviation, find average of the half lives to store as pop_half_life_fold
+        if len(pop_half_life_fold) > 1:
+            indiv_pop_half_life_fold = pop_half_life_fold
+            pop_half_life_fold = mean(pop_half_life_fold)
+            pop_half_life_fold = [pop_half_life_fold]
+        else: 
+            pop_half_life_fold = pop_half_life_fold
+            indiv_pop_half_life_fold = ""
+
+        pop_half_life_fold = pop_half_life_fold[0]
+
+        list_of_pop_half_life_fold.append(pop_half_life_fold)
+        list_of_median_abs_dev_train.append(median_abs_dev_train)
+        list_of_median_abs_dev_test.append(median_abs_dev_test)
+
+        # Fill in five_fold_cross_val_results for results per fold
+        five_fold_cross_val_results.loc[fold_counter, 'method'] = method
+        five_fold_cross_val_results.loc[fold_counter, 'experiment'] = i + 1
+        five_fold_cross_val_results.loc[fold_counter, 'train_median'] = median_abs_dev_train
+        five_fold_cross_val_results.loc[fold_counter, 'test_median'] = median_abs_dev_test
+        five_fold_cross_val_results.loc[fold_counter, 'pop_half_life_fold'] = pop_half_life_fold
+        five_fold_cross_val_results.loc[fold_counter, 'indiv_pop_half_life_fold'] = indiv_pop_half_life_fold
+
+        fold_counter = fold_counter + 1
+
+    return list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter
+
+def execute_CURATE_and_update_pop_tau_results(CV_string, five_fold_cross_val_results_summary, five_fold_cross_val_results):
+    """
+    Execute CURATE with pop tau and update pop tau results
+
+    Output:
+    Excel sheet containing dataframes for results of each experiment in 'Experiments' sheet and of overall results
+    of each method in 'Overall' sheet.
+    """
+    
+    execute_CURATE(five_fold_cross_val_results_summary, ' (with pop tau by ' + CV_string + ')')
+
+    # Add pop_tau_method column
+    five_fold_cross_val_results_summary['pop_tau_method'] = ""
+    for i in range(len(five_fold_cross_val_results_summary)):
+        five_fold_cross_val_results_summary.pop_tau_method[i] = five_fold_cross_val_results_summary.method[i][:-3] + 'pop_tau'
+
+    # Import output with pop tau
+    pop_tau_df = pd.read_excel('output (with pop tau by '+ CV_string + ').xlsx', sheet_name='result')
+
+    # Filter pop tau methods
+    pop_tau_df = pop_tau_df[pop_tau_df.method.str.contains('pop_tau')]
+
+    # Calculate mean abs deviation by grouping by method, patient
+    pop_tau_df = pop_tau_df.groupby(['method', 'patient'])['abs_deviation'].mean()
+    pop_tau_df = pop_tau_df.to_frame(name='abs_deviation').reset_index()
+
+    # Calculate median of 'mean of abs_deviation by patient' for each method
+    pop_tau_df = pop_tau_df.groupby('method')['abs_deviation'].median()
+    pop_tau_df = pop_tau_df.to_frame(name='abs_deviation').reset_index()
+
+    # Rename pop_tau_df columns
+    pop_tau_df.columns = ['pop_tau_method', 'all_patient_median']
+
+    # Merge dataframes on 'pop_tau_method' column
+    summary_df = five_fold_cross_val_results_summary.merge(pop_tau_df, how='left', on='pop_tau_method')
+
+    # Output dataframes to excel as individual sheets
+    with pd.ExcelWriter('pop_tau (by ' + CV_string + ').xlsx') as writer:
+        five_fold_cross_val_results.to_excel(writer, sheet_name='Experiments', index=False)
+        summary_df.to_excel(writer, sheet_name='Overall', index=False)
 
 ##### SUPPORTING FUNCTIONS ######
 # Generate profiles
@@ -95,10 +436,9 @@ def join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df):
     
     return df, cal_pred, result_df
 
-def output_df_to_excel(df, cal_pred, result_df):
+def output_df_to_excel(df, cal_pred, result_df, pop_tau_string):
     """Output dataframes to excel as individual sheets"""
-    timestr = time.strftime("%Y%m%d-%H%M")
-    with pd.ExcelWriter('output_' + timestr + '.xlsx') as writer:
+    with pd.ExcelWriter('output' + pop_tau_string + '.xlsx') as writer:
         df.to_excel(writer, sheet_name='clean', index=False)
         cal_pred.to_excel(writer, sheet_name='calibration_and_efficacy_driven', index=False)
         result_df.to_excel(writer, sheet_name='result', index=False)
@@ -366,8 +706,6 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
         if patient not in patients_to_exclude_linear:
             deg = 1
 
-            # pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index[five_fold_cross_val_results_summary.method == 'L_Cum_wo_origin_tau'], 'pop_half_life'])
-            # list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_pop_tau', list_of_result_df, 'wo_origin', tau=1, half_life=[pop_half_life])
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
             list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
@@ -388,51 +726,52 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
             list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
 
             # Pop tau
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_Cum_wo_origin_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_pop_tau', list_of_result_df, \
-                'wo_origin', tau=1, half_life=[pop_half_life])
+            if isinstance(five_fold_cross_val_results_summary, pd.DataFrame):
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_Cum_wo_origin_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_pop_tau', list_of_result_df, \
+                    'wo_origin', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_Cum_origin_dp_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp_pop_tau', list_of_result_df, \
-                'origin_dp', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_Cum_origin_dp_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp_pop_tau', list_of_result_df, \
+                    'origin_dp', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_Cum_origin_int_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int_pop_tau', list_of_result_df, \
-                'origin_int', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_Cum_origin_int_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int_pop_tau', list_of_result_df, \
+                    'origin_int', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_PPM_wo_origin_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_PPM_wo_origin_pop_tau', list_of_result_df, \
-                'wo_origin', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_PPM_wo_origin_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_PPM_wo_origin_pop_tau', list_of_result_df, \
+                    'wo_origin', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_PPM_origin_dp_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_PPM_origin_dp_pop_tau', list_of_result_df, \
-                'origin_dp', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_PPM_origin_dp_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_PPM_origin_dp_pop_tau', list_of_result_df, \
+                    'origin_dp', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_PPM_origin_int_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_PPM_origin_int_pop_tau', list_of_result_df, \
-                'origin_int', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_PPM_origin_int_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_PPM_origin_int_pop_tau', list_of_result_df, \
+                    'origin_int', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_RW_wo_origin_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_RW_wo_origin_pop_tau', list_of_result_df, \
-                'wo_origin', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_RW_wo_origin_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_RW_wo_origin_pop_tau', list_of_result_df, \
+                    'wo_origin', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_RW_origin_dp_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_RW_origin_dp_pop_tau', list_of_result_df, \
-                'origin_dp', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_RW_origin_dp_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_RW_origin_dp_pop_tau', list_of_result_df, \
+                    'origin_dp', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'L_RW_origin_int_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_RW_origin_int_pop_tau', list_of_result_df, \
-                'origin_int', tau=1, half_life=[pop_half_life])
-
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'L_RW_origin_int_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_RW_origin_int_pop_tau', list_of_result_df, \
+                    'origin_int', tau=1, half_life=[pop_half_life])
+            else: pass
 
         if patient not in patients_to_exclude_quad:
             deg = 2
@@ -456,50 +795,52 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
             list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
 
             # Pop tau
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_Cum_wo_origin_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_Cum_wo_origin_pop_tau', list_of_result_df, \
-                'wo_origin', tau=1, half_life=[pop_half_life])
+            if isinstance(five_fold_cross_val_results_summary, pd.DataFrame):
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_Cum_wo_origin_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_Cum_wo_origin_pop_tau', list_of_result_df, \
+                    'wo_origin', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_Cum_origin_dp_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_Cum_origin_dp_pop_tau', list_of_result_df, \
-                'origin_dp', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_Cum_origin_dp_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_Cum_origin_dp_pop_tau', list_of_result_df, \
+                    'origin_dp', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_Cum_origin_int_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_Cum_origin_int_pop_tau', list_of_result_df, \
-                'origin_int', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_Cum_origin_int_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_Cum_origin_int_pop_tau', list_of_result_df, \
+                    'origin_int', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_PPM_wo_origin_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_PPM_wo_origin_pop_tau', list_of_result_df, \
-                'wo_origin', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_PPM_wo_origin_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_PPM_wo_origin_pop_tau', list_of_result_df, \
+                    'wo_origin', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_PPM_origin_dp_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_PPM_origin_dp_pop_tau', list_of_result_df, \
-                'origin_dp', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_PPM_origin_dp_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_PPM_origin_dp_pop_tau', list_of_result_df, \
+                    'origin_dp', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_PPM_origin_int_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_PPM_origin_int_pop_tau', list_of_result_df, \
-                'origin_int', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_PPM_origin_int_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_PPM_origin_int_pop_tau', list_of_result_df, \
+                    'origin_int', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_RW_wo_origin_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_RW_wo_origin_pop_tau', list_of_result_df, \
-                'wo_origin', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_RW_wo_origin_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_RW_wo_origin_pop_tau', list_of_result_df, \
+                    'wo_origin', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_RW_origin_dp_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_RW_origin_dp_pop_tau', list_of_result_df, \
-                'origin_dp', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_RW_origin_dp_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_RW_origin_dp_pop_tau', list_of_result_df, \
+                    'origin_dp', tau=1, half_life=[pop_half_life])
 
-            pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
-                [five_fold_cross_val_results_summary.method == 'Q_RW_origin_int_tau'], 'pop_half_life'])
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_RW_origin_int_pop_tau', list_of_result_df, \
-                'origin_int', tau=1, half_life=[pop_half_life])
+                pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
+                    [five_fold_cross_val_results_summary.method == 'Q_RW_origin_int_tau'], 'pop_half_life'])
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'Q_RW_origin_int_pop_tau', list_of_result_df, \
+                    'origin_int', tau=1, half_life=[pop_half_life])
+            else: pass
 
     return list_of_result_df
 
