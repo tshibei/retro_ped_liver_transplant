@@ -56,10 +56,106 @@ execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_s
 
 
 # +
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
+import numpy as np
+from scipy import stats
+import seaborn as sns
+from functools import reduce
+pd.options.mode.chained_assignment = None 
+from statistics import mean
+from Profile_Generation import *
+from plotting import *
+import warnings
+warnings.simplefilter('ignore', np.RankWarning)
+from scipy.optimize import curve_fit
+import matplotlib.patches as patches
+from scipy.optimize import curve_fit
+from openpyxl import load_workbook
+import math
+from scipy.optimize import OptimizeWarning
+warnings.simplefilter("ignore", OptimizeWarning)
+import timeit
+
+prediction_error()
+
+# +
 # RMSE
+import pandas as pd
+
+df = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+# +
+from sklearn.metrics import mean_squared_error
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
+
+dat = df.copy()
+
+# Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+method_list = dat.method.unique().tolist()
+exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+method_list = [x for x in method_list if x not in exclude_method_list]
+dat = dat[dat.method.isin(method_list)]
+dat = dat.reset_index(drop=True)
 
 # Find RMSE by method
+def rmse(dat):
+    rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
+    return pd.Series(dict(rmse=rmse))
+    
+dat = dat.groupby('method').apply(rmse).reset_index()
 
+# Create pop tau column and remove 'pop_tau' from method name
+dat['pop_tau'] = ""
+dat['OG_method'] = ""
+for i in range(len(dat)):
+    if 'pop_tau' in dat.method[i]:
+        dat.loc[i, 'pop_tau'] = 'pop tau'
+        dat.loc[i, 'OG_method'] = dat.loc[i, 'method'][:-8]
+    else: 
+        dat.loc[i, 'pop_tau'] = 'no pop tau'
+        dat.loc[i, 'OG_method'] = dat.loc[i, 'method']
+
+# Line plot of RMSE for pop tau and non pop tau
+plt.figure(figsize=(15,10))
+f, (ax, ax2) = plt.subplots(2, 1, sharex=True)
+
+sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax)
+sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax2)
+
+ax2.set_ylim([min(dat.rmse), 12])
+ax.set_ylim([np.exp(12), max(dat.rmse)+np.exp(12)])
+
+# hide the spines between ax and ax2
+ax.spines['bottom'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+ax2.spines['top'].set_visible(False)
+ax.xaxis.tick_top()
+ax.tick_params(labeltop=False)  # don't put tick labels at the top
+ax2.xaxis.tick_bottom()
+
+d = .015  # how big to make the diagonal lines in axes coordinates
+# arguments to pass to plot, just so we don't keep repeating them
+kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
+ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
+ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+
+kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
+ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
+ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
+
+ax.set_ylabel(None)
+ax2.set_ylabel('RMSE', loc='top')
+ax2.set_xlabel(None)
+ax2.get_legend().remove()
+plt.xticks(rotation=90)
+
+# Save
+plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
 # -
 
 five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
