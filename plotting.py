@@ -95,6 +95,7 @@ def prediction_error():
 def RMSE():
     """Line plot of RMSE for each method, grouped by pop tau and no pop tau"""
     dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
     # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
     method_list = dat.method.unique().tolist()
     exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
@@ -156,6 +157,70 @@ def RMSE():
 
     # Save
     plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
+
+def ideal_over_under_pred():
+    """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
+    
+    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+    method_list = dat.method.unique().tolist()
+    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+    method_list = [x for x in method_list if x not in exclude_method_list]
+    dat = dat[dat.method.isin(method_list)]
+    dat = dat.reset_index(drop=True)
+
+    # Calculate % of predictions within acceptable error, overprediction, and underprediction
+    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x > -3) & (x < 1)).sum()/ x.count()*100).reset_index()
+    ideal['result'] = 'ideal'
+    over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -3)).sum()/ x.count()*100).reset_index()
+    over['result'] = 'over'
+    under = dat.groupby('method')['deviation'].apply(lambda x: ((x > 1)).sum()/ x.count()*100).reset_index()
+    under['result'] = 'under'
+
+    # Combine results into a dataframe
+    metric_df = pd.concat([ideal, over, under]).reset_index(drop=True)
+
+    # Add pop tau column, and remove 'pop_tau' from method
+    metric_df['pop_tau'] = ""
+    for i in range(len(metric_df)):
+        if 'pop_tau' in metric_df.method[i]:
+            metric_df.loc[i, 'pop_tau'] = 'pop tau'
+            metric_df.loc[i, 'method'] = metric_df.loc[i, 'method'][:-8]
+        else: 
+            metric_df.loc[i, 'pop_tau'] = 'no pop tau'
+
+    # # Perform shapiro test (result: some pvalue < 0.05, some > 0.05)
+    # kstest_result = metric_df.groupby(['pop_tau', 'result'])['deviation'].apply(lambda x: stats.shapiro(x).pvalue < 0.05).reset_index()
+
+    # # Describe ideal/over/under prediction results
+    # pd.set_option('display.float_format', lambda x: '%.2f' % x)
+    # metric_df.groupby(['pop_tau', 'result'])['deviation'].describe()
+
+    # Plot
+    sns.set(font_scale=1.4, rc={'figure.figsize':(10,20)})
+    sns.set_style("white")
+    ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'pop tau'], x='method', 
+                     y='deviation', hue='result', kind='bar', height=5,
+                    aspect=2)
+
+    ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
+           title='No. of Ideal/Over/Under Predictions (%) (Pop Tau Methods)')
+    ax.set_xticklabels(rotation=90)
+    ax._legend.set_title('Prediction')
+    plt.savefig('pop_tau_predictions.png', bbox_inches='tight', dpi=300)
+
+    sns.set(font_scale=1.4, rc={'figure.figsize':(10,20)})
+    sns.set_style("white")
+    # ax = sns.relplot(data=metric_df, x='method', y='deviation', col='pop_tau', hue='result', kind='line', marker='o')
+    ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'no pop tau'], x='method', 
+                     y='deviation', hue='result', kind='bar', height=5,
+                    aspect=2)
+    ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
+           title='No. of Ideal/Over/Under Predictions (%)')
+    ax.set_xticklabels(rotation=90)
+    ax._legend.set_title('Prediction')
+    plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
 
 ##### Meeting with NUH ######
 
