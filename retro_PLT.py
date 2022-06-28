@@ -55,6 +55,11 @@ five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
 
 
+# +
+# RMSE
+
+# Find RMSE by method
+
 # -
 
 five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\

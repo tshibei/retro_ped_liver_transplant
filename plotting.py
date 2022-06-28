@@ -3,6 +3,91 @@ from scipy import stats
 import matplotlib.pyplot as plt
 import pandas as pd
 
+##### New graphs after meeting with NUH ######
+def cross_val():
+    """ Line plot of train and test results of both K-Fold and Leave-One-Out Cross Validation for Pop Tau """
+    CV_dat = pd.read_excel('GOOD OUTPUT DATA\pop_tau (by CV).xlsx', sheet_name='Overall')
+    LOOCV_dat = pd.read_excel('GOOD OUTPUT DATA\pop_tau (by LOOCV).xlsx', sheet_name='Overall')
+
+    plt.errorbar(CV_dat.pop_tau_method, CV_dat.train_median_mean, CV_dat.train_median_SEM, linestyle='-', marker='o', color='blue', label='K-Fold CV (train)')
+    plt.errorbar(CV_dat.pop_tau_method, CV_dat.test_median_mean, CV_dat.test_median_SEM, linestyle='--', marker='^', color='blue', label='K-Fold CV (test)')
+    plt.errorbar(LOOCV_dat.pop_tau_method, LOOCV_dat.train_median_mean, LOOCV_dat.train_median_SEM, linestyle='-', marker='o', color='orange', label='LOOCV (train)')
+    plt.errorbar(LOOCV_dat.pop_tau_method, LOOCV_dat.test_median_mean, LOOCV_dat.test_median_SEM, linestyle='--', marker='^', color='orange', label='LOOCV (test)')
+
+    plt.legend(bbox_to_anchor=(1.04,0.5), loc='center left')
+    plt.xticks(rotation = 90)
+    plt.title('Cross Validation Results')
+    plt.ylabel('Absolute Prediction Error (Mean \u00b1 SEM)')
+    plt.savefig('cross_val.png', dpi=300, facecolor='w', bbox_inches='tight')
+
+def prediction_error():
+    """ Boxplot of prediction error and absolute prediction error
+    by approach, type, origin_inclusion, pop_tau."""
+
+    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+    method_list = dat.method.unique().tolist()
+    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+    method_list = [x for x in method_list if x not in exclude_method_list]
+    dat = dat[dat.method.isin(method_list)]
+    dat = dat.reset_index(drop=True)
+
+    # Add type column
+    dat['type'] = ""
+    for i in range(len(dat)):
+        if 'L_' in dat.method[i]:
+            dat.loc[i, 'type'] = 'linear'
+        else:
+            dat.loc[i, 'type'] = 'quadratic'
+
+    # # Check normality of prediction error for each method (result is to reject normality)
+    # for method in method_list:
+    #     dat_method = dat[dat.method == method]
+    #     print(stats.kstest(dat_method.deviation, 'norm').pvalue < 0.05)
+
+    # Create approach, origin inclusion, pop tau columns
+    dat['approach'] = ""
+    dat['origin_inclusion'] = ""
+    dat['pop_tau'] = ""
+    for i in range(len(dat)):
+        if 'Cum' in dat.method[i]:
+            dat.loc[i, 'approach']  = 'Cum'
+        elif 'PPM' in dat.method[i]:
+            dat.loc[i, 'approach'] = 'PPM'
+        else: dat.loc[i, 'approach'] = 'RW'
+        
+        if 'wo_origin' in dat.method[i]:
+            dat.loc[i, 'origin_inclusion'] = 'wo_origin'
+        elif 'origin_dp' in dat.method[i]:
+            dat.loc[i, 'origin_inclusion'] = 'origin_dp'
+        else: dat.loc[i, 'origin_inclusion'] = 'origin_int'
+
+        if 'pop_tau' in dat.method[i]:
+            dat.loc[i, 'pop_tau'] = True
+        else: dat.loc[i, 'pop_tau'] = False
+
+    # Boxplot for prediction error
+    sns.set_theme(style="whitegrid",font_scale=1.2)
+    ax = sns.catplot(data=dat, x='origin_inclusion', y='deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
+    ax.set_ylabels('Prediction error')
+    ax.fig.subplots_adjust(top=0.8)
+    ax.fig.suptitle('Prediction error')
+    plt.ylim([-15,15])
+    plt.savefig('pred_error.png', bbox_inches='tight', dpi=300)
+
+    # Boxplot for absolute prediction error
+    sns.set_theme(style="whitegrid",font_scale=1.2)
+    ax = sns.catplot(data=dat, x='origin_inclusion', y='abs_deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
+    ax.set_ylabels('Absolute prediction error')
+    ax.set_xlabels(None)
+    ax.fig.subplots_adjust(top=0.8)
+    ax.fig.suptitle('Absolute Prediction error')
+    plt.ylim([-5,20])
+    plt.savefig('abs_pred_error.png', bbox_inches='tight', dpi=300)
+
+##### Meeting with NUH ######
+
 def perc_days_within_target_tac(result_df):
     """
     Barplot of percentage of days within target tac range against each patient.
