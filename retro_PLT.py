@@ -37,6 +37,7 @@ import math
 from scipy.optimize import OptimizeWarning
 warnings.simplefilter("ignore", OptimizeWarning)
 import timeit
+from sklearn.metrics import mean_squared_error
 
 
 # +
@@ -53,10 +54,162 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
+# +
+# Can benefit SOC
+from sklearn.metrics import mean_squared_error
+RMSE()
+
+
 # -
 
 
 
+# +
+# False negative/positive
+
+
+
+
+# -
+
+df = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+
+# +
+dat = df.copy()
+# Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+method_list = dat.method.unique().tolist()
+exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+method_list = [x for x in method_list if x not in exclude_method_list]
+dat = dat[dat.method.isin(method_list)]
+dat = dat.reset_index(drop=True)
+
+num_pred_linear = dat[dat.method=='L_Cum_wo_origin'].prediction.count()
+num_pred_quad = dat[dat.method=='Q_Cum_wo_origin'].prediction.count()
+
+print(f'num_pred_linear {num_pred_linear} | num_pred_quad {num_pred_quad}')
+
+# +
+dat = df.copy()
+
+# Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+method_list = dat.method.unique().tolist()
+exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+method_list = [x for x in method_list if x not in exclude_method_list]
+dat = dat[dat.method.isin(method_list)]
+dat = dat.reset_index(drop=True)
+
+# Create column for cond_1 where both predicted and observed values are out-of-range
+dat['cond_1'] = ((dat.prediction < 8) | (dat.prediction > 10)) & ((dat.response < 8) | (dat.response > 10))
+
+# Create column for cond_2 where prediction error is between -3 and +1
+dat['cond_2'] = (dat.deviation > -3) & (dat.deviation < 1)
+
+# Interpolate for 8, 9, 10mg
+for i in range(len(dat)):
+    # Create function
+    coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+    coeff = coeff[~np.isnan(coeff)]
+    p = np.poly1d(coeff)
+    x = np.linspace(0, 9)
+    y = p(x)
+    order = y.argsort()
+    y = y[order]
+    x = x[order]
+
+    dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x).tolist()
+    dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x).tolist()
+    dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x).tolist()
+
+# dat[['coeff_2x', 'coeff_1x', 'coeff_0x', 'interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe()
+# dat[['prediction', 'response', 'deviation', 'cond_1', 'cond_2']]
+# dat
+'interpolated_dose_8'
+
+# -
+
+np.iscomplex(dat.interpolated_dose_10).sum()
+
+# +
+import numpy as np
+a = 2.881250
+b = -0.121875
+# c = -16.252151
+
+x = 3.513015
+a*x + b
+
+# a*np.square(x) + b*x + c
+
+
+
+# +
+dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+# Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+method_list = dat.method.unique().tolist()
+exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+method_list = [x for x in method_list if x not in exclude_method_list]
+dat = dat[dat.method.isin(method_list)]
+dat = dat.reset_index(drop=True)
+
+# Find RMSE by method
+def rmse(dat):
+    rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
+    return pd.Series(dict(rmse=rmse))
+
+dat = dat.groupby('method').apply(rmse).reset_index()
+
+# Create pop tau column and remove 'pop_tau' from method name
+dat['pop_tau'] = ""
+dat['OG_method'] = ""
+for i in range(len(dat)):
+    if 'pop_tau' in dat.method[i]:
+        dat.loc[i, 'pop_tau'] = 'pop tau'
+        dat.loc[i, 'OG_method'] = dat.loc[i, 'method'][:-8]
+    else: 
+        dat.loc[i, 'pop_tau'] = 'no pop tau'
+        dat.loc[i, 'OG_method'] = dat.loc[i, 'method']
+
+# Line plot of RMSE for pop tau and non pop tau
+plt.figure(figsize=(15,10))
+f, (ax, ax2) = plt.subplots(2, 1, sharex=True)
+
+# sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax)
+# sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax2)
+
+ax = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', ax=ax, kind='bar')
+ax2 = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', ax=ax2, kind='bar')
+
+ax2.set_ylim([min(dat.rmse), 12])
+ax.set_ylim([np.exp(12), max(dat.rmse)+np.exp(12)])
+
+# hide the spines between ax and ax2
+ax.spines['bottom'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+ax2.spines['top'].set_visible(False)
+ax.xaxis.tick_top()
+ax.tick_params(labeltop=False)  # don't put tick labels at the top
+ax2.xaxis.tick_bottom()
+
+d = .015  # how big to make the diagonal lines in axes coordinates
+# arguments to pass to plot, just so we don't keep repeating them
+kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
+ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
+ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+
+kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
+ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
+ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
+
+ax.set_ylabel(None)
+ax2.set_ylabel('RMSE', loc='top')
+ax2.set_xlabel(None)
+ax2.get_legend().remove()
+plt.xticks(rotation=90)
+
+# Save
+plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
 
 # +
 # How are the predictions different, between different half-lives, for each method compared to without tau?

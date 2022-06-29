@@ -2,8 +2,24 @@ import seaborn as sns
 from scipy import stats
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_squared_error
+
 
 ##### New graphs after meeting with NUH ######
+
+def read_file_and_remove_unprocessed_pop_tau():
+    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+    method_list = dat.method.unique().tolist()
+    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+    method_list = [x for x in method_list if x not in exclude_method_list]
+    dat = dat[dat.method.isin(method_list)]
+    dat = dat.reset_index(drop=True)
+
+    return dat
+
 def cross_val():
     """ Line plot of train and test results of both K-Fold and Leave-One-Out Cross Validation for Pop Tau """
     CV_dat = pd.read_excel('GOOD OUTPUT DATA\pop_tau (by CV).xlsx', sheet_name='Overall')
@@ -125,11 +141,17 @@ def RMSE():
     plt.figure(figsize=(15,10))
     f, (ax, ax2) = plt.subplots(2, 1, sharex=True)
 
-    sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax)
-    sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax2)
+    # sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax)
+    # sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax2)
 
-    ax2.set_ylim([min(dat.rmse), 12])
-    ax.set_ylim([np.exp(12), max(dat.rmse)+np.exp(12)])
+    ax = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', ax=ax, kind='bar')
+    ax2 = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', ax=ax2, kind='bar')
+
+    # ax2.set_ylim([min(dat.rmse), 12])
+    # ax.set_ylim([np.exp(12), max(dat.rmse)+np.exp(12)])
+    
+    ax2.set(ylim=(min(dat.rmse), 12))
+    ax.set(ylim=(np.exp(12), max(dat.rmse)+np.exp(12)))
 
     # hide the spines between ax and ax2
     ax.spines['bottom'].set_visible(False)
@@ -212,7 +234,6 @@ def ideal_over_under_pred():
 
     sns.set(font_scale=1.4, rc={'figure.figsize':(10,20)})
     sns.set_style("white")
-    # ax = sns.relplot(data=metric_df, x='method', y='deviation', col='pop_tau', hue='result', kind='line', marker='o')
     ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'no pop tau'], x='method', 
                      y='deviation', hue='result', kind='bar', height=5,
                     aspect=2)
@@ -221,6 +242,101 @@ def ideal_over_under_pred():
     ax.set_xticklabels(rotation=90)
     ax._legend.set_title('Prediction')
     plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
+
+def can_benefit_SOC_predictions():
+    """
+    Barplot of percentage of predictions that can benefit SOC, 
+    by method grouped by approach, type, origin inclusion, 
+    facet grouped by pop tau"""
+    
+    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+    method_list = dat.method.unique().tolist()
+    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+    method_list = [x for x in method_list if x not in exclude_method_list]
+    dat = dat[dat.method.isin(method_list)]
+    dat = dat.reset_index(drop=True)
+
+    dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
+
+    # # Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
+    # for i in range(len(dat)):
+    #     # Create function
+    #     coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+    #     coeff = coeff[~np.isnan(coeff)]
+    #     p = np.poly1d(coeff)
+    #     x = np.linspace(0, max(dat.dose)+ 2)
+    #     y = p(x)
+    #     order = y.argsort()
+    #     y = y[order]
+    #     x = x[order]
+
+    #     dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+    #     dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+    #     dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    # dat[['interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe() # Minimum 0mg, all are possible dosing events
+
+    # Find percentage of predictions where both observed and prediction response are outside range
+    for i in range(len(dat)):
+        dat.loc[i, 'both_outside'] = False
+        if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+                dat.loc[i, 'both_outside'] = True
+
+    dat['acceptable_deviation'] = (dat['deviation'] > -3) & (dat['deviation'] < 1)
+
+    dat['can_benefit'] = dat['acceptable_deviation'] & dat['both_outside']
+
+    # If can correctly identify out of range, with acceptable deviation, can benefit
+    dat = dat.groupby(['method'])['can_benefit'].apply(lambda x: x.sum()/x.count() * 100).reset_index()
+
+    # Create pop tau column and rename methods without 'pop_tau'
+    dat['pop_tau'] = ""
+    for i in range(len(dat)):
+        if 'pop_tau' in dat.method[i]:
+            dat.loc[i, 'pop_tau'] = 'pop tau'
+            dat.loc[i, 'method'] = dat.method[i][:-8]
+        else:
+            dat.loc[i, 'pop_tau'] = 'no pop tau'
+            dat.loc[i, 'method'] = dat.method[i]
+            
+        # Add 'approach' column
+        if 'Cum' in dat.loc[i, 'method']:
+            dat.loc[i, 'approach'] = 'Cumulative'
+        elif 'PPM' in dat.loc[i, 'method']:
+            dat.loc[i, 'approach'] = 'PPM'
+        else:
+            dat.loc[i, 'approach'] = 'RW'
+
+        # Add 'type' column
+        if 'L' in dat.loc[i, 'method']:
+            dat.loc[i, 'type'] = 'linear'
+        else:
+            dat.loc[i, 'type'] = 'quadratic'
+
+        # Add 'origin_inclusion' column
+        if 'wo_origin' in dat.loc[i, 'method']:
+            dat.loc[i, 'origin_inclusion'] = 'wo_origin'
+        elif 'origin_dp' in dat.loc[i, 'method']:
+            dat.loc[i, 'origin_inclusion'] = 'origin_dp'
+        else:
+            dat.loc[i, 'origin_inclusion'] = 'origin_int'
+
+    # Shapiro test (result: no pop tau, assume normal. pop tau, reject normality.)
+    # # stats.shapiro(dat[dat.pop_tau=='no pop tau'].can_benefit).pvalue       
+    # # stats.shapiro(dat[dat.pop_tau=='pop tau'].can_benefit).pvalue
+
+    # Barplot of % can benefit vs method, by method grouped by pop tau
+    sns.set(font_scale=1.4)
+    sns.set_style("whitegrid")
+
+    g = sns.catplot(data=dat, x='origin_inclusion', y='can_benefit', col='approach', hue='type', row='pop_tau', kind='bar')
+    g.set_axis_labels(None, "No. of Predictions that\n Can Benefit SOC (%)")
+
+    # Save
+    plt.savefig('can_benefit_SOC.png', facecolor='w', dpi=300, bbox_inches='tight')
 
 ##### Meeting with NUH ######
 
@@ -419,7 +535,6 @@ def median_perc_within_acc_dev(result_df):
     stat, p = levene(method_dat[0], method_dat[1], method_dat[2], method_dat[3], method_dat[4], method_dat[5],
                   method_dat[6], method_dat[7], method_dat[8], method_dat[9], method_dat[10], method_dat[11],
                   method_dat[12], method_dat[13], method_dat[14], method_dat[15], method_dat[16], method_dat[17])
-
 
 def can_benefit(result_df):
     """
