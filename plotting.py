@@ -43,14 +43,7 @@ def prediction_error():
     """ Boxplot of prediction error and absolute prediction error
     by approach, type, origin_inclusion, pop_tau."""
 
-    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
-
-    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
-    method_list = dat.method.unique().tolist()
-    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
-    method_list = [x for x in method_list if x not in exclude_method_list]
-    dat = dat[dat.method.isin(method_list)]
-    dat = dat.reset_index(drop=True)
+    dat = read_file_and_remove_unprocessed_pop_tau()
 
     # Add type column
     dat['type'] = ""
@@ -90,10 +83,10 @@ def prediction_error():
     sns.set_theme(style="whitegrid")
     # sns.set(font_scale=2)
     ax = sns.catplot(data=dat, x='origin_inclusion', y='deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
-    ax.set_ylabel('Prediction error', fontsize=20)
-    ax.set_xlabel(fontsize=20)
+    ax.set_ylabels('Prediction Error', fontsize=20)
+    ax.set_xlabels(fontsize=20)
     ax.fig.subplots_adjust(top=0.8)
-    ax.fig.suptitle('Prediction error', fontsize=20)
+    ax.fig.suptitle('Prediction Error', fontsize=20)
     plt.ylim([-15,15])
     plt.savefig('pred_error.png', bbox_inches='tight', dpi=300)
 
@@ -101,28 +94,23 @@ def prediction_error():
     sns.set_theme(style="whitegrid")
     # sns.set(font_scale=2)
     ax = sns.catplot(data=dat, x='origin_inclusion', y='abs_deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
-    ax.set_ylabel('Absolute prediction error', fontsize=20)
-    ax.set_xlabel(fontsize=20)
+    ax.set_ylabels('Absolute Prediction Error', fontsize=20)
+    ax.set_xlabels(fontsize=20)
     ax.fig.subplots_adjust(top=0.8)
     ax.fig.suptitle('Absolute Prediction Error', fontsize=20)
     plt.ylim([-5,20])
     plt.savefig('abs_pred_error.png', bbox_inches='tight', dpi=300)
 
+    return dat
+
 def RMSE():
-    """Line plot of RMSE for each method, grouped by pop tau and no pop tau"""
-    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+    """
+    Bar plot of RMSE for each method, grouped by pop tau and no pop tau,
+    with broken y-axis
+    """
+    dat = read_file_and_remove_unprocessed_pop_tau()
 
-    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
-    method_list = dat.method.unique().tolist()
-    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
-    method_list = [x for x in method_list if x not in exclude_method_list]
-    dat = dat[dat.method.isin(method_list)]
-    dat = dat.reset_index(drop=True)
-
-    # Find RMSE by method
-    def rmse(dat):
-        rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
-        return pd.Series(dict(rmse=rmse))
+    rmse(dat)
 
     dat = dat.groupby('method').apply(rmse).reset_index()
 
@@ -137,48 +125,50 @@ def RMSE():
             dat.loc[i, 'pop_tau'] = 'no pop tau'
             dat.loc[i, 'OG_method'] = dat.loc[i, 'method']
 
-    # Line plot of RMSE for pop tau and non pop tau
-    plt.figure(figsize=(15,10))
-    f, (ax, ax2) = plt.subplots(2, 1, sharex=True)
+    # Transform dataframe
+    dat = dat[['pop_tau', 'OG_method', 'rmse']]
 
-    # sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax)
-    # sns.lineplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', marker='o', ax=ax2)
+    # Set style for seaborn plot
+    sns.set(style="whitegrid")
 
-    ax = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', ax=ax, kind='bar')
-    ax2 = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', ax=ax2, kind='bar')
+    # Barplot with broken y axis
+    f, (ax1, ax2) = plt.subplots(ncols=1, nrows=2,
+                                sharex=True)
 
-    # ax2.set_ylim([min(dat.rmse), 12])
-    # ax.set_ylim([np.exp(12), max(dat.rmse)+np.exp(12)])
-    
-    ax2.set(ylim=(min(dat.rmse), 12))
-    ax.set(ylim=(np.exp(12), max(dat.rmse)+np.exp(12)))
+    ax1 = sns.barplot(x="OG_method", y="rmse",
+                    hue="pop_tau", data=dat, ax=ax1)
+    ax2 = sns.barplot(x="OG_method", y="rmse",
+                    hue="pop_tau", data=dat, ax=ax2)
 
-    # hide the spines between ax and ax2
-    ax.spines['bottom'].set_visible(False)
-    # ax.spines['top'].set_visible(False)
-    ax2.spines['top'].set_visible(False)
-    ax.xaxis.tick_top()
-    ax.tick_params(labeltop=False)  # don't put tick labels at the top
+    ax1.set_ylim(np.exp(12), max(dat.rmse)+np.exp(12))
+    ax2.set_ylim(min(dat.rmse), 12)
+
+    ax1.get_xaxis().set_visible(False)
+
+    ax1.set_ylabel("")
+    ax2.set_ylabel("")
+    ax1.set_xlabel("")
+    ax2.set_xlabel("")
+    f.text(0.05, 0.55, "RMSE", va="center", rotation="vertical")
+
+    ax1.get_legend().remove()
+    ax2.get_legend().remove()
+    ax2.legend(loc=(1.025, 0.5), title="Pop Tau")
+
+    ax1.xaxis.tick_top()
     ax2.xaxis.tick_bottom()
 
-    d = .015  # how big to make the diagonal lines in axes coordinates
-    # arguments to pass to plot, just so we don't keep repeating them
-    kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
-    ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
-    ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+    f.subplots_adjust(left=0.15, right=0.85, bottom=0.15, top=0.85)
 
-    kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
-    ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
-    ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
-
-    ax.set_ylabel(None)
-    ax2.set_ylabel('RMSE', loc='top')
-    ax2.set_xlabel(None)
-    ax2.get_legend().remove()
     plt.xticks(rotation=90)
 
-    # Save
     plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
+
+
+def rmse(dat):
+    """Find RMSE by method"""
+    rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
+    return pd.Series(dict(rmse=rmse))
 
 def ideal_over_under_pred():
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
