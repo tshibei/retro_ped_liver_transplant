@@ -57,7 +57,7 @@ execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_s
 # -
 
 # %%time
-dat = RMSE()
+prediction_error()
 
 
 

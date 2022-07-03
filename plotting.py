@@ -8,18 +8,6 @@ from sklearn.metrics import mean_squared_error
 
 ##### New graphs after meeting with NUH ######
 
-def read_file_and_remove_unprocessed_pop_tau():
-    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
-
-    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
-    method_list = dat.method.unique().tolist()
-    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
-    method_list = [x for x in method_list if x not in exclude_method_list]
-    dat = dat[dat.method.isin(method_list)]
-    dat = dat.reset_index(drop=True)
-
-    return dat
-
 def cross_val():
     """ Line plot of train and test results of both K-Fold and Leave-One-Out Cross Validation for Pop Tau """
     CV_dat = pd.read_excel('GOOD OUTPUT DATA\pop_tau (by CV).xlsx', sheet_name='Overall')
@@ -80,24 +68,20 @@ def prediction_error():
         else: dat.loc[i, 'pop_tau'] = False
 
     # Boxplot for prediction error
-    sns.set_theme(style="whitegrid")
-    # sns.set(font_scale=2)
+    sns.set_theme(style="white")
     ax = sns.catplot(data=dat, x='origin_inclusion', y='deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
-    ax.set_ylabels('Prediction Error', fontsize=20)
-    ax.set_xlabels(fontsize=20)
     ax.fig.subplots_adjust(top=0.8)
-    ax.fig.suptitle('Prediction Error', fontsize=20)
+    ax.fig.suptitle('Prediction Error')
+    ax.set_ylabels('Prediction Error')
     plt.ylim([-15,15])
     plt.savefig('pred_error.png', bbox_inches='tight', dpi=300)
 
     # Boxplot for absolute prediction error
-    sns.set_theme(style="whitegrid")
-    # sns.set(font_scale=2)
+    sns.set_theme(style="white")
     ax = sns.catplot(data=dat, x='origin_inclusion', y='abs_deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
-    ax.set_ylabels('Absolute Prediction Error', fontsize=20)
-    ax.set_xlabels(fontsize=20)
     ax.fig.subplots_adjust(top=0.8)
-    ax.fig.suptitle('Absolute Prediction Error', fontsize=20)
+    ax.fig.suptitle('Absolute Prediction Error')
+    ax.set_ylabels('Prediction Error')
     plt.ylim([-5,20])
     plt.savefig('abs_pred_error.png', bbox_inches='tight', dpi=300)
 
@@ -164,7 +148,6 @@ def RMSE():
 
     plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
 
-
 def rmse(dat):
     """Find RMSE by method"""
     rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
@@ -172,22 +155,14 @@ def rmse(dat):
 
 def ideal_over_under_pred():
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
-    
-    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
-
-    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
-    method_list = dat.method.unique().tolist()
-    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
-    method_list = [x for x in method_list if x not in exclude_method_list]
-    dat = dat[dat.method.isin(method_list)]
-    dat = dat.reset_index(drop=True)
+    dat = read_file_and_remove_unprocessed_pop_tau()
 
     # Calculate % of predictions within acceptable error, overprediction, and underprediction
-    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x > -3) & (x < 1)).sum()/ x.count()*100).reset_index()
+    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x > -2) & (x < 1.5)).sum()/ x.count()*100).reset_index()
     ideal['result'] = 'ideal'
-    over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -3)).sum()/ x.count()*100).reset_index()
+    over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -2)).sum()/ x.count()*100).reset_index()
     over['result'] = 'over'
-    under = dat.groupby('method')['deviation'].apply(lambda x: ((x > 1)).sum()/ x.count()*100).reset_index()
+    under = dat.groupby('method')['deviation'].apply(lambda x: ((x > 1.5)).sum()/ x.count()*100).reset_index()
     under['result'] = 'under'
 
     # Combine results into a dataframe
@@ -210,7 +185,7 @@ def ideal_over_under_pred():
     # metric_df.groupby(['pop_tau', 'result'])['deviation'].describe()
 
     # Plot
-    sns.set(font_scale=1.4, rc={'figure.figsize':(10,20)})
+    sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
     sns.set_style("white")
     ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'pop tau'], x='method', 
                      y='deviation', hue='result', kind='bar', height=5,
@@ -222,7 +197,7 @@ def ideal_over_under_pred():
     ax._legend.set_title('Prediction')
     plt.savefig('pop_tau_predictions.png', bbox_inches='tight', dpi=300)
 
-    sns.set(font_scale=1.4, rc={'figure.figsize':(10,20)})
+    sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
     sns.set_style("white")
     ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'no pop tau'], x='method', 
                      y='deviation', hue='result', kind='bar', height=5,
@@ -275,7 +250,7 @@ def can_benefit_SOC_predictions():
             if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
                 dat.loc[i, 'both_outside'] = True
 
-    dat['acceptable_deviation'] = (dat['deviation'] > -3) & (dat['deviation'] < 1)
+    dat['acceptable_deviation'] = (dat['deviation'] > -2) & (dat['deviation'] < 1.5)
 
     dat['can_benefit'] = dat['acceptable_deviation'] & dat['both_outside']
 
@@ -323,10 +298,22 @@ def can_benefit_SOC_predictions():
     sns.set_style("whitegrid")
 
     g = sns.catplot(data=dat, x='origin_inclusion', y='can_benefit', col='approach', hue='type', row='pop_tau', kind='bar')
-    g.set_axis_labels(None, "No. of Predictions that\n Can Benefit SOC (%)")
+    g.set_axis_labels(None, "No. of Predictions that can \nPotentially Benefit SOC (%)")
 
     # Save
     plt.savefig('can_benefit_SOC.png', facecolor='w', dpi=300, bbox_inches='tight')
+
+def read_file_and_remove_unprocessed_pop_tau():
+    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
+    method_list = dat.method.unique().tolist()
+    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
+    method_list = [x for x in method_list if x not in exclude_method_list]
+    dat = dat[dat.method.isin(method_list)]
+    dat = dat.reset_index(drop=True)
+
+    return dat
 
 ##### Meeting with NUH ######
 
