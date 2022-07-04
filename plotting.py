@@ -412,8 +412,103 @@ def rename_methods_without_pop_tau(dat):
         else:
             dat.loc[i, 'pop_tau'] = 'no pop tau'
             dat.loc[i, 'method'] = dat.method[i]
-            
+
     return dat
+
+# LOOCV for all methods
+
+def LOOCV_all_methods():
+    """
+    Perform LOOCV for all methods
+    
+    Output: Excel sheet 'all_methods_LOOCV.xlsx' with results of LOOCV for all methods
+    """
+    dat = read_file_and_remove_unprocessed_pop_tau()
+
+    # Define lists
+    linear_patient_list = dat[dat.method.str.contains('L_')].patient.unique().tolist()
+    quad_patient_list = dat[dat.method.str.contains('Q_')].patient.unique().tolist()
+    method_list = dat.method.unique().tolist()
+
+    # Keep only useful columns in dataframe
+    dat = dat[['method', 'patient', 'abs_deviation']]
+
+    # Create output dataframes
+    experiment_results_df = pd.DataFrame(columns=['method', 'experiment', 'train_median', 'test_median'])
+    overall_results_df = pd.DataFrame(columns=['method', 'train (median)', 'test (median)'])
+
+    exp_res_counter = 0
+    overall_res_counter = 0
+
+    for method in method_list:
+
+        #  Define num of patients according to whether method is linear or quadratic
+        num_of_patients, patient_list = num_patients_and_list(method, linear_patient_list, quad_patient_list)
+
+        for i in range(num_of_patients):
+
+            train_median = find_train_median_LOOCV(dat, method, patient_list, i)
+            test_median = find_test_median_LOOCV(dat, method, patient_list, i)
+
+            # Update experiment results dataframe
+            experiment_results_df.loc[exp_res_counter, 'experiment'] = i + 1
+            experiment_results_df.loc[exp_res_counter, 'method'] = method
+            experiment_results_df.loc[exp_res_counter, 'train_median'] = train_median
+            experiment_results_df.loc[exp_res_counter, 'test_median'] = test_median
+
+            exp_res_counter = exp_res_counter + 1
+
+    # Find median of the train_median and test_median of each method
+    train_median_df = experiment_results_df.groupby('method')['train_median'].median().reset_index()
+    test_median_df = experiment_results_df.groupby('method')['test_median'].median().reset_index()
+
+    # Create dataframe for overall results by method
+    overall_results_df = train_median_df.merge(test_median_df, how='inner', on='method')
+
+    # # Shapiro test by method, on train_median and test_median (result: some normal)
+    # train_median_shapiro = experiment_results_df.groupby('method')['train_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
+    # test_median_shapiro = experiment_results_df.groupby('method')['test_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
+
+    # Output dataframes to excel as individual sheets
+    with pd.ExcelWriter('all_methods_LOOCV.xlsx') as writer:
+        experiment_results_df.to_excel(writer, sheet_name='Experiments', index=False)
+        overall_results_df.to_excel(writer, sheet_name='Overall', index=False)
+
+def find_test_median_LOOCV(dat, method, patient_list, i):
+    """Find median of test set"""
+    
+    # Define test df
+    test_df = dat[(dat.method == method) & (dat.patient == patient_list[i])]
+    
+    # Find test_median
+    test_median = test_df.abs_deviation.median()
+    
+    return test_median
+
+def find_train_median_LOOCV(dat, method, patient_list, i):
+    """Find median of training set"""
+        
+    # Define train df
+    train_patient_list = patient_list.copy()
+    train_patient_list.pop(i)
+    train_df = dat[(dat.method == method) & (dat.patient.isin(train_patient_list))]
+
+    # Find train_median
+    train_median = train_df.abs_deviation.median()
+    
+    return train_median
+
+def num_patients_and_list(method, linear_patient_list, quad_patient_list):
+    """Define num of patients according to whether method is linear or quadratic"""
+    
+    if 'L_' in method:
+        num_of_patients = len(linear_patient_list)
+        patient_list = linear_patient_list
+    else:
+        num_of_patients = len(quad_patient_list)
+        patient_list = quad_patient_list
+        
+    return num_of_patients, patient_list
 
 ##### Meeting with NUH ######
 
