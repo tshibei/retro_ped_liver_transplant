@@ -303,6 +303,93 @@ def can_benefit_SOC_predictions():
     # Save
     plt.savefig('can_benefit_SOC.png', facecolor='w', dpi=300, bbox_inches='tight')
 
+def OOR_predictions():
+    """Barplot for OOR predictions, for both CURATE and SOC"""
+    df = read_file_and_remove_unprocessed_pop_tau()
+
+    dat = df.copy()
+    # Create boolean, true when model predict wrong range
+    for i in range(len(dat)):
+        # All False
+        dat.loc[i, 'wrong_range'] = False
+        # Unless condition 1: prediction within range, response outside range
+        if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
+            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+                dat.loc[i, 'wrong_range'] = True
+        # Unless condition 2: prediction outside range, response within range
+        elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
+                dat.loc[i, 'wrong_range'] = True
+
+    dat = dat.groupby('method')['wrong_range'].apply(lambda x: x.sum() / x.count() * 100)
+    dat = dat.to_frame().reset_index()
+    dat['source'] = 'CURATE'
+
+    # Create pop tau column and rename methods without 'pop_tau'
+    dat['pop_tau'] = ""
+    for i in range(len(dat)):
+        if 'pop_tau' in dat.method[i]:
+            dat.loc[i, 'pop_tau'] = 'pop tau'
+            dat.loc[i, 'method'] = dat.method[i][:-8]
+        else:
+            dat.loc[i, 'pop_tau'] = 'no pop tau'
+            dat.loc[i, 'method'] = dat.method[i]
+
+    # Create another dataframe
+    dat_SOC = df[['patient', 'method', 'prediction', 'response']]
+    dat_SOC = dat_SOC[(dat_SOC['method']=='L_Cum_wo_origin') | (dat_SOC['method']=='Q_Cum_wo_origin')]
+    dat_SOC = dat_SOC.reset_index(drop=True)
+
+    # Create boolean, true if response is outside range
+    for i in range(len(dat_SOC)):
+        # Set boolean default as false
+        dat_SOC.loc[i, 'wrong_range'] = False
+        # Create boolean as True if outside range
+        if (dat_SOC.loc[i, 'response'] > 10) or (dat_SOC.loc[i, 'response'] < 8):
+            dat_SOC.loc[i, 'wrong_range'] = True
+
+    dat_SOC = dat_SOC.groupby('method')['wrong_range'].apply(lambda x: x.sum() / x.count() * 100)
+    dat_SOC = dat_SOC.to_frame().reset_index()
+    dat_SOC['source'] = 'SOC'
+
+    # Rename methods to L_SOC and Q_SOC only
+    for i in range(len(dat_SOC)):
+        if 'L' in dat_SOC.loc[i, 'method']:
+            dat_SOC.loc[i, 'method'] = 'L_SOC'
+        else:
+            dat_SOC.loc[i, 'method'] = 'Q_SOC'
+            
+    # Create pop tau column
+    dat_SOC['pop_tau'] = 'pop tau'
+
+    # Create copy of dat_SOC with no pop tau
+    dat_SOC_2 = dat_SOC.copy()
+    dat_SOC_2['pop_tau'] = 'no pop tau'
+
+    # Combine 2 dat_SOC
+    dat_SOC = pd.concat([dat_SOC, dat_SOC_2])
+
+    # Combine dat with dat_SOC
+    combined_dat = pd.concat([dat, dat_SOC])
+
+    # Boxplot for no pop tau
+    sns.set(font_scale=2)
+    sns.set_style('whitegrid')
+    sns.catplot(data=combined_dat[combined_dat.pop_tau == 'no pop tau'], x='method', y='wrong_range', hue='source',\
+                row='pop_tau', dodge=False, kind='bar', height=7, aspect=2)
+    plt.ylabel('Dosing Events with \nOut-of-Range Tacrolimus Levels (%)')
+    plt.xticks(rotation=90)
+    plt.savefig('OOR_no_pop_tau.png', facecolor='w', dpi=300, bbox_inches='tight')
+
+    # Boxplot for pop tau
+    sns.set(font_scale=2)
+    sns.set_style('whitegrid')
+    sns.catplot(data=combined_dat[combined_dat.pop_tau == 'pop tau'], x='method', y='wrong_range', hue='source',\
+                row='pop_tau', dodge=False, kind='bar', height=7, aspect=2)
+    plt.ylabel('Dosing Events with \nOut-of-Range Tacrolimus Levels (%)')
+    plt.xticks(rotation=90)
+    plt.savefig('OOR_pop_tau.png', facecolor='w', dpi=300, bbox_inches='tight')
+
 def read_file_and_remove_unprocessed_pop_tau():
     dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
 
@@ -313,6 +400,19 @@ def read_file_and_remove_unprocessed_pop_tau():
     dat = dat[dat.method.isin(method_list)]
     dat = dat.reset_index(drop=True)
 
+    return dat
+
+def rename_methods_without_pop_tau(dat):
+    """Create pop tau column and rename methods without 'pop_tau'"""
+    dat['pop_tau'] = ""
+    for i in range(len(dat)):
+        if 'pop_tau' in dat.method[i]:
+            dat.loc[i, 'pop_tau'] = 'pop tau'
+            dat.loc[i, 'method'] = dat.method[i][:-8]
+        else:
+            dat.loc[i, 'pop_tau'] = 'no pop tau'
+            dat.loc[i, 'method'] = dat.method[i]
+            
     return dat
 
 ##### Meeting with NUH ######
