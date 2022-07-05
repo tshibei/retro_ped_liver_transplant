@@ -55,7 +55,45 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
+
+# +
+# Plot individual profiles
+dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+
+# Create within-range column
+dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+
+# Create low/med/high dose column
+dat['dose_range'] = ""
+for i in range(len(dat)):
+    if dat.dose[i] < 2:
+        dat.loc[i, 'dose_range'] = 'low'
+    elif dat.dose[i] < 4:
+        dat.loc[i, 'dose_range'] = 'medium'
+    else:
+        dat.loc[i, 'dose_range'] = 'high'
+        
+# dat
+# # dat
+sns.set(font_scale=1.2)
+sns.set_style('white')
+
+sns.relplot(data=dat, x='day', y='response', size='dose', hue='within_range', col='patient', col_wrap=4, style='dose_range',
+           height=1.5, aspect=1)
+
+plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+sns.set(font_scale=1.2)
+sns.set_style('white')
+
+sns.relplot(data=dat, x='dose', y='response', hue='day', col='patient', col_wrap=4, style='dose_range',
+           height=1.5, aspect=1)
+
+plt.savefig('indiv_pt_profile_by_dose.png', dpi=500, facecolor='w', bbox_inches='tight')
 # -
+
+dat = df.copy()
+dat
 
 # %%time 
 df = can_benefit_SOC_predictions(file_string='output (with pop tau by LOOCV).xlsx')
@@ -68,6 +106,25 @@ df = read_file_and_remove_unprocessed_pop_tau(file_string='output (with pop tau 
 # -
 
 dat = can_benefit_SOC_predictions(file_string='output (with pop tau by LOOCV).xlsx')
+
+# %%time
+dat = OOR_predictions(file_string='output (with pop tau by LOOCV).xlsx')
+
+# +
+df = dat.copy()
+df = df[df.pop_tau=='no pop tau'].reset_index(drop=True)
+
+# Add 'type' column
+for i in range(len(df)):
+    if 'L' in df.method[i]:
+        df.loc[i, 'type'] = 'linear'
+    else:
+        df.loc[i, 'type'] = 'quadratic'
+
+df[df.source=='CURATE'].groupby('type')['wrong_range'].describe()
+# df
+# df[df.source=='CURATE'].wrong_range.describe()
+# df
 
 # +
 pd.set_option('display.max_rows', None)

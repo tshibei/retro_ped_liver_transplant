@@ -378,9 +378,9 @@ def out_of_range():
     
     return combined_df
 
-def OOR_predictions():
+def OOR_predictions(file_string):
     """Barplot for OOR predictions, for both CURATE and SOC"""
-    df = read_file_and_remove_unprocessed_pop_tau()
+    df = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     dat = df.copy()
     # Create boolean, true when model predict wrong range
@@ -464,6 +464,8 @@ def OOR_predictions():
     plt.ylabel('Dosing Events with \nOut-of-Range Tacrolimus Levels (%)')
     plt.xticks(rotation=90)
     plt.savefig('OOR_pop_tau.png', facecolor='w', dpi=300, bbox_inches='tight')
+
+    return combined_dat
 
 def LOOCV_all_methods_plot():
     """
