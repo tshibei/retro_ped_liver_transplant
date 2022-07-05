@@ -57,9 +57,21 @@ execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_s
 # -
 
 # %%time
-LOOCV_all_methods()
+prediction_error(file_string='output (with pop tau by LOOCV).xlsx')
 
+df = read_file_and_remove_unprocessed_pop_tau('output (with pop tau by LOOCV).xlsx')
 
+# +
+pd.set_option('display.max_rows', None)
+
+dat = df.copy()
+dat = dat[['method', 'patient', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'half_life', 'deviation', 'abs_deviation']]
+
+# dat.groupby(['method'])['abs_deviation'].median()
+
+# dat[(dat.method == 'Q_PPM_origin_int') | (dat.method == 'Q_PPM_origin_int_pop_tau')].groupby(['method', 'patient'])['abs_deviation'].median()
+
+dat[(dat.method == 'Q_PPM_origin_int') | (dat.method == 'Q_PPM_origin_int_pop_tau')]
 
 # +
 from Profile_Generation import *

@@ -27,11 +27,11 @@ def cross_val():
     plt.ylabel('Absolute Prediction Error (Mean \u00b1 SEM)')
     plt.savefig('cross_val.png', dpi=300, facecolor='w', bbox_inches='tight')
 
-def prediction_error():
+def prediction_error(file_string):
     """ Boxplot of prediction error and absolute prediction error
     by approach, type, origin_inclusion, pop_tau."""
 
-    dat = read_file_and_remove_unprocessed_pop_tau()
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     # Add type column
     dat['type'] = ""
