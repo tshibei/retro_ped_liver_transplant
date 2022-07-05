@@ -61,111 +61,14 @@ LOOCV_all_methods()
 
 
 
-
-
-# Can benefit SOC
-from sklearn.metrics import mean_squared_error
-RMSE()
-
-
-
 # +
 from Profile_Generation import *
 from plotting import *
 
 df = read_file_and_remove_unprocessed_pop_tau()
-
-# +
-origin_df = df.copy()
-
-# False negative/positive
-
-dat = origin_df[['patient', 'method', 'prediction', 'response']]
-
-# Create boolean, true when model predict wrong range
-for i in range(len(dat)):
-    # All False
-    dat.loc[i, 'wrong_range'] = False
-    # Unless condition 1: prediction within range, response outside range
-    if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
-        if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
-            dat.loc[i, 'wrong_range'] = True
-    # Unless condition 2: prediction outside range, response within range
-    elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
-        if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
-            dat.loc[i, 'wrong_range'] = True
-
-dat = dat.groupby('method')['wrong_range'].apply(lambda x: x.sum() / x.count() * 100).reset_index()
-dat['source'] = 'CURATE'
-
-# Create another dataframe
-dat_physician = origin_df[['patient', 'method', 'prediction', 'response']]
-dat_physician = dat_physician[(dat_physician['method']=='L_Cum_wo_origin') | (dat_physician['method']=='Q_Cum_wo_origin')]
-dat_physician = dat_physician.reset_index(drop=True)
-
-# Create boolean, true if response is outside range
-for i in range(len(dat_physician)):
-    # Set boolean default as false
-    dat_physician.loc[i, 'wrong_range'] = False
-    # Create boolean as True if outside range
-    if (dat_physician.loc[i, 'response'] > 10) or (dat_physician.loc[i, 'response'] < 8):
-        dat_physician.loc[i, 'wrong_range'] = True
-
-dat_physician = dat_physician.groupby('method')['wrong_range'].apply(lambda x: x.sum() / x.count() * 100).reset_index()
-dat_physician['source'] = 'SOC'
-
-# Create dataframe with 2 stacked dataframes of dat_physician with pop tau column for both
-# pop tau and no pop tau
-dat_physician_1 = dat_physician.copy()
-dat_physician_1['pop_tau'] = 'pop tau'
-dat_physician_2 = dat_physician.copy()
-dat_physician_2['pop_tau'] = 'no pop tau'
-dat_SOC = pd.concat([dat_physician_1, dat_physician_2]).reset_index(drop=True)
-
-# Rename methods to linear and quadratic only
-for i in range(len(dat_SOC)):
-    if 'L_' in dat_SOC.method[i]:
-        dat_SOC.loc[i, 'method'] = 'L_SOC'
-    else:
-        dat_SOC.loc[i, 'method'] = 'Q_SOC'
-
-# Create pop tau column and rename methods without 'pop_tau'
-dat['pop_tau'] = ""
-for i in range(len(dat)):
-    if 'pop_tau' in dat.method[i]:
-        dat.loc[i, 'pop_tau'] = 'pop tau'
-        dat.loc[i, 'method'] = dat.method[i][:-8]
-    else:
-        dat.loc[i, 'pop_tau'] = 'no pop tau'
-        dat.loc[i, 'method'] = dat.method[i]
-
-combined_df = pd.concat([dat, dat_SOC]).reset_index()
-
-# # Boxplot
-# # sns.set(font_scale=2, rc={'figure.figsize':(15,10)})
-# sns.set_theme(font_scale=2)
-# sns.set_style('whitegrid')
-# ax = sns.boxplot(data=dat, x='method', y='wrong_range', hue='source', dodge=False)
-# ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
-# ax.set_xlabel(None)
-# ax.set_ylabel('Wrong Range Predicted (%)')
-# ax.set_title('Wrong Range Predicted  (%)')
-# plt.legend(loc='upper right', bbox_to_anchor=(1.25,1))
-
-# Barplot
-sns.set(font_scale=1.4, rc={'figure.figsize':(5,40)})
-sns.set_style('whitegrid')
-
-g = sns.catplot(data=combined_df, x='method', y='wrong_range', col='pop_tau',
-           kind='bar', hue='source', dodge=False)
-g.set(ylabel='No. of False Positive/\nFalse Negative Predictions (%)',
-     xlabel=None)
-g.set_xticklabels(rotation=90)
-# plt.ylabels('No. of False Positive/False Negative Predictions (%)')
-# plt.xticks(rotation=90)
-
-plt.savefig('false_pos_neg.png', dpi=300, bbox_inches='tight')
 # -
+
+
 
 df = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
 
