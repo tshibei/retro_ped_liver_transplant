@@ -111,26 +111,42 @@ def RMSE_plot(file_string):
             dat.loc[i, 'OG_method'] = dat.loc[i, 'method']
 
     # Transform dataframe
-    dat = dat[['pop_tau', 'OG_method', 'rmse']].set_index(['OG_method', 'pop_tau'])
-    dat = dat.unstack()
-    dat.columns = ['no pop tau', 'pop tau']
+    dat = dat[['pop_tau', 'OG_method', 'rmse']]
 
-    # Set style for seaborn plot
-    sns.set(style="whitegrid", font_scale=1.4)
+    # Add 'approach' column
+    for i in range(len(dat)):
+        if 'Cum' in dat.loc[i, 'OG_method']:
+            dat.loc[i, 'approach'] = 'Cumulative'
+        elif 'PPM' in dat.loc[i, 'OG_method']:
+            dat.loc[i, 'approach'] = 'PPM'
+        else:
+            dat.loc[i, 'approach'] = 'RW'
 
-    fig, ax = plt.subplots()
+    g = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', kind='bar', col='approach', sharex=False)
+    g.set_xticklabels(rotation=90)
+    g.set_ylabels('RMSE')
+    plt.savefig('RMSE_by_approach.png', bbox_inches='tight', dpi=300, facecolor='w')
 
-    # Create stacked bar chart
-    dat.plot(kind='bar', stacked=True, label=['no pop tau, pop tau'], ax=ax)
+    # dat = dat[['pop_tau', 'OG_method', 'rmse']].set_index(['OG_method', 'pop_tau'])
+    # dat = dat.unstack()
+    # dat.columns = ['no pop tau', 'pop tau']
 
-    # Label, title, legend
-    plt.xlabel(None)
-    plt.ylabel('RMSE')
-    plt.title('RMSE')
-    ax.legend(['no pop tau', 'pop tau'])
+    # # Set style for seaborn plot
+    # sns.set(style="whitegrid", font_scale=1.4)
 
-    # Save
-    plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
+    # fig, ax = plt.subplots()
+
+    # # Create stacked bar chart
+    # dat.plot(kind='bar', stacked=True, label=['no pop tau, pop tau'], ax=ax)
+
+    # # Label, title, legend
+    # plt.xlabel(None)
+    # plt.ylabel('RMSE')
+    # plt.title('RMSE')
+    # ax.legend(['no pop tau', 'pop tau'])
+
+    # # Save
+    # plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
 
     # # Set style for seaborn plot
     # sns.set(style="whitegrid")

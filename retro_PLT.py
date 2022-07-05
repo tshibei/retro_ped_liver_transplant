@@ -89,6 +89,8 @@ new_df[(new_df.pop_tau=='no pop tau') & (new_df.type=='quadratic')].groupby('met
 # %%time
 dat = RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx')
 
+df
+
 # +
 df = RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx')
 
