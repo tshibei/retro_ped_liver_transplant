@@ -134,9 +134,9 @@ def RMSE_method(dat):
     rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
     return pd.Series(dict(rmse=rmse))
 
-def ideal_over_under_pred():
+def ideal_over_under_pred(file_string):
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
-    dat = read_file_and_remove_unprocessed_pop_tau()
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     # Calculate % of predictions within acceptable error, overprediction, and underprediction
     ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x > -2) & (x < 1.5)).sum()/ x.count()*100).reset_index()
@@ -188,6 +188,11 @@ def ideal_over_under_pred():
     ax.set_xticklabels(rotation=90)
     ax._legend.set_title('Prediction')
     plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
+
+    # Rename 'deviation' column to 'perc_predictions'
+    metric_df.columns = ['method', 'perc_predictions', 'result', 'pop_tau']
+
+    return metric_df
 
 def can_benefit_SOC_predictions():
     """

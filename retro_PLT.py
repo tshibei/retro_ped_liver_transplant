@@ -58,11 +58,10 @@ execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_s
 # -
 
 # %%time 
-LOOCV_all_methods('output (with pop tau by LOOCV).xlsx')
+df = ideal_over_under_pred('output (with pop tau by LOOCV).xlsx')
 
-
-# %%time
-LOOCV_all_methods_plot()
+dat = df.copy()
+dat
 
 # +
 df = RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx')
