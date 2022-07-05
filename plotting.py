@@ -194,20 +194,13 @@ def ideal_over_under_pred(file_string):
 
     return metric_df
 
-def can_benefit_SOC_predictions():
+def can_benefit_SOC_predictions(file_string):
     """
     Barplot of percentage of predictions that can benefit SOC, 
     by method grouped by approach, type, origin inclusion, 
     facet grouped by pop tau"""
     
-    dat = pd.read_excel('GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_name='result')
-
-    # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
-    method_list = dat.method.unique().tolist()
-    exclude_method_list = [x for x in method_list if (('tau' in x) and ('pop' not in x))]
-    method_list = [x for x in method_list if x not in exclude_method_list]
-    dat = dat[dat.method.isin(method_list)]
-    dat = dat.reset_index(drop=True)
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
 
@@ -232,11 +225,11 @@ def can_benefit_SOC_predictions():
     # Find percentage of predictions where both observed and prediction response are outside range
     for i in range(len(dat)):
         dat.loc[i, 'both_outside'] = False
-        if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
-            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+        if (round(dat.loc[i, 'prediction'],2) > 10) or (round(dat.loc[i, 'prediction'],2) < 8):
+            if (round(dat.loc[i, 'response'],2) > 10) or (round(dat.loc[i, 'response'],2) < 8):
                 dat.loc[i, 'both_outside'] = True
 
-    dat['acceptable_deviation'] = (dat['deviation'] > -2) & (dat['deviation'] < 1.5)
+    dat['acceptable_deviation'] = (round(dat['deviation'],2) > -2) & (round(dat['deviation'],2) < 1.5)
 
     dat['can_benefit'] = dat['acceptable_deviation'] & dat['both_outside']
 
@@ -288,6 +281,8 @@ def can_benefit_SOC_predictions():
 
     # Save
     plt.savefig('can_benefit_SOC.png', facecolor='w', dpi=300, bbox_inches='tight')
+
+    return dat
 
 def out_of_range():
     """Bar chart of out-of-range SOC and incorrect range prediction of CURATE."""

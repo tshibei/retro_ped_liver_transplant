@@ -58,7 +58,54 @@ execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_s
 # -
 
 # %%time 
-df = ideal_over_under_pred('output (with pop tau by LOOCV).xlsx')
+df = can_benefit_SOC_predictions(file_string='output (with pop tau by LOOCV).xlsx')
+
+# +
+df = read_file_and_remove_unprocessed_pop_tau(file_string='output (with pop tau by LOOCV).xlsx')
+
+
+
+# -
+
+dat = can_benefit_SOC_predictions(file_string='output (with pop tau by LOOCV).xlsx')
+
+# +
+pd.set_option('display.max_rows', None)
+
+dat = df.copy()
+
+dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
+
+
+# Find percentage of predictions where both observed and prediction response are outside range
+# dat['acceptable_deviation'] = ""
+for i in range(len(dat)):
+    dat.loc[i, 'both_outside'] = False
+    if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+        if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+            dat.loc[i, 'both_outside'] = True
+
+    # if (dat.deviation[i] > -2) and (dat.deviation[i] < 1.5):
+    #     dat.loc[i, 'acceptable_deviation'] = True
+    # else: dat.loc[i, 'acceptable_deviation'] = False
+dat['acceptable_deviation'] = (round(dat['deviation'],2) >= -2) & (round(dat['deviation'],2) <= 1.5)
+
+dat['can_benefit'] = dat['acceptable_deviation'] & dat['both_outside']
+
+dat = dat[(dat.method=='Q_RW_wo_origin') | (dat.method=='Q_RW_wo_origin_pop_tau')]
+
+# dat = dat[dat.patient==120]
+
+# dat = dat.groupby(['method', 'patient'])['can_benefit'].sum()
+# dat = dat.reset_index()
+
+# If can correctly identify out of range, with acceptable deviation, can benefit
+dat = dat.groupby(['method'])['can_benefit'].apply(lambda x: x.sum()/x.count() * 100).reset_index()
+
+dat
+
+# print(f"{dat.loc[1523,'deviation']} | {dat.loc[1539,'deviation']}")
+# -
 
 dat = df.copy()
 dat
