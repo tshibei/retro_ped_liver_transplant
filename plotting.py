@@ -68,16 +68,17 @@ def prediction_error(file_string):
         else: dat.loc[i, 'pop_tau'] = False
 
     # Boxplot for prediction error
-    sns.set_theme(style="white")
+    sns.set(rc={'figure.figsize':(10,7)})
+    sns.set_theme(style="whitegrid", font_scale=1.4)
     ax = sns.catplot(data=dat, x='origin_inclusion', y='deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
     ax.fig.subplots_adjust(top=0.8)
     ax.fig.suptitle('Prediction Error')
     ax.set_ylabels('Prediction Error')
     plt.ylim([-15,15])
-    plt.savefig('pred_error.png', bbox_inches='tight', dpi=300)
+    plt.savefig('pred_error.png', bbox_inches='tight', dpi=400)
 
     # Boxplot for absolute prediction error
-    sns.set_theme(style="white")
+    sns.set_theme(style="whitegrid", font_scale=1.4)
     ax = sns.catplot(data=dat, x='origin_inclusion', y='abs_deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
     ax.fig.subplots_adjust(top=0.8)
     ax.fig.suptitle('Absolute Prediction Error')
@@ -87,16 +88,16 @@ def prediction_error(file_string):
 
     return dat
 
-def RMSE():
+def RMSE_plot(file_string):
     """
     Bar plot of RMSE for each method, grouped by pop tau and no pop tau,
     with broken y-axis
     """
-    dat = read_file_and_remove_unprocessed_pop_tau()
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
-    rmse(dat)
+    RMSE_method(dat)
 
-    dat = dat.groupby('method').apply(rmse).reset_index()
+    dat = dat.groupby('method').apply(RMSE_method).reset_index()
 
     # Create pop tau column and remove 'pop_tau' from method name
     dat['pop_tau'] = ""
@@ -110,45 +111,77 @@ def RMSE():
             dat.loc[i, 'OG_method'] = dat.loc[i, 'method']
 
     # Transform dataframe
-    dat = dat[['pop_tau', 'OG_method', 'rmse']]
+    dat = dat[['pop_tau', 'OG_method', 'rmse']].set_index(['OG_method', 'pop_tau'])
+    dat = dat.unstack()
+    dat.columns = ['no pop tau', 'pop tau']
 
     # Set style for seaborn plot
-    sns.set(style="whitegrid")
+    sns.set(style="whitegrid", font_scale=1.4)
 
-    # Barplot with broken y axis
-    f, (ax1, ax2) = plt.subplots(ncols=1, nrows=2,
-                                sharex=True)
+    fig, ax = plt.subplots()
 
-    ax1 = sns.barplot(x="OG_method", y="rmse",
-                    hue="pop_tau", data=dat, ax=ax1)
-    ax2 = sns.barplot(x="OG_method", y="rmse",
-                    hue="pop_tau", data=dat, ax=ax2)
+    # Create stacked bar chart
+    dat.plot(kind='bar', stacked=True, label=['no pop tau, pop tau'], ax=ax)
 
-    ax1.set_ylim(np.exp(12), max(dat.rmse)+np.exp(12))
-    ax2.set_ylim(min(dat.rmse), 12)
+    # Label, title, legend
+    plt.xlabel(None)
+    plt.ylabel('RMSE')
+    plt.title('RMSE')
+    ax.legend(['no pop tau', 'pop tau'])
 
-    ax1.get_xaxis().set_visible(False)
-
-    ax1.set_ylabel("")
-    ax2.set_ylabel("")
-    ax1.set_xlabel("")
-    ax2.set_xlabel("")
-    f.text(0.05, 0.55, "RMSE", va="center", rotation="vertical")
-
-    ax1.get_legend().remove()
-    ax2.get_legend().remove()
-    ax2.legend(loc=(1.025, 0.5), title="Pop Tau")
-
-    ax1.xaxis.tick_top()
-    ax2.xaxis.tick_bottom()
-
-    f.subplots_adjust(left=0.15, right=0.85, bottom=0.15, top=0.85)
-
-    plt.xticks(rotation=90)
-
+    # Save
     plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
 
-def rmse(dat):
+    # # Set style for seaborn plot
+    # sns.set(style="whitegrid")
+
+    # fig, ax = plt.subplots()
+
+    # # Create stacked bar chart
+    # dat.plot(kind='bar', stacked=True, label=['train, test'], ax=ax)
+
+    # # Label, title, legend
+    # plt.xlabel(None)
+    # plt.ylabel('Median Absolute \nPrediction Error (ng/ml)')
+    # plt.title('Median Absolute Prediction Error \nof All Methods by LOOCV')
+    # ax.legend(['Train', 'Test'], bbox_to_anchor=(1.3,0.5), loc='center right')
+
+    # # Barplot with broken y axis
+    # f, (ax1, ax2) = plt.subplots(ncols=1, nrows=2,
+    #                             sharex=True)
+
+    # ax1 = sns.barplot(x="OG_method", y="rmse",
+    #                 hue="pop_tau", data=dat, ax=ax1)
+    # ax2 = sns.barplot(x="OG_method", y="rmse",
+    #                 hue="pop_tau", data=dat, ax=ax2)
+
+    # ax1.set_ylim(np.exp(12), max(dat.rmse)+np.exp(12))
+    # ax2.set_ylim(min(dat.rmse), 12)
+
+    # ax1.get_xaxis().set_visible(False)
+
+    # ax1.set_ylabel("")
+    # ax2.set_ylabel("")
+    # ax1.set_xlabel("")
+    # ax2.set_xlabel("")
+    # f.text(0.05, 0.55, "RMSE", va="center", rotation="vertical")
+
+    # ax1.get_legend().remove()
+    # ax2.get_legend().remove()
+    # ax2.legend(loc=(1.025, 0.5), title="Pop Tau")
+
+    # ax1.xaxis.tick_top()
+    # ax2.xaxis.tick_bottom()
+
+    # f.subplots_adjust(left=0.15, right=0.85, bottom=0.15, top=0.85)
+
+    # plt.xticks(rotation=90)
+
+    # plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
+
+    return dat
+
+def RMSE_method(dat):
     """Find RMSE by method"""
     rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
     return pd.Series(dict(rmse=rmse))

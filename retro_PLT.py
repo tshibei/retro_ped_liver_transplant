@@ -47,6 +47,7 @@ execute_CURATE()
 
 
 # +
+# %%time
 # Perform CV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_CV()
 execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
@@ -54,6 +55,64 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
+# -
+
+df = read_file_and_remove_unprocessed_pop_tau('output (with pop tau by LOOCV).xlsx')
+
+# +
+# %%time
+dat = df.copy()
+
+# print(f'dat {dat}')
+
+# dat.groupby(['method', 'patient'])['abs_deviation'].median().reset_index()
+# dat.groupby(['method'])['abs_deviation'].median().reset_index()
+
+dat = prediction_error(file_string='output (with pop tau by LOOCV).xlsx')
+
+# +
+df = dat.copy()
+
+new_df = rename_methods_without_pop_tau(df)
+
+for i in range(len(new_df)):
+    if 'L' in new_df.loc[i, 'method']:
+        new_df.loc[i, 'type'] = 'linear'
+    else: 
+        new_df.loc[i, 'type'] = 'quadratic'
+
+new_df[(new_df.pop_tau=='no pop tau') & (new_df.type=='quadratic')].groupby('method')['abs_deviation'].median().describe()
+
+# df.groupby('method')['abs_deviation'].median().describe()
+# -
+
+# %%time
+dat = RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx')
+
+# +
+df = RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx')
+
+df = df[['OG_method', 'pop_tau', 'rmse']].set_index(['OG_method', 'pop_tau'])
+df = df.unstack()
+df.columns = ['no pop tau', 'pop tau']
+
+# Set style for seaborn plot
+sns.set(style="whitegrid", font_scale=1.4)
+
+fig, ax = plt.subplots()
+
+# Create stacked bar chart
+df.plot(kind='bar', stacked=True, label=['no pop tau, pop tau'], ax=ax)
+
+# Label, title, legend
+plt.xlabel(None)
+plt.ylabel('RMSE')
+plt.title('RMSE')
+# ax.legend(['no pop tau', 'pop tau'], bbox_to_anchor=(1.1,0.5), loc='center right')
+ax.legend(['no pop tau', 'pop tau'])
+plt.savefig('RMSE.png', bbox_inches='tight', dpi=300, facecolor='w')
+
+return df
 # -
 
 # %%time
