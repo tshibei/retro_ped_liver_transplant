@@ -465,51 +465,43 @@ def OOR_predictions():
     plt.xticks(rotation=90)
     plt.savefig('OOR_pop_tau.png', facecolor='w', dpi=300, bbox_inches='tight')
 
-def LOOCV_all_methods():
+def LOOCV_all_methods_plot():
     """
-    Stacked bar plot for median absolute prediction error vs method,
+    Bar plot for median absolute prediction error vs method,
     for both training and test set
     """
     
     dat = read_file_and_remove_unprocessed_pop_tau('all_methods_LOOCV.xlsx', 'Overall')
     dat = rename_methods_without_pop_tau(dat)
 
-    no_pop_tau_dat = dat[dat.pop_tau=='no pop tau'][['method', 'train_median', 'test_median']].set_index('method')
-    pop_tau_dat = dat[dat.pop_tau=='pop tau'][['method', 'train_median', 'test_median']].set_index('method')
+    dat = dat.set_index(['pop_tau', 'method'])
 
+    # Stack dataframe
+    dat = dat.stack().reset_index()
+
+    # Rename dataframe columns
+    dat.columns = ['pop_tau', 'method', 'dataset', 'median']
+
+    # Plot for pop tau methods
     sns.set(font_scale=1.4)
-    sns.set_style('white')
+    sns.set_style('whitegrid')
 
-    fig, ax = plt.subplots()
+    g = sns.catplot(data=dat[dat.pop_tau == 'pop tau'], x='method', y='median', hue='dataset', kind='bar', sharex=False, height=5, aspect=1.5).set(title='Median Absolute Prediction Error \nfor Pop Tau Methods')
+    g.set_xticklabels(rotation=90)
+    g.set_ylabels('Median Absolute \nPrediction Error (ng/ml)')
+    plt.ylim(0,3.5)
+    plt.savefig('LOOCV_all_methods_pop_tau.png', bbox_inches='tight', dpi=300, facecolor='w')
 
-    # Create stacked bar chart
-    no_pop_tau_dat.plot(kind='bar', stacked=True, label=['train, test'], ax=ax)
-
-    # Label, title, legend
-    plt.xlabel(None)
-    plt.ylabel('Median Absolute \nPrediction Error (ng/ml)')
-    plt.title('Median Absolute Prediction Error \nof All Methods by LOOCV')
-    ax.legend(['Train', 'Test'], bbox_to_anchor=(1.3,0.5), loc='center right')
-
-    # Save
-    plt.savefig('LOOCV_all_methods.png', dpi=300, facecolor='w', bbox_inches='tight')
-
+    # Plot for no pop tau methods
     sns.set(font_scale=1.4)
-    sns.set_style('white')
+    sns.set_style('whitegrid')
 
-    fig, ax = plt.subplots()
+    g = sns.catplot(data=dat[dat.pop_tau == 'no pop tau'], x='method', y='median', hue='dataset', kind='bar', sharex=False, height=5, aspect=1.5).set(title='Median Absolute Prediction Error')
+    g.set_xticklabels(rotation=90)
+    g.set_ylabels('Median Absolute \nPrediction Error (ng/ml)')
 
-    # Create stacked bar chart for pop tau
-    pop_tau_dat.plot(kind='bar', stacked=True, label=['train, test'], ax=ax)
-
-    # Label, title, legend
-    plt.xlabel(None)
-    plt.ylabel('Median Absolute \nPrediction Error (ng/ml)')
-    plt.title('Median Absolute Prediction Error \nof All Pop Tau Methods by LOOCV')
-    ax.legend(['Train', 'Test'], bbox_to_anchor=(1.3,0.5), loc='center right')
-
-    # Save
-    plt.savefig('LOOCV_all_methods_pop_tau.png', dpi=300, facecolor='w', bbox_inches='tight')
+    plt.ylim(0,3.5)
+    plt.savefig('LOOCV_all_methods_no_pop_tau.png', bbox_inches='tight', dpi=300, facecolor='w')
     
     return dat
 
@@ -540,13 +532,13 @@ def rename_methods_without_pop_tau(dat):
 
 # LOOCV for all methods
 
-def LOOCV_all_methods():
+def LOOCV_all_methods(file_string):
     """
     Perform LOOCV for all methods
     
     Output: Excel sheet 'all_methods_LOOCV.xlsx' with results of LOOCV for all methods
     """
-    dat = read_file_and_remove_unprocessed_pop_tau()
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     # Define lists
     linear_patient_list = dat[dat.method.str.contains('L_')].patient.unique().tolist()

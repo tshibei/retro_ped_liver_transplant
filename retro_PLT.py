@@ -57,39 +57,12 @@ five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
 # -
 
-df = read_file_and_remove_unprocessed_pop_tau('output (with pop tau by LOOCV).xlsx')
+# %%time 
+LOOCV_all_methods('output (with pop tau by LOOCV).xlsx')
 
-# +
-# %%time
-dat = df.copy()
-
-# print(f'dat {dat}')
-
-# dat.groupby(['method', 'patient'])['abs_deviation'].median().reset_index()
-# dat.groupby(['method'])['abs_deviation'].median().reset_index()
-
-dat = prediction_error(file_string='output (with pop tau by LOOCV).xlsx')
-
-# +
-df = dat.copy()
-
-new_df = rename_methods_without_pop_tau(df)
-
-for i in range(len(new_df)):
-    if 'L' in new_df.loc[i, 'method']:
-        new_df.loc[i, 'type'] = 'linear'
-    else: 
-        new_df.loc[i, 'type'] = 'quadratic'
-
-new_df[(new_df.pop_tau=='no pop tau') & (new_df.type=='quadratic')].groupby('method')['abs_deviation'].median().describe()
-
-# df.groupby('method')['abs_deviation'].median().describe()
-# -
 
 # %%time
-dat = RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx')
-
-df
+LOOCV_all_methods_plot()
 
 # +
 df = RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx')
