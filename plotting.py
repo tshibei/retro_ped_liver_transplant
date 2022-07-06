@@ -507,6 +507,51 @@ def LOOCV_all_methods_plot():
     
     return dat
 
+def indiv_profiles(file_string):
+    """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
+
+    # Plot individual profiles
+    dat = pd.read_excel(file_string, sheet_name='clean')
+
+    # Create within-range column
+    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+
+    # Create low/med/high dose column
+    dat['dose_range'] = ""
+    for i in range(len(dat)):
+        if dat.dose[i] < 2:
+            dat.loc[i, 'dose_range'] = 'low'
+        elif dat.dose[i] < 4:
+            dat.loc[i, 'dose_range'] = 'medium'
+        else:
+            dat.loc[i, 'dose_range'] = 'high'
+
+    # dat
+    # # dat
+    sns.set(font_scale=1.2)
+    sns.set_style('white')
+
+    g = sns.relplot(data=dat, x='day', y='response', size='dose', hue='within_range', col='patient', col_wrap=4, style='dose_range',
+               height=1.5, aspect=1)
+
+    g.map(plt.axhline, y=10, ls='--', c='black')
+    g.map(plt.axhline, y=8, ls='--', c='black')
+
+    plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    sns.set(font_scale=1.2)
+    sns.set_style('white')
+
+    g = sns.relplot(data=dat, x='dose', y='response', hue='day', col='patient', col_wrap=4, style='dose_range',
+               height=1.5, aspect=1)
+
+    g.map(plt.axhline, y=10, ls='--', c='black')
+    g.map(plt.axhline, y=8, ls='--', c='black')
+
+    plt.savefig('indiv_pt_profile_by_dose.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return dat
+
 def read_file_and_remove_unprocessed_pop_tau(file_string='GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 

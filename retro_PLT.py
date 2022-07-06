@@ -56,44 +56,65 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
 
-# +
-# Plot individual profiles
-dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
 
-# Create within-range column
-dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
-
-# Create low/med/high dose column
-dat['dose_range'] = ""
-for i in range(len(dat)):
-    if dat.dose[i] < 2:
-        dat.loc[i, 'dose_range'] = 'low'
-    elif dat.dose[i] < 4:
-        dat.loc[i, 'dose_range'] = 'medium'
-    else:
-        dat.loc[i, 'dose_range'] = 'high'
-        
-# dat
-# # dat
-sns.set(font_scale=1.2)
-sns.set_style('white')
-
-sns.relplot(data=dat, x='day', y='response', size='dose', hue='within_range', col='patient', col_wrap=4, style='dose_range',
-           height=1.5, aspect=1)
-
-plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
-
-sns.set(font_scale=1.2)
-sns.set_style('white')
-
-sns.relplot(data=dat, x='dose', y='response', hue='day', col='patient', col_wrap=4, style='dose_range',
-           height=1.5, aspect=1)
-
-plt.savefig('indiv_pt_profile_by_dose.png', dpi=500, facecolor='w', bbox_inches='tight')
 # -
 
+def indiv_profiles(file_string):
+    """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
+
+    # Plot individual profiles
+    dat = pd.read_excel(file_string, sheet_name='clean')
+
+    # Create within-range column
+    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+
+    # Create low/med/high dose column
+    dat['dose_range'] = ""
+    for i in range(len(dat)):
+        if dat.dose[i] < 2:
+            dat.loc[i, 'dose_range'] = 'low'
+        elif dat.dose[i] < 4:
+            dat.loc[i, 'dose_range'] = 'medium'
+        else:
+            dat.loc[i, 'dose_range'] = 'high'
+
+    # dat
+    # # dat
+    sns.set(font_scale=1.2)
+    sns.set_style('white')
+
+    g = sns.relplot(data=dat, x='day', y='response', size='dose', hue='within_range', col='patient', col_wrap=4, style='dose_range',
+               height=1.5, aspect=1)
+
+    g.map(plt.axhline, y=10, ls='--', c='black')
+    g.map(plt.axhline, y=8, ls='--', c='black')
+
+    plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    sns.set(font_scale=1.2)
+    sns.set_style('white')
+
+    g = sns.relplot(data=dat, x='dose', y='response', hue='day', col='patient', col_wrap=4, style='dose_range',
+               height=1.5, aspect=1)
+
+    g.map(plt.axhline, y=10, ls='--', c='black')
+    g.map(plt.axhline, y=8, ls='--', c='black')
+
+    plt.savefig('indiv_pt_profile_by_dose.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return dat
+
+
+df = RMSE_plot('output (with pop tau by LOOCV).xlsx')
+
+# +
 dat = df.copy()
 dat
+# dat = rename_methods_without_pop_tau(dat)
+# dat = dat[['patient', 'method', 'deviation', 'pop_tau']]
+
+dat.groupby('pop_tau')['rmse'].describe()
+# -
 
 # %%time 
 df = can_benefit_SOC_predictions(file_string='output (with pop tau by LOOCV).xlsx')
