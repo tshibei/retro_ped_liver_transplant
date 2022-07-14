@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error
 
-
 ##### New graphs after meeting with NUH ######
 
 def cross_val():
@@ -531,7 +530,7 @@ def indiv_profiles(file_string):
     sns.set(font_scale=1.2)
     sns.set_style('white')
 
-    g = sns.relplot(data=dat, x='day', y='response', size='dose', hue='within_range', col='patient', col_wrap=4, style='dose_range',
+    g = sns.relplot(data=dat, x='day', y='response', hue='within_range', col='patient', col_wrap=4, style='dose_range',
                height=1.5, aspect=1)
 
     g.map(plt.axhline, y=10, ls='--', c='black')
