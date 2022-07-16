@@ -12,7 +12,7 @@ def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
     dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
 
     # Subset CURATE models
-    dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_origin_int')]
+    dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')]
 
     dat = dat.reset_index(drop=True)
 
@@ -54,14 +54,8 @@ def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
     # Find number of predictions in wrong range by group
     wrong_range = dat.groupby('method')['wrong_range'].sum()
 
-    # Keep only predictions with right range
-    dat = dat[dat.wrong_range==False]
-
     # Find number of predictions with unacceptable deviations by group
     unacceptable_dev = dat.groupby('method')['acceptable_deviation'].apply(lambda x: x.count()-x.sum())
-
-    # Keep only predictions with acceptable deviations
-    dat = dat[dat.acceptable_deviation==True]
 
     # Find difference between interpolated dose for 9ng/ml and dose prescribed
     dat['diff_dose'] = dat['interpolated_dose_9'] - dat['dose']
@@ -72,20 +66,31 @@ def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
 
     unreasonable_dose = dat.groupby('method')['reasonable_dose'].apply(lambda x: x.count()-x.sum())
 
-    # Keep reasonable doses only
-    dat = dat[dat.reasonable_dose==True]
-
     # Create column for within range
     dat['within_range'] = (dat['response'] <= 10) & (dat['response'] >= 8)
 
     within_range = dat.groupby('method')['within_range'].sum()
 
-    # Keep those outside range
-    dat = dat[dat.within_range==False]
+    dat['CURATE_could_be_useful'] = (dat.acceptable_deviation==True) & \
+        (dat.wrong_range==False) & \
+            (dat.reasonable_dose==True) & \
+                (dat.within_range==False)
 
-    # dat[dat.method=='L_PPM_wo_origin'].describe()
-    # dat[dat.method=='L_RW_origin_int'].describe()
+    # # Keep only predictions with acceptable deviations
+    # dat = dat[dat.acceptable_deviation==True]
+
+    # # Keep only predictions with right range
+    # dat = dat[dat.wrong_range==False]
+
+    # # Keep reasonable doses only
+    # dat = dat[dat.reasonable_dose==True]
+
+    # # Keep those outside range
+    # dat = dat[dat.within_range==False]
+
     dat.groupby('method')['diff_dose'].describe().T.applymap('{:,.2f}'.format)
+
+    return dat
 
 def group_comparison(file_string):
     """ 
