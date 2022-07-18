@@ -27,7 +27,7 @@ def cross_val():
     plt.ylabel('Absolute Prediction Error (Mean \u00b1 SEM)')
     plt.savefig('cross_val.png', dpi=300, facecolor='w', bbox_inches='tight')
 
-def prediction_error(file_string):
+def prediction_error(file_string='output (with pop tau by LOOCV).xlsx', plot=False):
     """ Boxplot of prediction error and absolute prediction error
     by approach, type, origin_inclusion, pop_tau."""
 
@@ -67,26 +67,85 @@ def prediction_error(file_string):
             dat.loc[i, 'pop_tau'] = True
         else: dat.loc[i, 'pop_tau'] = False
 
-    # Boxplot for prediction error
-    sns.set(rc={'figure.figsize':(10,7)})
-    sns.set_theme(style="whitegrid", font_scale=1.4)
-    ax = sns.catplot(data=dat, x='origin_inclusion', y='deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
-    ax.fig.subplots_adjust(top=0.8)
-    ax.fig.suptitle('Prediction Error')
-    ax.set_ylabels('Prediction Error')
-    plt.ylim([-15,15])
-    plt.savefig('pred_error.png', bbox_inches='tight', dpi=400)
+    if plot==True:
 
-    # Boxplot for absolute prediction error
-    sns.set_theme(style="whitegrid", font_scale=1.4)
-    ax = sns.catplot(data=dat, x='origin_inclusion', y='abs_deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
-    ax.fig.subplots_adjust(top=0.8)
-    ax.fig.suptitle('Absolute Prediction Error')
-    ax.set_ylabels('Prediction Error')
-    plt.ylim([-5,20])
-    plt.savefig('abs_pred_error.png', bbox_inches='tight', dpi=300)
+        # Boxplot for prediction error
+        sns.set(rc={'figure.figsize':(10,7)})
+        sns.set_theme(style="whitegrid", font_scale=1.4)
+        ax = sns.catplot(data=dat, x='origin_inclusion', y='deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
+        ax.fig.subplots_adjust(top=0.8)
+        ax.fig.suptitle('Prediction Error')
+        ax.set_ylabels('Prediction Error')
+        plt.ylim([-15,15])
+        plt.savefig('pred_error.png', bbox_inches='tight', dpi=400)
+
+        # Boxplot for absolute prediction error
+        sns.set_theme(style="whitegrid", font_scale=1.4)
+        ax = sns.catplot(data=dat, x='origin_inclusion', y='abs_deviation', col='approach', hue='type', kind='box', row='pop_tau', showfliers=False)
+        ax.fig.subplots_adjust(top=0.8)
+        ax.fig.suptitle('Absolute Prediction Error')
+        ax.set_ylabels('Prediction Error')
+        plt.ylim([-5,20])
+        plt.savefig('abs_pred_error.png', bbox_inches='tight', dpi=300)
 
     return dat
+
+def prediction_error_PPM_RW(plot=False):
+    """Boxplot of prediction error for top 2 methods."""
+
+    dat = prediction_error(plot)
+
+    # Subset L_PPM_wo_origin and L_RW_wo_origin
+    dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')].reset_index()
+
+    column_string = ['deviation', 'abs_deviation']
+    ylabel_string = ['Prediction Error (ng/ml)', 'Absolute Prediction Error (ng/ml)']
+
+    # Rename methods and column name
+    dat = dat.rename(columns={column_string[0]: ylabel_string[0], 
+                              column_string[1]: ylabel_string[1], 
+                              'method':'Method'})
+    dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
+    
+    if plot==True:
+
+        print('Prediction Error Plot:\n')
+        
+        # Set style
+        sns.set(font_scale=2, rc={'figure.figsize':(6,8)})
+        sns.set_style('white')
+        sns.despine(top=True, right=True)
+
+        medians = dat.groupby(['Method'])[ylabel_string[0]].median().round(2)
+        vertical_offset = 0.2 # offset from median for display
+
+        # Plot
+        box_plot = sns.boxplot(data=dat, x='Method', y=ylabel_string[0], width=0.5)
+
+        for xtick in box_plot.get_xticks():
+            box_plot.text(xtick,medians[xtick] + vertical_offset,medians[xtick], 
+                    horizontalalignment='center',size=15,color='w',weight='semibold')
+
+        plt.savefig(column_string[0] + '.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+        # # Set style
+        # sns.set(font_scale=2, rc={'figure.figsize':(6,8)})
+        # sns.set_style('white')
+        # sns.despine()
+
+        # medians = dat.groupby(['Method'])[ylabel_string[1]].median().round(2)
+        # vertical_offset = 0.2 # offset from median for display
+
+        # # Plot
+        # box_plot = sns.boxplot(data=dat, x='Method', y=ylabel_string[1], width=0.5)
+
+        # for xtick in box_plot.get_xticks():
+        #     box_plot.text(xtick,medians[xtick] + vertical_offset,medians[xtick], 
+        #             horizontalalignment='center',size=15,color='w',weight='semibold')
+
+        # plt.savefig(column_string[1] + '.png', dpi=500, facecolor='w', bbox_inches='tight')
+        
+        return dat
 
 def RMSE_plot(file_string):
     """
