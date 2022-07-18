@@ -3,6 +3,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from analysis import *
 from sklearn.metrics import mean_squared_error
 
 ##### New graphs after meeting with NUH ######
@@ -506,7 +507,7 @@ def LOOCV_all_methods_plot():
     
     return dat
 
-def indiv_profiles_all_data(file_string='all_data_including_non_ideal.xlsx'):
+def indiv_profiles_all_data(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
     # Plot individual profiles
@@ -519,33 +520,50 @@ def indiv_profiles_all_data(file_string='all_data_including_non_ideal.xlsx'):
     dat['dose_range'] = ""
     for i in range(len(dat)):
         if dat.dose[i] < 2:
-            dat.loc[i, 'dose_range'] = 'low'
+            dat.loc[i, 'dose_range'] = 'Low'
         elif dat.dose[i] < 4:
-            dat.loc[i, 'dose_range'] = 'medium'
+            dat.loc[i, 'dose_range'] = 'Medium'
         else:
-            dat.loc[i, 'dose_range'] = 'high'
+            dat.loc[i, 'dose_range'] = 'High'
 
-    sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
-    sns.set_style('white')
+    # Rename columns and entries
+    new_dat = dat.copy()
+    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
+    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Within-Range', False: 'Out-of-Range'})
+    new_dat = new_dat.rename(columns={'dose_range':'Dose Range'})
 
-    g = sns.relplot(data=dat, x='day', y='response', hue='within_range', col='patient', col_wrap=4, style='dose_range',
-               height=1.5, aspect=1.5,s=60)
+    if plot == True:
+        # Plot
+        sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
+        sns.set_style('white')
 
-    g.map(plt.axhline, y=10, ls='--', c='black')
-    g.map(plt.axhline, y=8, ls='--', c='black')
+        g = sns.relplot(data=new_dat, x='day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose Range',
+                height=1.5, aspect=1.5,s=60)
 
-    plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+        g.map(plt.axhline, y=10, ls='--', c='black')
+        g.map(plt.axhline, y=8, ls='--', c='black')
 
-    sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
-    sns.set_style('white')
+        plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
 
-    g = sns.relplot(data=dat, x='dose', y='response', hue='day', col='patient', col_wrap=4, style='dose_range',
-               height=1.5, aspect=1.5, s=60)
+        sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
+        sns.set_style('white')
 
-    g.map(plt.axhline, y=10, ls='--', c='black')
-    g.map(plt.axhline, y=8, ls='--', c='black')
+        # plot = plt.scatter(new_dat.dose, new_dat.response, c=new_dat.day, cmap=sns.cubehelix_palette(as_cmap=True))
+        # plt.clf()
+        # cbar = plt.colorbar(plot)
+        # cbar.ax.tick_params(labelsize=20) 
 
-    plt.savefig('indiv_pt_profile_by_dose.png', dpi=500, facecolor='w', bbox_inches='tight')
+        # plt.savefig('colorbar.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+        g = sns.relplot(data=new_dat, x='dose', y='response', hue='day', col='patient', col_wrap=4, style='Dose Range',
+                height=1.5, aspect=1.5, s=60)
+
+        g.map(plt.axhline, y=10, ls='--', c='black')
+        g.map(plt.axhline, y=8, ls='--', c='black')
+
+        # plt.colorbar(g)
+
+        plt.savefig('indiv_pt_profile_by_dose.png', dpi=500, facecolor='w', bbox_inches='tight')
     
     return dat
 
@@ -579,8 +597,6 @@ def indiv_profiles_ideal_data(file_string):
 
     g.map(plt.axhline, y=10, ls='--', c='black')
     g.map(plt.axhline, y=8, ls='--', c='black')
-    g.map(sns.scatterplot, data=dat[dat.ideal=='FALSE'], x='day', y='response', hue='within_range', col='patient', col_wrap=4, style='dose_range',
-               height=1.5, aspect=1, fc="none")
 
     plt.savefig('indiv_pt_profile_by_day_ideal.png', dpi=500, facecolor='w', bbox_inches='tight')
 
@@ -596,6 +612,205 @@ def indiv_profiles_ideal_data(file_string):
     plt.savefig('indiv_pt_profile_by_dose_ideal.png', dpi=500, facecolor='w', bbox_inches='tight')
     
     return dat
+
+def CURATE_simulated_results_both_methods():
+
+    """
+    Scatterplot for patient journey, indicating when CURATE may be useful, in terms of 
+    both CURATE methods, or just one of them (PPM/RW)
+    """
+
+    dat = CURATE_could_be_useful()
+    
+    # Create column for adapted within range to indicate if data point
+    # could have been within range if augmented by CURATE
+    dat['adapted_within_range'] = dat.within_range
+
+    dat = dat.reset_index()
+
+    for i in range(len(dat)):
+        if (dat.within_range[i]==False and dat.CURATE_could_be_useful[i]==True):
+            if dat.method[i] == 'L_PPM_wo_origin':
+                dat.loc[i, 'adapted_within_range'] = 'Potentially True with CURATE_PPM'
+            else: 
+                dat.loc[i, 'adapted_within_range'] = 'Potentially True with CURATE_RW'
+
+
+    # Subset columns for combining dataframe for plotting and
+    # rearrange for unstacking
+    dat = dat[['pred_day', 'patient', 'method', 'adapted_within_range']]
+    dat = dat.set_index(['pred_day', 'patient', 'method'])
+
+    # Unstack
+    dat = dat.unstack().reset_index()
+
+    # Rename columns
+    dat.columns = ['day', 'patient', 'PPM', 'RW']
+
+    # Add new column for adapted_within_range
+    dat['adapted_within_range'] = ""
+    dat['PPM'] = dat['PPM'].astype("string")
+    dat['RW'] = dat['RW'].astype("string")
+    for i in range(len(dat)):
+
+        if ('Potential' in dat.PPM[i]) and ('Potential' in dat.RW[i]):
+            dat.loc[i, 'adapted_within_range'] = 'potentially_true_PPM_RW'
+        elif ('Potential' in dat.PPM[i]):
+            dat.loc[i, 'adapted_within_range'] = 'potentially_true_PPM'
+        elif ('Potential' in dat.RW[i]):
+            dat.loc[i, 'adapted_within_range'] = 'potentially_true_RW'
+        else: # if no CURATE augmentation, take PPM's within range column as reference
+            dat.loc[i, 'adapted_within_range'] = 'CURATE_not_helpful'
+
+    # Only keep those that CURATE could outperform SOC
+    dat = dat[dat.adapted_within_range != 'CURATE_not_helpful']
+    dat = dat[['day', 'patient', 'adapted_within_range']]
+
+    # Import data with all data including non-ideal data
+    dat_all_data = indiv_profiles_all_data(plot=False)
+
+    # Merge both dataframes
+    combined_dat = dat_all_data.merge(dat, how='left', on=['patient', 'day'])
+    combined_dat.loc[combined_dat['adapted_within_range'].isnull(),'adapted_within_range'] = \
+    combined_dat['within_range']
+    combined_dat['adapted_within_range'] = combined_dat['adapted_within_range'].astype(str)
+
+    # Rename adapted_within_range
+    for i in range(len(combined_dat)):
+        if combined_dat.adapted_within_range[i] == 'potentially_true_PPM_RW':
+            combined_dat.loc[i, 'adapted_within_range'] = 'True (PPM_RW_augmented)'
+        elif combined_dat.adapted_within_range[i] == 'potentially_true_PPM':
+            combined_dat.loc[i, 'adapted_within_range'] = 'True (PPM_augmented)'
+        elif combined_dat.adapted_within_range[i] == 'potentially_true_RW':
+            combined_dat.loc[i, 'adapted_within_range'] = 'True (RW_augmented)'
+
+    # Plot
+    sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
+    sns.set_style('white')
+    hue_order = ['True', 'False', 'True (PPM_RW_augmented)', 'True (PPM_augmented)', 'True (RW_augmented)']
+    palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
+              sns.color_palette()[3], sns.color_palette()[4]]
+
+    g = sns.relplot(data=combined_dat, x='day', y='response', hue='adapted_within_range',\
+                    hue_order=hue_order, col='patient', palette=palette,\
+                    col_wrap=4, style='dose_range', height=1.5, aspect=1.5, s=60)
+
+    g.map(plt.axhline, y=10, ls='--', c='black')
+    g.map(plt.axhline, y=8, ls='--', c='black')
+
+    plt.savefig('indiv_pt_profile_adapted.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return combined_dat
+
+def CURATE_simulated_results_both_methods():
+    """
+    For PPM/RW, find cases where PPM would have been useful, or harmful
+    Plot simulated results. 
+    """
+    dat = CURATE_could_be_useful()
+
+    method_string = ['PPM', 'RW']
+    method_dat = []
+
+    for j in range(len(method_string)):
+
+        # Subset selected PPM/RW method
+        dat = dat[dat['method']==('L_' + method_string[j] + '_wo_origin')]
+
+        # Create column for adapted within range to indicate if data point
+        # could have been within range if augmented by CURATE
+        dat['adapted_within_range'] = dat.within_range
+        dat = dat.reset_index()
+
+        for i in range(len(dat)):
+            if (dat.CURATE_could_be_useful[i]==True):
+                dat.loc[i, 'adapted_within_range'] = 'Potentially True with CURATE_' + method_string[j]
+            elif (dat.within_range[i]==True and (dat.wrong_range[i]==True or dat.acceptable_deviation[i]==False)):
+                dat.loc[i, 'adapted_within_range'] = 'Potentially False with CURATE_' + method_string[j]
+            else:
+                dat.loc[i, 'adapted_within_range'] = 'CURATE_no_impact'
+
+        # Subset columns
+        dat = dat[['pred_day', 'patient', 'adapted_within_range']]
+
+        # Rename columns
+        dat.columns = ['day', 'patient', 'adapted_within_range']
+
+        # Only keep those that are affected by SOC
+        dat = dat[dat.adapted_within_range != 'CURATE_no_impact']
+        dat = dat[['day', 'patient', 'adapted_within_range']]
+
+        # Import data with all data including non-ideal data
+        dat_all_data = indiv_profiles_all_data(plot=False)
+
+        # Merge both dataframes
+        combined_dat = dat_all_data.merge(dat, how='left', on=['patient', 'day'])
+        combined_dat.loc[combined_dat['adapted_within_range'].isnull(),'adapted_within_range'] = \
+        combined_dat['within_range']
+        combined_dat['adapted_within_range'] = combined_dat['adapted_within_range'].astype(str)
+
+        # Rename adapted_within_range
+        for i in range(len(combined_dat)):
+            if combined_dat.adapted_within_range[i] == 'Potentially True with CURATE_' + method_string[j]:
+                combined_dat.loc[i, 'adapted_within_range'] = 'True (' + method_string[j] + '_assisted)'
+            elif combined_dat.adapted_within_range[i] == 'Potentially False with CURATE_' + method_string[j]:
+                combined_dat.loc[i, 'adapted_within_range'] = 'False (' + method_string[j] + '_assisted)'
+
+        # Plot
+        sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
+        sns.set_style('white')
+        hue_order = ['True', 'False', 'True (' + method_string[j] + '_assisted)', 'False (' + method_string[j] + '_assisted)']
+        palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
+                  sns.color_palette()[3]]
+
+        g = sns.relplot(data=combined_dat, x='day', y='response', hue='adapted_within_range',\
+                        hue_order=hue_order, col='patient', palette=palette,\
+                        col_wrap=4, style='dose_range', height=1.5, aspect=1.5, s=60)
+
+        g.map(plt.axhline, y=10, ls='--', c='black')
+        g.map(plt.axhline, y=8, ls='--', c='black')
+
+        plt.savefig('indiv_pt_profile_adapted_' + method_string[j] + '.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+        method_dat.append(combined_dat)
+        
+    return method_dat, method_string
+
+def CURATE_assisted_result_distribution(method_dat, method_string):
+    """    
+    Plot distribution with boxplot of results in terms of percentage of dosing events where tacrolimus levels are within range
+    in SOC and with CURATE, and when CURATE may be helpful or worsen the tacroliumus levels.
+    
+    Pre-condition: run CURATE_simulated_results_both_methods() to find method_dat and method_string
+    """
+    for n in range(len(method_string)):
+        # Find perc_dosing events for PPM/RW
+        True_in_SOC = method_dat[n].groupby('patient')['adapted_within_range'].apply(lambda x: (x=='True').sum()/x.count()*100).reset_index().rename(columns={'adapted_within_range':'True_in_SOC'})
+
+        True_after_CURATE = method_dat[n].groupby('patient')['adapted_within_range'].apply(lambda x: (x.str.count('True').sum())/x.count()*100).reset_index().rename(columns={'adapted_within_range':'True_after_CURATE'})
+
+        CURATE_may_help = method_dat[n].groupby('patient')['adapted_within_range'].apply(lambda x: (x=='True (' + method_string[n] + '_assisted)').sum()/x.count()*100).reset_index().rename(columns={'adapted_within_range':'CURATE_may_help'})
+
+        CURATE_may_worsen = method_dat[n].groupby('patient')['adapted_within_range'].apply(lambda x: (x=='False (' + method_string[n] + '_assisted)').sum()/x.count()*100).reset_index().rename(columns={'adapted_within_range':'CURATE_may_worsen'})
+
+        final_df = True_in_SOC.merge(True_after_CURATE, how='left', on='patient')
+        final_df = final_df.merge(CURATE_may_help, how='left', on='patient')
+        final_df = final_df.merge(CURATE_may_worsen, how='left', on='patient')
+
+        # Remove patient column
+        final_df = final_df[['True_in_SOC', 'True_after_CURATE', 'CURATE_may_help', 'CURATE_may_worsen']]
+        final_df.columns = ['True\n(SOC)', 'True\n(CURATE)', 'CURATE\nmay help', 'CURATE\nmay worsen']
+
+        # Plot
+        sns.set(font_scale=1.3)
+        sns.set_style('white')
+        palette = [sns.color_palette()[1], sns.color_palette()[4], sns.color_palette()[2], sns.color_palette()[3]]
+        sns.catplot(data=final_df, kind='box', palette=palette, height=5, aspect=1.2)
+        plt.ylabel('No. of Dosing Events (%)')
+
+        plt.savefig(method_string[n] + '_assisted.png', dpi=500, facecolor='w', bbox_inches='tight')
+        
+        return final_df
 
 def read_file_and_remove_unprocessed_pop_tau(file_string='GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
