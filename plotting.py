@@ -592,6 +592,36 @@ def LOOCV_all_methods_plot():
     
     return dat
 
+def LOOCV_PPM_RW():
+    """Boxplot for LOOCV results of PPM and RW only"""
+    dat = pd.read_excel('all_methods_LOOCV.xlsx', sheet_name='Experiments')
+    dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')]
+
+    dat = dat.set_index(['method', 'experiment']).stack().reset_index()
+    dat.columns = ['Method','experiment','Dataset','Absolute Prediction Error']
+
+    # Keep all columns except 'experiment'
+    dat = dat[['Method', 'Dataset', 'Absolute Prediction Error']]
+
+    dat = dat.rename(columns={'method':'Method'})
+    dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
+    dat['Dataset'] = dat['Dataset'].map({'train_median':'Training', 'test_median':'Test'})
+
+    sns.set(font_scale=1.8, style='white')
+    sns.despine()
+
+    m1 = dat.groupby(['Method']).median().round(2).values
+    mL1 = [str(np.round(s, 2)) for s in m1]
+    vertical_offset = 0.2 # offset from median for display
+
+    box_plot = sns.boxplot(data=dat, x='Method', y='Absolute Prediction Error', hue='Dataset', palette='Paired')
+
+    plt.legend(bbox_to_anchor=(1,0.5),loc='center left')
+
+    plt.savefig('LOOCV_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    return dat
+
 def indiv_profiles_all_data(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
