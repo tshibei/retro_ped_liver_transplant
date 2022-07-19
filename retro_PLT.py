@@ -56,3 +56,7 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
+# -
+df = RMSE_plot()
+
+

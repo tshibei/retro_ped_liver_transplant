@@ -147,7 +147,7 @@ def prediction_error_PPM_RW(plot=False):
         
         return dat
 
-def RMSE_plot(file_string):
+def RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx'):
     """
     Bar plot of RMSE for each method, grouped by pop tau and no pop tau,
     with broken y-axis
@@ -192,6 +192,32 @@ def RMSE_method(dat):
     """Find RMSE by method"""
     rmse = mean_squared_error(dat.response, dat.prediction, squared=False)
     return pd.Series(dict(rmse=rmse))
+
+def RMSE_plot_PPM_RW():
+    """Barplot of RMSE for PPM and RW only"""
+
+    dat = RMSE_plot()
+
+    # Subset PPM and RW methods
+    dat = dat[(dat.pop_tau=='no pop tau') & ((dat.OG_method=='L_PPM_wo_origin') | (dat.OG_method=='L_RW_wo_origin'))].reset_index(drop=True)
+
+    sns.despine(top=True)
+    sns.catplot(data=dat, x='approach', y= 'rmse', kind='bar', height=6, aspect=0.8)
+
+    # Get current axis on current figure
+    ax = plt.gca()
+
+    # Iterate through the list of axes' patches
+    for p in ax.patches:
+        ax.text(p.get_x() + p.get_width()/2., p.get_height(), '%.2f' % float(p.get_height()), 
+                fontsize=18, color='black', ha='center', va='bottom')
+
+    plt.xlabel('Method')
+    plt.ylabel('RMSE')
+
+    plt.savefig('RMSE_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return dat
 
 def ideal_over_under_pred(file_string):
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
