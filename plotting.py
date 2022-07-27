@@ -6,6 +6,7 @@ import numpy as np
 from analysis import *
 from scipy.stats import mannwhitneyu
 from sklearn.metrics import mean_squared_error
+import math
 
 ##### New graphs after meeting with NUH ######
 
@@ -220,7 +221,7 @@ def RMSE_plot_PPM_RW():
     
     return dat
 
-def ideal_over_under_pred(file_string='output (with pop tau by LOOCV).xlsx'):
+def ideal_over_under_pred(file_string='output (with pop tau by LOOCV).xlsx', plot=False):
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
     dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
@@ -251,29 +252,30 @@ def ideal_over_under_pred(file_string='output (with pop tau by LOOCV).xlsx'):
     # pd.set_option('display.float_format', lambda x: '%.2f' % x)
     # metric_df.groupby(['pop_tau', 'result'])['deviation'].describe()
 
-    # Plot
-    sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
-    sns.set_style("white")
-    ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'pop tau'], x='method', 
-                     y='deviation', hue='result', kind='bar', height=5,
-                    aspect=2)
+    if plot == True:
+        # Plot
+        sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
+        sns.set_style("white")
+        ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'pop tau'], x='method', 
+                        y='deviation', hue='result', kind='bar', height=5,
+                        aspect=2)
 
-    ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
-           title='No. of Ideal/Over/Under Predictions (%) (Pop Tau Methods)')
-    ax.set_xticklabels(rotation=90)
-    ax._legend.set_title('Prediction')
-    plt.savefig('pop_tau_predictions.png', bbox_inches='tight', dpi=300)
+        ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
+            title='No. of Ideal/Over/Under Predictions (%) (Pop Tau Methods)')
+        ax.set_xticklabels(rotation=90)
+        ax._legend.set_title('Prediction')
+        plt.savefig('pop_tau_predictions.png', bbox_inches='tight', dpi=300)
 
-    sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
-    sns.set_style("white")
-    ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'no pop tau'], x='method', 
-                     y='deviation', hue='result', kind='bar', height=5,
-                    aspect=2)
-    ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
-           title='No. of Ideal/Over/Under Predictions (%)')
-    ax.set_xticklabels(rotation=90)
-    ax._legend.set_title('Prediction')
-    plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
+        sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
+        sns.set_style("white")
+        ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'no pop tau'], x='method', 
+                        y='deviation', hue='result', kind='bar', height=5,
+                        aspect=2)
+        ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
+            title='No. of Ideal/Over/Under Predictions (%)')
+        ax.set_xticklabels(rotation=90)
+        ax._legend.set_title('Prediction')
+        plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
 
     # Rename 'deviation' column to 'perc_predictions'
     metric_df.columns = ['method', 'perc_predictions', 'result', 'pop_tau']
@@ -289,20 +291,23 @@ def ideal_over_under_pred_PPM_RW():
     dat = dat[(dat.pop_tau=='no pop tau') & ((dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin'))]
 
     # Rename columns
-    dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'No. of Predictions (%)'})
+    dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'Predictions (%)'})
     dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
-    dat['Result'] = dat['Result'].map({'ideal':'Ideal', 'over':'Over', 'under':'Under'})
-    dat['No. of Predictions (%)'] = dat['No. of Predictions (%)'].round(1)
+    dat['Result'] = dat['Result'].map({'ideal':'Ideal predictions', 'over':'Over predictions', 'under':'Under predictions'})
+    dat['Predictions (%)'] = dat['Predictions (%)'].round(1)
 
     # Plot
     fig, ax = plt.subplots(figsize=(10,10))
 
-    ax = sns.barplot(data=dat, x='Method', y='No. of Predictions (%)', hue='Result')
+    sns.set(font_scale=1.2, style='white', rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True})
+
+    ax = sns.barplot(data=dat, x='Method', y='Predictions (%)', hue='Result')
     sns.despine()
+    plt.legend(frameon=False, bbox_to_anchor=(1.3,0.5), loc='upper right')
 
     # Label bars
     for container in ax.containers:
-        ax.bar_label(container)
+        ax.bar_label(container, fontsize=13)
 
     plt.savefig('ideal_over_under_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
 

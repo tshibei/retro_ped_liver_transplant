@@ -56,8 +56,38 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
-# -
+# +
+"""Bar plot of percentage of ideal/over/under predictions, by method"""
 
+df = ideal_over_under_pred()
+
+# +
+dat = df.copy()
+
+# Subset PPM and RW method
+dat = dat[(dat.pop_tau=='no pop tau') & ((dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin'))]
+
+# Rename columns
+dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'Predictions (%)'})
+dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
+dat['Result'] = dat['Result'].map({'ideal':'Ideal predictions', 'over':'Over predictions', 'under':'Under predictions'})
+dat['Predictions (%)'] = dat['Predictions (%)'].round(1)
+
+# Plot
+fig, ax = plt.subplots(figsize=(10,10))
+
+sns.set(font_scale=1.2, style='white', rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True})
+
+ax = sns.barplot(data=dat, x='Method', y='Predictions (%)', hue='Result')
+sns.despine()
+plt.legend(frameon=False, bbox_to_anchor=(1.3,0.5), loc='upper right')
+
+# Label bars
+for container in ax.containers:
+    ax.bar_label(container, fontsize=13)
+
+plt.savefig('ideal_over_under_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+# -
 
 dat = df.copy()
 dat
