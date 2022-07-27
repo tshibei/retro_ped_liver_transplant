@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from analysis import *
+from scipy.stats import mannwhitneyu
 from sklearn.metrics import mean_squared_error
 
 ##### New graphs after meeting with NUH ######
@@ -219,7 +220,7 @@ def RMSE_plot_PPM_RW():
     
     return dat
 
-def ideal_over_under_pred(file_string):
+def ideal_over_under_pred(file_string='output (with pop tau by LOOCV).xlsx'):
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
     dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
@@ -278,6 +279,34 @@ def ideal_over_under_pred(file_string):
     metric_df.columns = ['method', 'perc_predictions', 'result', 'pop_tau']
 
     return metric_df
+
+def ideal_over_under_pred_PPM_RW():
+    """Bar plot of percentage of ideal/over/under predictions, by method"""
+    
+    dat = ideal_over_under_pred()
+    
+    # Subset PPM and RW method
+    dat = dat[(dat.pop_tau=='no pop tau') & ((dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin'))]
+
+    # Rename columns
+    dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'No. of Predictions (%)'})
+    dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
+    dat['Result'] = dat['Result'].map({'ideal':'Ideal', 'over':'Over', 'under':'Under'})
+    dat['No. of Predictions (%)'] = dat['No. of Predictions (%)'].round(1)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(10,10))
+
+    ax = sns.barplot(data=dat, x='Method', y='No. of Predictions (%)', hue='Result')
+    sns.despine()
+
+    # Label bars
+    for container in ax.containers:
+        ax.bar_label(container)
+
+    plt.savefig('ideal_over_under_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    return dat
 
 def can_benefit_SOC_predictions(file_string):
     """
@@ -622,7 +651,7 @@ def LOOCV_PPM_RW():
 
     return dat
 
-def indiv_profiles_all_data(file_string='all_data_including_non_ideal.xlsx', plot=True):
+def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
     # Plot individual profiles
@@ -635,31 +664,78 @@ def indiv_profiles_all_data(file_string='all_data_including_non_ideal.xlsx', plo
     dat['dose_range'] = ""
     for i in range(len(dat)):
         if dat.dose[i] < 2:
-            dat.loc[i, 'dose_range'] = 'Low'
+            dat.loc[i, 'dose_range'] = 'Low Dose'
         elif dat.dose[i] < 4:
-            dat.loc[i, 'dose_range'] = 'Medium'
+            dat.loc[i, 'dose_range'] = 'Medium Dose'
         else:
-            dat.loc[i, 'dose_range'] = 'High'
+            dat.loc[i, 'dose_range'] = 'High Dose'
 
     # Rename columns and entries
     new_dat = dat.copy()
     new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
-    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Within-Range', False: 'Out-of-Range'})
-    new_dat = new_dat.rename(columns={'dose_range':'Dose Range'})
+    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic Range', False: 'Non-therapeutic Range'})
+    new_dat = new_dat.rename(columns={'dose_range':'Dose Range', 'day':'Day'})
+    new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                                133:15, 138:16})
 
     if plot == True:
-        # Plot
-        sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
-        sns.set_style('white')
+            
+        # Plot tac levels by day
+        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10),
+                                "xtick.bottom" : True, 
+                                    "ytick.left" : True},
+            style='white')
+        # sns.set_style('white')
 
-        g = sns.relplot(data=new_dat, x='day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose Range',
-                height=1.5, aspect=1.5,s=60)
+        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose Range',
+                height=3, aspect=1,s=80)
 
         g.map(plt.axhline, y=10, ls='--', c='black')
         g.map(plt.axhline, y=8, ls='--', c='black')
+        g.set_titles('Patient {col_name}')
+        g.set_ylabels('Tacrolimus level (ng/ml)')
+        g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),2))
+        
+        # sns.move_legend(g, 'upper left', bbox_to_anchor=(0, 0), ncol=5)
+        c = g._legend.get_children()[0].get_children()[1].get_children()[0]
+        c._children = c._children[1:3] + c._children[4:]
 
         plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
 
+    return dat
+
+def indiv_profiles_all_data_dose_vs_response(file_string='all_data_including_non_ideal.xlsx', plot=True):
+    """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
+    
+    # Plot individual profiles
+    dat = pd.read_excel(file_string, sheet_name='clean')
+
+    # Create within-range column for color
+    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+
+    # Create low/med/high dose column
+    dat['dose_range'] = ""
+    for i in range(len(dat)):
+        if dat.dose[i] < 2:
+            dat.loc[i, 'dose_range'] = 'Low Dose'
+        elif dat.dose[i] < 4:
+            dat.loc[i, 'dose_range'] = 'Medium Dose'
+        else:
+            dat.loc[i, 'dose_range'] = 'High Dose'
+
+    # Rename columns and entries
+    new_dat = dat.copy()
+    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
+    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic Range', False: 'Non-therapeutic Range'})
+    new_dat = new_dat.rename(columns={'dose_range':'Dose Range', 'day':'Day'})
+    new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                                133:15, 138:16})
+
+    if plot == True:
+            
+        # Plot dose vs response
         sns.set(font_scale=1.2, rc={'figure.figsize':(16,10)})
         sns.set_style('white')
 
@@ -817,17 +893,19 @@ def CURATE_simulated_results_both_methods():
     
     return combined_dat
 
-def CURATE_simulated_results_both_methods():
+def CURATE_simulated_results_PPM_RW():
     """
     For PPM/RW, find cases where PPM would have been useful, or harmful
     Plot simulated results. 
     """
-    dat = CURATE_could_be_useful()
+    df = CURATE_could_be_useful()
 
     method_string = ['PPM', 'RW']
     method_dat = []
 
     for j in range(len(method_string)):
+
+        dat = df.copy()
 
         # Subset selected PPM/RW method
         dat = dat[dat['method']==('L_' + method_string[j] + '_wo_origin')]
@@ -898,7 +976,14 @@ def CURATE_assisted_result_distribution(method_dat, method_string):
     
     Pre-condition: run CURATE_simulated_results_both_methods() to find method_dat and method_string
     """
+    final_df_list = []
+
+    final_df = pd.DataFrame()
+
     for n in range(len(method_string)):
+
+        final_df = pd.DataFrame()
+
         # Find perc_dosing events for PPM/RW
         True_in_SOC = method_dat[n].groupby('patient')['adapted_within_range'].apply(lambda x: (x=='True').sum()/x.count()*100).reset_index().rename(columns={'adapted_within_range':'True_in_SOC'})
 
@@ -908,9 +993,9 @@ def CURATE_assisted_result_distribution(method_dat, method_string):
 
         CURATE_may_worsen = method_dat[n].groupby('patient')['adapted_within_range'].apply(lambda x: (x=='False (' + method_string[n] + '_assisted)').sum()/x.count()*100).reset_index().rename(columns={'adapted_within_range':'CURATE_may_worsen'})
 
-        final_df = True_in_SOC.merge(True_after_CURATE, how='left', on='patient')
-        final_df = final_df.merge(CURATE_may_help, how='left', on='patient')
-        final_df = final_df.merge(CURATE_may_worsen, how='left', on='patient')
+        final_df = True_in_SOC.merge(True_after_CURATE, how='left', on='patient').reset_index(drop=True)
+        final_df = final_df.merge(CURATE_may_help, how='left', on='patient').reset_index(drop=True)
+        final_df = final_df.merge(CURATE_may_worsen, how='left', on='patient').reset_index(drop=True)
 
         # Remove patient column
         final_df = final_df[['True_in_SOC', 'True_after_CURATE', 'CURATE_may_help', 'CURATE_may_worsen']]
@@ -922,12 +1007,17 @@ def CURATE_assisted_result_distribution(method_dat, method_string):
         palette = [sns.color_palette()[1], sns.color_palette()[4], sns.color_palette()[2], sns.color_palette()[3]]
         sns.catplot(data=final_df, kind='box', palette=palette, height=5, aspect=1.2)
         plt.ylabel('No. of Dosing Events (%)')
+        plt.show()
 
-        plt.savefig(method_string[n] + '_assisted.png', dpi=500, facecolor='w', bbox_inches='tight')
+        # plt.savefig(method_string[n] + '_assisted.png', dpi=500, facecolor='w', bbox_inches='tight')
         
-        return final_df
+        # print(final_df, method_dat[n])
 
-def read_file_and_remove_unprocessed_pop_tau(file_string='GOOD OUTPUT DATA\output (with pop tau by LOOCV).xlsx', sheet_string='result'):
+        final_df_list = final_df_list.append(final_df)
+
+        return final_df_list
+
+def read_file_and_remove_unprocessed_pop_tau(file_string='output (with pop tau by LOOCV).xlsx', sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 
     # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
@@ -1046,6 +1136,167 @@ def num_patients_and_list(method, linear_patient_list, quad_patient_list):
         patient_list = quad_patient_list
         
     return num_of_patients, patient_list
+
+##### ANALYSIS
+def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
+    """
+    Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
+    keep those that are useful.
+    
+    Output: Dataframe describing results
+    """
+    dat = read_file_and_remove_unprocessed_pop_tau()
+    dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
+
+    # Subset CURATE models
+    dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')]
+
+    dat = dat.reset_index(drop=True)
+
+    # Interpolate
+    for i in range(len(dat)):
+        # Create function
+        coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(dat.dose)+ 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+        dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+        dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    interpolation = dat[['interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe() # Minimum 0mg, all are possible dosing events
+
+    # Create boolean, true when model predict wrong range
+    for i in range(len(dat)):
+        # All False
+        dat.loc[i, 'wrong_range'] = False
+        # Unless condition 1: prediction within range, response outside range
+        if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
+            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+                dat.loc[i, 'wrong_range'] = True
+        # Unless condition 2: prediction outside range, response within range
+        elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
+                dat.loc[i, 'wrong_range'] = True
+
+    dat['acceptable_deviation'] = (round(dat['deviation'],2) > -2) & (round(dat['deviation'],2) < 1.5)
+
+    # dat = dat.reset_index(drop=True)
+
+    # Find number of predictions in wrong range by group
+    wrong_range = dat.groupby('method')['wrong_range'].sum()
+
+    # Find number of predictions with unacceptable deviations by group
+    unacceptable_dev = dat.groupby('method')['acceptable_deviation'].apply(lambda x: x.count()-x.sum())
+
+    # Find difference between interpolated dose for 9ng/ml and dose prescribed
+    dat['diff_dose'] = dat['interpolated_dose_9'] - dat['dose']
+    dat['abs_diff_dose'] = abs(dat['diff_dose'])
+
+    # Create reasonable dose column
+    dat['reasonable_dose'] = dat['abs_diff_dose'] >= 0.5
+
+    unreasonable_dose = dat.groupby('method')['reasonable_dose'].apply(lambda x: x.count()-x.sum())
+
+    # Create column for within range
+    dat['within_range'] = (dat['response'] <= 10) & (dat['response'] >= 8)
+
+    within_range = dat.groupby('method')['within_range'].sum()
+
+    dat['CURATE_could_be_useful'] = (dat.acceptable_deviation==True) & \
+        (dat.wrong_range==False) & \
+            (dat.reasonable_dose==True) & \
+                (dat.within_range==False)
+
+    # # Keep only predictions with acceptable deviations
+    # dat = dat[dat.acceptable_deviation==True]
+
+    # # Keep only predictions with right range
+    # dat = dat[dat.wrong_range==False]
+
+    # # Keep reasonable doses only
+    # dat = dat[dat.reasonable_dose==True]
+
+    # # Keep those outside range
+    # dat = dat[dat.within_range==False]
+
+    dat.groupby('method')['diff_dose'].describe().T.applymap('{:,.2f}'.format)
+
+    return dat
+
+def group_comparison(file_string):
+    """ 
+    Use Mann Whitney U test and Spearman's rank correlation coefficient
+    to compare between top 2 RW and PPM methods.
+    
+    Output: printed results of the 2 tests
+    """
+
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
+
+    # Add type column
+    dat['type'] = ""
+    for i in range(len(dat)):
+        if 'L_' in dat.method[i]:
+            dat.loc[i, 'type'] = 'linear'
+        else:
+            dat.loc[i, 'type'] = 'quadratic'
+
+    dat['approach'] = ""
+    dat['origin_inclusion'] = ""
+    dat['pop_tau'] = ""
+    for i in range(len(dat)):
+        if 'Cum' in dat.method[i]:
+            dat.loc[i, 'approach']  = 'Cum'
+        elif 'PPM' in dat.method[i]:
+            dat.loc[i, 'approach'] = 'PPM'
+        else: dat.loc[i, 'approach'] = 'RW'
+
+        if 'wo_origin' in dat.method[i]:
+            dat.loc[i, 'origin_inclusion'] = 'wo_origin'
+        elif 'origin_dp' in dat.method[i]:
+            dat.loc[i, 'origin_inclusion'] = 'origin_dp'
+        else: dat.loc[i, 'origin_inclusion'] = 'origin_int'
+
+        if 'pop_tau' in dat.method[i]:
+            dat.loc[i, 'pop_tau'] = True
+        else: dat.loc[i, 'pop_tau'] = False
+
+    PPM_origin_dp = dat[dat.method=='L_PPM_origin_dp']['deviation'].to_numpy()
+    PPM_wo_origin = dat[dat.method=='L_PPM_wo_origin']['deviation'].to_numpy()
+
+    res = mannwhitneyu(PPM_origin_dp, PPM_wo_origin)
+    print(f'PPM spearman | {stats.spearmanr(PPM_origin_dp, PPM_wo_origin)}')
+    print(f'PPM mann-whitney| {mannwhitneyu(PPM_origin_dp, PPM_wo_origin)}')
+
+    RW_origin_int = dat[dat.method=='L_RW_origin_int']['deviation'].to_numpy()
+    RW_wo_origin = dat[dat.method=='L_RW_wo_origin']['deviation'].to_numpy()
+
+    res = mannwhitneyu(RW_origin_int, RW_wo_origin)
+
+    print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
+    print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
+
+    dat = df.copy()
+    PPM_origin_dp = dat[dat.method=='L_PPM_origin_dp']['abs_deviation'].to_numpy()
+    PPM_wo_origin = dat[dat.method=='L_PPM_wo_origin']['abs_deviation'].to_numpy()
+
+    res = mannwhitneyu(PPM_origin_dp, PPM_wo_origin)
+    print(f'PPM spearman | {stats.spearmanr(PPM_origin_dp, PPM_wo_origin)}')
+    print(f'PPM mann-whitney| {mannwhitneyu(PPM_origin_dp, PPM_wo_origin)}')
+
+    RW_origin_int = dat[dat.method=='L_RW_origin_int']['abs_deviation'].to_numpy()
+    RW_wo_origin = dat[dat.method=='L_RW_wo_origin']['abs_deviation'].to_numpy()
+
+    res = mannwhitneyu(RW_origin_int, RW_wo_origin)
+
+    print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
+    print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
 
 ##### Meeting with NUH ######
 
