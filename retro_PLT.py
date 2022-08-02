@@ -56,41 +56,117 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
-# +
-"""Bar plot of percentage of ideal/over/under predictions, by method"""
-
-df = ideal_over_under_pred()
+# -
+df = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='result')
 
 # +
+from matplotlib import colors
+
 dat = df.copy()
 
-# Subset PPM and RW method
-dat = dat[(dat.pop_tau=='no pop tau') & ((dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin'))]
+# Subset L_RW_wo_origin and patient 118
+dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==118)]
 
-# Rename columns
-dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'Predictions (%)'})
-dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
-dat['Result'] = dat['Result'].map({'ideal':'Ideal predictions', 'over':'Over predictions', 'under':'Under predictions'})
-dat['Predictions (%)'] = dat['Predictions (%)'].round(1)
+dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']].reset_index(drop=True)
+
+# Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
+for i in range(len(dat)):
+    # Create function
+    coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+    coeff = coeff[~np.isnan(coeff)]
+    p = np.poly1d(coeff)
+    x = np.linspace(0, max(dat.dose)+ 2)
+    y = p(x)
+    order = y.argsort()
+    y = y[order]
+    x = x[order]
+
+    dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+    dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+    dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+    
+# Create column to find points that outperform, benefit, or do not affect SOC
+dat['effect_on_SOC'] = 'none'
+dat['predict_range'] = 'therapeutic'
+dat['response_range'] = 'therapeutic'
+dat['prediction_error'] = 'acceptable'
+dat['diff_dose'] = '>0.5'
+for i in range(len(dat)):
+
+    if (dat.prediction[i] > 10) or (dat.prediction[i] < 8):
+        dat.loc[i,'predict_range'] = 'non-therapeutic'
+        if (dat.response[i] > 10) or (dat.response[i] < 8):
+            dat.loc[i,'response_range'] = 'non-therapeutic'
+            if (round(dat.deviation[i],2) > -2) and (round(dat.deviation[i],2) < 1.5):
+                if (abs(dat.interpolated_dose_8[i] - dat.dose[i]) or abs(dat.interpolated_dose_9[i] - dat.dose[i]) or abs(dat.interpolated_dose_10[i] - dat.dose[i])) > 0.5:
+                    dat.loc[i, 'effect_on_SOC'] = 'outperform'
+        elif (dat.response[i] <= 10) and (dat.response[i] >= 8):
+                dat.loc[i, 'effect_on_SOC'] = 'worsen'
+
+# Subset columns
+dat = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']]
+
+# Stack columns to fit dataframe for plotting
+df_fit_dose = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2']]
+df_fit_dose = df_fit_dose.set_index(['pred_day', 'effect_on_SOC'])
+df_fit_dose = df_fit_dose.stack().reset_index()
+df_fit_dose.columns = ['pred_day', 'effect_on_SOC', 'fit_dose', 'x']
+df_fit_dose = df_fit_dose.reset_index()
+
+df_fit_response = dat[['pred_day', 'effect_on_SOC', 'fit_response_1', 'fit_response_2']]
+df_fit_response = df_fit_response.set_index(['pred_day', 'effect_on_SOC'])
+df_fit_response = df_fit_response.stack().reset_index()
+df_fit_response.columns = ['pred_day', 'effect_on_SOC', 'fit_response', 'y']
+df_fit_response = df_fit_response.reset_index()
+
+df_day = dat[['pred_day', 'effect_on_SOC', 'day_1', 'day_2']]
+df_day = df_day.set_index(['pred_day', 'effect_on_SOC'])
+df_day = df_day.stack().reset_index()
+df_day.columns = ['pred_day', 'effect_on_SOC', 'day_num', 'day']
+df_day = df_day.reset_index()
+
+combined_df = df_fit_dose.merge(df_fit_response, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
+combined_df = combined_df.merge(df_day, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
 
 # Plot
-fig, ax = plt.subplots(figsize=(10,10))
+sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True},
+        style='white')
+g = sns.lmplot(data=combined_df, x='x', y='y', hue='pred_day', ci=None, legend=False)
 
-sns.set(font_scale=1.2, style='white', rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True})
+ec = colors.to_rgba('black')
+ec = ec[:-1] + (0.3,)
 
-ax = sns.barplot(data=dat, x='Method', y='Predictions (%)', hue='Result')
-sns.despine()
-plt.legend(frameon=False, bbox_to_anchor=(1.3,0.5), loc='upper right')
+for i in range(combined_df.shape[0]):
+    plt.text(x=combined_df.x[i]+0.3,y=combined_df.y[i]+0.3,s=int(combined_df.day[i]), 
+      fontdict=dict(color='black',size=13),
+      bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
+    
+    plt.text(x=0+0.3,y=10.4+0.3,s=12, 
+      fontdict=dict(color='black',size=13),
+      bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+    
+    plt.text(x=0+0.3,y=8.7+0.3,s=14, 
+      fontdict=dict(color='black',size=13),
+      bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
 
-# Label bars
-for container in ax.containers:
-    ax.bar_label(container, fontsize=13)
+plt.legend(bbox_to_anchor=(1.06,0.5), loc='center left', title='Day of Prediction', frameon=False)
+plt.xlabel('Tacrolimus dose (mg)')
+plt.ylabel('Tacrolimus level (ng/ml)')
+plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
-plt.savefig('ideal_over_under_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+# Add data point of day 12 and day 14
+plt.plot(0, 10.4, marker="o", markeredgecolor="black", markerfacecolor="white")
+plt.plot(0, 8.7, marker="o", markeredgecolor="black", markerfacecolor="white")
+plt.savefig('patient_118_RW_profiles.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+
 # -
 
-dat = df.copy()
-dat
+method_dat, method_string = CURATE_simulated_results_PPM_RW()
+
+dat = method_dat.copy()
+df_RW = dat[1]
+df_RW[df_RW.patient==118]
 
 df = CURATE_could_be_useful()
 
