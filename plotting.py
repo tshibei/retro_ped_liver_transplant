@@ -1154,6 +1154,131 @@ def rename_methods_without_pop_tau(dat):
 
     return dat
 
+def case_series_120():
+    """
+    Line and scatter plot of response vs dose, for each day and
+    with regression line for RW by prediction day
+    """
+
+    dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='result')
+
+    # Subset L_RW_wo_origin and patient 118
+    dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==120)]
+
+    dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']].reset_index(drop=True)
+
+    # Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
+    for i in range(len(dat)):
+        # Create function
+        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(dat.dose)+ 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+        dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+        dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    # Create column to find points that outperform, benefit, or do not affect SOC
+    dat['effect_on_SOC'] = 'none'
+    dat['predict_range'] = 'therapeutic'
+    dat['response_range'] = 'therapeutic'
+    dat['prediction_error'] = 'acceptable'
+    dat['diff_dose'] = '>0.5'
+    for i in range(len(dat)):
+
+        if (dat.prediction[i] > 10) or (dat.prediction[i] < 8):
+            dat.loc[i,'predict_range'] = 'non-therapeutic'
+            if (dat.response[i] > 10) or (dat.response[i] < 8):
+                dat.loc[i,'response_range'] = 'non-therapeutic'
+                if (round(dat.deviation[i],2) > -2) and (round(dat.deviation[i],2) < 1.5):
+                    if (abs(dat.interpolated_dose_8[i] - dat.dose[i]) or abs(dat.interpolated_dose_9[i] - dat.dose[i]) or abs(dat.interpolated_dose_10[i] - dat.dose[i])) > 0.5:
+                        dat.loc[i, 'effect_on_SOC'] = 'outperform'
+            elif (dat.response[i] <= 10) and (dat.response[i] >= 8):
+                    dat.loc[i, 'effect_on_SOC'] = 'worsen'
+
+    dat_original = dat.copy()
+
+    # Subset columns
+    dat = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']]
+
+    # Stack columns to fit dataframe for plotting
+    df_fit_dose = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2']]
+    df_fit_dose = df_fit_dose.set_index(['pred_day', 'effect_on_SOC'])
+    df_fit_dose = df_fit_dose.stack().reset_index()
+    df_fit_dose.columns = ['pred_day', 'effect_on_SOC', 'fit_dose', 'x']
+    df_fit_dose = df_fit_dose.reset_index()
+
+    df_fit_response = dat[['pred_day', 'effect_on_SOC', 'fit_response_1', 'fit_response_2']]
+    df_fit_response = df_fit_response.set_index(['pred_day', 'effect_on_SOC'])
+    df_fit_response = df_fit_response.stack().reset_index()
+    df_fit_response.columns = ['pred_day', 'effect_on_SOC', 'fit_response', 'y']
+    df_fit_response = df_fit_response.reset_index()
+
+    df_day = dat[['pred_day', 'effect_on_SOC', 'day_1', 'day_2']]
+    df_day = df_day.set_index(['pred_day', 'effect_on_SOC'])
+    df_day = df_day.stack().reset_index()
+    df_day.columns = ['pred_day', 'effect_on_SOC', 'day_num', 'day']
+    df_day = df_day.reset_index()
+
+    combined_df = df_fit_dose.merge(df_fit_response, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
+    combined_df = combined_df.merge(df_day, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
+
+    # Plot
+    sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True},
+            style='white')
+    g = sns.lmplot(data=combined_df, x='x', y='y', hue='pred_day', ci=None, legend=False)
+
+    # Make unused data points have lighter edge colors
+    ec = colors.to_rgba('black')
+    ec = ec[:-1] + (0.3,)
+
+    # Add labels for numbered circles representing day from which dose-response pair 
+    # was obtained from
+    for i in range(combined_df.shape[0]):
+        plt.text(x=combined_df.x[i]+0.2,y=combined_df.y[i]+0.2,s=int(combined_df.day[i]), 
+        fontdict=dict(color='black',size=13),
+        bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
+
+        plt.text(x=4.5+0.3,y=12+0.3,s=23, 
+        fontdict=dict(color='black',size=13),
+        bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+
+        plt.text(x=4+0.3,y=10+0.3,s=24, 
+        fontdict=dict(color='black',size=13),
+        bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+        
+        plt.text(x=4+0.3,y=11.7+0.3,s=25, 
+        fontdict=dict(color='black',size=13),
+        bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+
+        plt.text(x=4+0.3,y=11.3+0.3,s=26, 
+        fontdict=dict(color='black',size=13),
+        bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+        
+        plt.text(x=3.5+0.3,y=10.6+0.3,s=27, 
+        fontdict=dict(color='black',size=13),
+        bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+
+    plt.legend(bbox_to_anchor=(1.06,0.5), loc='center left', title='Day of Prediction', frameon=False)
+    plt.xlabel('Tacrolimus dose (mg)')
+    plt.ylabel('Tacrolimus level (ng/ml)')
+    plt.axhspan(8, 10, facecolor='grey', alpha=0.2) # Shaded region for therapeutic range
+
+    # Add data point of day 23 to 27
+    plt.plot(4.5, 12, marker="o", markeredgecolor="black", markerfacecolor="white")
+    plt.plot(4, 10, marker="o", markeredgecolor="black", markerfacecolor="white")
+    plt.plot(4, 11.7, marker="o", markeredgecolor="black", markerfacecolor="white")
+    plt.plot(4, 11.3, marker="o", markeredgecolor="black", markerfacecolor="white")
+    plt.plot(3.5, 10.6, marker="o", markeredgecolor="black", markerfacecolor="white")
+    plt.savefig('patient_120_RW_profiles.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    return combined_df
+
 # LOOCV for all methods
 
 def LOOCV_all_methods(file_string):
