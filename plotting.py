@@ -1175,6 +1175,89 @@ def case_series_120(plot=False):
 
     return dat_original, combined_df
 
+def case_series_120_day_4_regression():
+    """Scatter and line plot of day 4 recommendation for patient 120"""
+    dat_original, combined_df = case_series_120()
+
+    # Subset first prediction since it could outperform SOC
+    dat = combined_df[combined_df.pred_day==4].reset_index(drop=True)
+
+    sns.set(style='white', font_scale=2,
+           rc={"figure.figsize":(7,7), "xtick.bottom":True, "ytick.left":True})
+
+    # Plot regression line
+    x = np.array([dat.x[0],dat.x[1]])
+    y = np.array([dat.y[0],dat.y[1]])
+    a, b = np.polyfit(x, y, 1)
+    x_values = np.linspace(0, 3)
+    plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
+
+    # Plot scatter points
+    plt.scatter(x, y, s=100, color='y')
+
+    # Plot therapeutic range
+    plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+    # Label days
+    for i in range(dat.shape[0]):
+        plt.text(x=dat.x[i]+0.1,y=dat.y[i]+0.1,s=int(dat.day[i]),
+                 fontdict=dict(color='black',size=13),
+                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+
+    sns.despine()
+    plt.title('Day 4 recommendation')
+    plt.xlabel('Dose (mg)')
+    plt.ylabel('Tacrolimus level (ng/ml)')
+    plt.xticks(np.arange(0,3.5,step=0.5))
+    plt.xlim(0,2.5)
+
+    plt.savefig('patient_120_case_series_reco.png',dpi=500)
+    
+    return dat
+
+def case_series_120_response_vs_day():
+    """
+    Scatter and line plot of patient 120 of response vs day,
+    with first day to achieve therapeutic range, for SOC and CURATE.AI-assisted dosing
+    """
+    clean_dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+    dat_original, combined_df = case_series_120()
+
+    # Subset patient 120
+    # clean_dat = clean_dat[(clean_dat.patient==120) & (clean_dat.day >= 2) & (clean_dat.day <= 4)].reset_index(drop=True)
+    clean_dat = clean_dat[(clean_dat.patient==120)].reset_index(drop=True)
+
+    predicted_response = (dat_original.loc[0, 'coeff_1x'] * 2) + (dat_original.loc[0, 'coeff_0x'])
+    predicted_dose = 2
+
+    # Plot
+    sns.set(style='white', font_scale=2,
+           rc={"figure.figsize":(15,7), "xtick.bottom":True, "ytick.left":True})
+
+    plt.plot(clean_dat.day, clean_dat.response, 'yo', linestyle='-', ms=10)
+    plt.scatter(x=clean_dat.day[0], y=clean_dat.response[0], color='y', s=100, label='Standard of care dosing')
+    plt.plot(4, predicted_response, 'm^', ms=10, label='First day of therapeutic range\nwith CURATE.AI-assisted dosing')
+    plt.plot(8, 9.9, 'go', ms=10, label='First day of therapeutic range\nwith standard of care dosing')
+    # plt.vlines(4, ymin=0, ymax=predicted_response, linestyle='--', color='m')
+    # plt.vlines(8, ymin=0, ymax=9.9, linestyle='--', color='g')
+    plt.ylim(0,max(clean_dat.response+1))
+
+    sns.despine()
+    plt.xticks(np.arange(2,21,step=2))
+    plt.xlabel('Day')
+    plt.ylabel('Tacrolimus level (ng/ml)')
+    plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    order = [2,1,0]
+    plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
+              bbox_to_anchor=(1.04,0.5), loc='center left', frameon=False) 
+
+    plt.tight_layout()
+    plt.savefig('patient_120_first_day.png',dpi=500)
+    
+    return clean_dat
+
 def case_series_118(plot=False):
     """
     Plot RW profiles for patient 118, with shaded region representing therapeutic range,
@@ -1403,8 +1486,6 @@ def case_series_118_repeated_dosing_dose_vs_day():
     # Subset columns
     dat = dat[['pred_day','CURATE.AI-assisted dosing']]
     dat = dat.rename(columns={'pred_day':'day'})
-
-    clean_dat = clean_dat_1.copy()
 
     # Subset patient 118 data only
     clean_dat = clean_dat[(clean_dat.patient == 118) & ((clean_dat.day >= 5) & (clean_dat.day <= 9))].reset_index(drop=True)
