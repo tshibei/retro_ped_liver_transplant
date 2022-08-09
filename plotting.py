@@ -8,6 +8,7 @@ from scipy.stats import mannwhitneyu
 from sklearn.metrics import mean_squared_error
 import math
 from matplotlib import colors
+from matplotlib.pyplot import cm
 
 ##### New graphs after meeting with NUH ######
 
@@ -1023,7 +1024,6 @@ def CURATE_assisted_result_distribution(method_dat, method_string):
 
         return final_df_list
 
-
 def read_file_and_remove_unprocessed_pop_tau(file_string='output (with pop tau by LOOCV).xlsx', sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 
@@ -1173,7 +1173,7 @@ def case_series_120(plot=False):
         plt.plot(3.5, 10.6, marker="o", markeredgecolor="black", markerfacecolor="white")
         plt.savefig('patient_120_RW_profiles.png', dpi=500, facecolor='w', bbox_inches='tight')
 
-    return combined_df
+    return dat_original, combined_df
 
 def case_series_118(plot=False):
     """
@@ -1290,27 +1290,27 @@ def case_series_118_repeated_dosing_multiple_plots():
     dat_original, combined_df = case_series_118()
     
     # Subset repeated doses
-    combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day < 11)].reset_index(drop=True)
+    combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day < 10)].reset_index(drop=True)
 
     sns.set(style='white', font_scale=2,
            rc={"xtick.bottom":True, "ytick.left":True})
 
-    plt.subplots(1, 6, figsize=(25,5))
+    plt.subplots(1, 5, figsize=(25,5))
 
     # Loop through number of predictions chosen
-    for i in range(6):
+    for i in range(5):
 
-        plt.subplot(1,6,i+1)
+        plt.subplot(1,5,i+1)
 
         # Plot regression line
         x = np.array([combined_df.x[i*2],combined_df.x[i*2+1]])
         y = np.array([combined_df.y[i*2],combined_df.y[i*2+1]])
         a, b = np.polyfit(x, y, 1)
         x_values = np.linspace(0, 9)
-        plt.plot(x_values, a*x_values + b, linestyle='-')
+        plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
 
         # Plot scatter points
-        plt.scatter(x, y, s=100)
+        plt.scatter(x, y, s=100, color='y')
 
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
@@ -1327,7 +1327,7 @@ def case_series_118_repeated_dosing_multiple_plots():
         for j in range(2):
             plt.text(x=combined_df.x[i*2+j]+0.4,y=combined_df.y[i*2+j]+0.4,s=int(combined_df.day[i*2+j]), 
                 fontdict=dict(color='black',size=16),
-                bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
+                bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
             
     plt.tight_layout()
     plt.savefig('patient_118_case_series_repeated.png',dpi=500)
@@ -1343,7 +1343,7 @@ def case_series_118_repeated_dosing_single_plot():
     # Subset repeated doses
     combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day < 11)].reset_index(drop=True)
     
-    color = iter(cm.Blues(np.linspace(0.3, 1, 6)))
+    color = iter(cm.YlOrBr(np.linspace(0.3, 1, 6)))
 
     sns.set(style='white', font_scale=1.5,
            rc={"figure.figsize":(8,5), "xtick.bottom":True, "ytick.left":True})
@@ -1388,6 +1388,94 @@ def case_series_118_repeated_dosing_single_plot():
     plt.savefig('patient_118_case_series_repeated_one.png',dpi=500)
     
     return combined_df
+
+def case_series_118_repeated_dosing_dose_vs_day():
+    """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
+    
+    dat_original, combined_df = case_series_118()
+    clean_dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+    
+    # Subset pred_days with repeated dose of 6mg
+    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)]
+    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
+    dat['CURATE.AI-assisted dosing'] = CURATE_dosing
+
+    # Subset columns
+    dat = dat[['pred_day','CURATE.AI-assisted dosing']]
+    dat = dat.rename(columns={'pred_day':'day'})
+
+    clean_dat = clean_dat_1.copy()
+
+    # Subset patient 118 data only
+    clean_dat = clean_dat[(clean_dat.patient == 118) & ((clean_dat.day >= 5) & (clean_dat.day <= 9))].reset_index(drop=True)
+
+    # Subset day and dose
+    clean_dat = clean_dat[['day', 'dose']]
+    clean_dat = clean_dat.rename(columns={'dose':'Standard of care dosing'})
+
+    # Combine both CURATE.AI-assisted dosing recommendations and actual dose given
+    combined_dat = dat.merge(clean_dat, how='left', on='day')
+
+    # Plot
+    sns.set(font_scale=2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
+
+    plt.plot(combined_dat['day'], combined_dat['CURATE.AI-assisted dosing'], marker='^', color='m', label='CURATE.AI-assisted dosing', ms=10)
+    plt.plot(combined_dat['day'], combined_dat['Standard of care dosing'], marker='o', color='y', label='Standard of care dosing', ms=10)
+    plt.legend(bbox_to_anchor=(0.5,-0.5), loc='center', frameon=False)
+    sns.despine()
+    plt.xlabel('Day')
+    plt.ylabel('Dose (mg)')
+    plt.yticks(np.arange(5,8,step=0.5))
+
+    plt.tight_layout()
+    plt.savefig('patient_118_repeated_dose_dose_vs_day.png',dpi=500)
+
+    return combined_dat
+
+def case_series_118_repeated_dosing_response_vs_dose():
+    """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
+    dat_original, combined_df = case_series_118()
+    clean_dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+
+    # Subset pred_days with repeated dose of 6mg
+    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)].reset_index(drop=True)
+
+    # Add column for CURATE recommendation
+    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
+    dat['CURATE-recommended dose'] = CURATE_dosing
+
+    # Add column for predicted response if CURATE dose was administered instead
+    dat['predicted_response_based_on_rec'] = dat['coeff_1x'] * dat['CURATE-recommended dose'] + dat['coeff_0x']
+
+    dat = dat[['pred_day', 'dose', 'response', 'CURATE-recommended dose', 'predicted_response_based_on_rec']]
+
+    # Plot
+    sns.set(font_scale=2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
+
+    plt.scatter(x=dat['CURATE-recommended dose'], y=dat['predicted_response_based_on_rec'], marker='^', color='m', label='CURATE.AI-assisted dosing', s=100)
+    plt.scatter(x=dat['dose'], y=dat['response'], marker='o', color='y', label='Standard of care dosing', s=100)
+    plt.legend(bbox_to_anchor=(0.5,-0.5), loc='center', frameon=False)
+    sns.despine()
+    plt.xlabel('Dose (mg)')
+    plt.ylabel('Tacrolimus level (ng/ml)')
+    plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+    plt.xticks(np.arange(4,8.5,step=0.5))
+    plt.xlim(4,8)
+    plt.yticks(np.arange(8,15,step=1))
+
+    for i in range(dat.shape[0]):
+        plt.text(x=dat.dose[i]+0.1,y=dat.response[i]+0.1,s=int(dat.pred_day[i]),
+                 fontdict=dict(color='black',size=13),
+                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+
+        plt.text(x=dat.loc[i, 'CURATE-recommended dose']+0.2,y=dat.loc[i, 'predicted_response_based_on_rec']+0.2,s=int(dat.pred_day[i]),
+             fontdict=dict(color='black',size=13),
+             bbox=dict(facecolor='m', ec='black', alpha=0.5, boxstyle='circle'))
+
+    plt.tight_layout()
+    plt.savefig('patient_118_repeated_dose_response_vs_dose.png',dpi=500)
+    
+    return dat
 
 # LOOCV for all methods
 
