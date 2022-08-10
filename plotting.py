@@ -1221,19 +1221,35 @@ def case_series_120_response_vs_day():
     Scatter and line plot of patient 120 of response vs day,
     with first day to achieve therapeutic range, for SOC and CURATE.AI-assisted dosing
     """
-    clean_dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+    # clean_dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+    clean_dat = pd.read_excel('Retrospective Liver Transplant Data_simplified.xlsx', sheet_name='120')
+    clean_dat = clean_dat.rename(columns={'Tac level (prior to am dose)':'response', 'Eff 24h Tac Dose':'dose', 'Day #':'day'})
+    clean_dat['response'] = clean_dat['response'].shift(-1)
+    clean_dat = clean_dat[clean_dat['response'].notna()]
+
+    # Shift dose one unit up, fill NaN with 0mg, reset index
+    clean_dat['dose'] = clean_dat['dose'][:-2]
+    clean_dat['dose'] = clean_dat['dose'].fillna('0mg')
+    clean_dat = clean_dat.reset_index(drop=True)
+
+    # Remove 'mg'
+    for i in range(len(clean_dat)):
+        size = len(clean_dat.dose[i])
+        clean_dat.dose[i] = clean_dat.dose[i][:size - 2]
+
     dat_original, combined_df = case_series_120()
 
     # Subset patient 120
     # clean_dat = clean_dat[(clean_dat.patient==120) & (clean_dat.day >= 2) & (clean_dat.day <= 4)].reset_index(drop=True)
-    clean_dat = clean_dat[(clean_dat.patient==120)].reset_index(drop=True)
+    # clean_dat = clean_dat[(clean_dat.patient==120)].reset_index(drop=True)
 
     predicted_response = (dat_original.loc[0, 'coeff_1x'] * 2) + (dat_original.loc[0, 'coeff_0x'])
     predicted_dose = 2
 
     # Plot
+    fig, axes = plt.subplots(figsize=(7,7))
     sns.set(style='white', font_scale=2,
-           rc={"figure.figsize":(15,7), "xtick.bottom":True, "ytick.left":True})
+           rc={"xtick.bottom":True, "ytick.left":True})
 
     plt.plot(clean_dat.day, clean_dat.response, 'yo', linestyle='-', ms=10)
     plt.scatter(x=clean_dat.day[0], y=clean_dat.response[0], color='y', s=100, label='Standard of care dosing')
@@ -1244,18 +1260,25 @@ def case_series_120_response_vs_day():
     plt.ylim(0,max(clean_dat.response+1))
 
     sns.despine()
-    plt.xticks(np.arange(2,21,step=2))
+    plt.xticks(np.arange(2,max(clean_dat.day),step=4))
     plt.xlabel('Day')
     plt.ylabel('Tacrolimus level (ng/ml)')
     plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
     handles, labels = plt.gca().get_legend_handles_labels()
     order = [2,1,0]
-    plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
+    legend1 = plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
               bbox_to_anchor=(1.04,0.5), loc='center left', frameon=False) 
 
+    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                            label='Therapeutic range', alpha=.2)]
+    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(1.04,0.34), loc='upper left', frameon=False)
+
+    axes.add_artist(legend1)
+    axes.add_artist(legend2)    
+
     plt.tight_layout()
-    plt.savefig('patient_120_first_day.png',dpi=500)
+    plt.savefig('patient_120_first_day.png',dpi=500, bbox_inches='tight')
     
     return clean_dat
 
