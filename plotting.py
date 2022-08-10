@@ -1025,6 +1025,109 @@ def CURATE_assisted_result_distribution(method_dat, method_string):
 
         return final_df_list
 
+def effect_of_CURATE_RW():
+    """
+    Facet grid scatter plot for effect of CURATE.AI-assisted dosing on 
+    therapeutic ranges
+    """
+    df = CURATE_could_be_useful()
+
+    method_string = ['RW']
+    method_dat = []
+
+    for j in range(len(method_string)):
+
+        dat = df.copy()
+
+        # Subset selected PPM/RW method
+        dat = dat[dat['method']==('L_RW_wo_origin')]
+
+        # Create column for adapted within range to indicate if data point
+        # could have been within range if augmented by CURATE
+        dat['adapted_within_range'] = dat.within_range
+        dat = dat.reset_index()
+
+        for i in range(len(dat)):
+            if (dat.CURATE_could_be_useful[i]==True):
+                dat.loc[i, 'adapted_within_range'] = 'Potentially True with CURATE_RW'
+            elif (dat.within_range[i]==True and (dat.wrong_range[i]==True or dat.acceptable_deviation[i]==False)):
+                dat.loc[i, 'adapted_within_range'] = 'Potentially False with CURATE_RW'
+            else:
+                dat.loc[i, 'adapted_within_range'] = 'CURATE_no_impact'
+
+        # Subset columns
+        dat = dat[['pred_day', 'patient', 'adapted_within_range']]
+
+        # Rename columns
+        dat.columns = ['day', 'patient', 'adapted_within_range']
+
+        # Only keep those that are affected by SOC
+        dat = dat[dat.adapted_within_range != 'CURATE_no_impact']
+        dat = dat[['day', 'patient', 'adapted_within_range']]
+
+        # Import data with all data including non-ideal data
+        dat_all_data = indiv_profiles_all_data_day(plot=False)
+
+        # Merge both dataframes
+        combined_dat = dat_all_data.merge(dat, how='left', on=['patient', 'day'])
+        combined_dat.loc[combined_dat['adapted_within_range'].isnull(),'adapted_within_range'] = \
+        combined_dat['within_range']
+        combined_dat['adapted_within_range'] = combined_dat['adapted_within_range'].astype(str)
+
+        # Rename adapted_within_range
+        for i in range(len(combined_dat)):
+            if combined_dat.adapted_within_range[i] == 'Potentially True with CURATE_RW':
+                combined_dat.loc[i, 'adapted_within_range'] = 'True (RW_assisted)'
+            elif combined_dat.adapted_within_range[i] == 'Potentially False with CURATE_RW':
+                combined_dat.loc[i, 'adapted_within_range'] = 'False (RW_assisted)'
+
+        # Rename elements of columns
+        combined_dat['dose_range'] = combined_dat['dose_range'].replace({'Low Dose':'Low', 'Medium Dose':'Medium',
+                                                                        'High Dose':'High'})
+        combined_dat['adapted_within_range'] = combined_dat['adapted_within_range'].replace({'False':'Unaffected, remain as non-therapeutic range',
+                                                                                            'True':'Unaffected, remain as therapeutic range',
+                                                                                            'True (RW_assisted)':'Improve to therapeutic range',
+                                                                                            'False (RW_assisted)':'Worsen to non-therapeutic range'})
+        combined_dat = combined_dat.rename(columns={'adapted_within_range':'Effect of CURATE.AI-assisted dosing', 'dose_range':'Dose range',
+                                                   'day':'Day', 'response':'Tacrolimus level (ng/ml)'})
+        combined_dat['patient'] = combined_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                                    123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                                    133:15, 138:16})
+
+        # Plot
+        sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
+        hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
+                     'Improve to therapeutic range', 'Worsen to non-therapeutic range']
+        palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
+                  sns.color_palette()[3]]
+
+        # Scatter point
+        g = sns.relplot(data=combined_dat, x='Day', y='Tacrolimus level (ng/ml)', hue='Effect of CURATE.AI-assisted dosing',\
+                        hue_order=hue_order, col='patient', palette=palette,\
+                        col_wrap=4, style='Dose range', height=3, aspect=1, s=80)
+
+        # Move legend below plot
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
+
+        # Titles and labels
+        g.set_titles('Patient {col_name}')
+        g.set(yticks=np.arange(0,math.ceil(max(combined_dat['Tacrolimus level (ng/ml)'])),4),
+             xticks=np.arange(0,max(combined_dat.Day),step=5))
+        g.set_ylabels('Tacrolimus level (ng/ml)')
+
+        # Add gray region for therapeutic range
+        for ax in g.axes:
+            ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+        legend1 = plt.legend()
+        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                            label='Therapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
+
+        plt.savefig('indiv_pt_profile_adapted_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+        
+        return combined_dat
+
 def read_file_and_remove_unprocessed_pop_tau(file_string='output (with pop tau by LOOCV).xlsx', sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 
