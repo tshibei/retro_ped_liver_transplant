@@ -39,6 +39,7 @@ warnings.simplefilter("ignore", OptimizeWarning)
 import timeit
 from sklearn.metrics import mean_squared_error
 from matplotlib.pyplot import cm
+from matplotlib.patches import Patch
 
 # +
 # %%time

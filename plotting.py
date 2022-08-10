@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error
 import math
 from matplotlib import colors
 from matplotlib.pyplot import cm
+from matplotlib.patches import Patch
 
 ##### New graphs after meeting with NUH ######
 
@@ -1371,14 +1372,14 @@ def case_series_118_repeated_dosing_multiple_plots():
     patient 118, with each plot representing one day of prediction. 
     """
     dat_original, combined_df = case_series_118()
-    
+
     # Subset repeated doses
     combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day < 10)].reset_index(drop=True)
 
     sns.set(style='white', font_scale=2,
-           rc={"xtick.bottom":True, "ytick.left":True})
+        rc={"xtick.bottom":True, "ytick.left":True})
 
-    plt.subplots(1, 5, figsize=(25,5))
+    fig, ax = plt.subplots(1, 5, figsize=(25,7))
 
     # Loop through number of predictions chosen
     for i in range(5):
@@ -1412,6 +1413,12 @@ def case_series_118_repeated_dosing_multiple_plots():
                 fontdict=dict(color='black',size=16),
                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
             
+        # Add legend for grey patch of therapeutic range
+        if i == 0:
+            legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                                    label='Therapeutic range', alpha=.2)]
+            plt.legend(handles=legend_elements, bbox_to_anchor=(-0.2,-.3), loc='upper left', frameon=False)       
+
     plt.tight_layout()
     plt.savefig('patient_118_case_series_repeated.png',dpi=500)
 
@@ -1531,11 +1538,11 @@ def case_series_118_repeated_dosing_response_vs_dose():
     dat = dat[['pred_day', 'dose', 'response', 'CURATE-recommended dose', 'predicted_response_based_on_rec']]
 
     # Plot
+    fig, axes = plt.subplots()
     sns.set(font_scale=2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
 
     plt.scatter(x=dat['CURATE-recommended dose'], y=dat['predicted_response_based_on_rec'], marker='^', color='m', label='CURATE.AI-assisted dosing', s=100)
     plt.scatter(x=dat['dose'], y=dat['response'], marker='o', color='y', label='Standard of care dosing', s=100)
-    plt.legend(bbox_to_anchor=(0.5,-0.5), loc='center', frameon=False)
     sns.despine()
     plt.xlabel('Dose (mg)')
     plt.ylabel('Tacrolimus level (ng/ml)')
@@ -1543,6 +1550,16 @@ def case_series_118_repeated_dosing_response_vs_dose():
     plt.xticks(np.arange(4,8.5,step=0.5))
     plt.xlim(4,8)
     plt.yticks(np.arange(8,15,step=1))
+
+    legend1 = plt.legend(bbox_to_anchor=(0.5,-0.3), loc='center', frameon=False)
+
+    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                            label='Therapeutic range', alpha=.2)]
+    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(0,-0.33), loc='upper left', frameon=False)
+
+    
+    axes.add_artist(legend1)
+    axes.add_artist(legend2)        
 
     for i in range(dat.shape[0]):
         plt.text(x=dat.dose[i]+0.1,y=dat.response[i]+0.1,s=int(dat.pred_day[i]),
@@ -1554,7 +1571,7 @@ def case_series_118_repeated_dosing_response_vs_dose():
              bbox=dict(facecolor='m', ec='black', alpha=0.5, boxstyle='circle'))
 
     plt.tight_layout()
-    plt.savefig('patient_118_repeated_dose_response_vs_dose.png',dpi=500)
+    plt.savefig('patient_118_repeated_dose_response_vs_dose.png',dpi=500, bbox_inches='tight')
     
     return dat
 
