@@ -661,7 +661,7 @@ def LOOCV_PPM_RW():
 
 def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
-    
+        
     # Plot individual profiles
     dat = pd.read_excel(file_string, sheet_name='clean')
 
@@ -672,46 +672,55 @@ def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx',
     dat['dose_range'] = ""
     for i in range(len(dat)):
         if dat.dose[i] < 2:
-            dat.loc[i, 'dose_range'] = 'Low Dose'
+            dat.loc[i, 'dose_range'] = 'Low'
         elif dat.dose[i] < 4:
-            dat.loc[i, 'dose_range'] = 'Medium Dose'
+            dat.loc[i, 'dose_range'] = 'Medium'
         else:
-            dat.loc[i, 'dose_range'] = 'High Dose'
+            dat.loc[i, 'dose_range'] = 'High'
 
     # Rename columns and entries
     new_dat = dat.copy()
     new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
-    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic Range', False: 'Non-therapeutic Range'})
-    new_dat = new_dat.rename(columns={'dose_range':'Dose Range', 'day':'Day'})
+    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
+    new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
     new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
                                                 133:15, 138:16})
 
     if plot == True:
-            
+
+        # Add fake row with empty data under response to structure legend columns
+        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", "Low"]
+        
         # Plot tac levels by day
-        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10),
-                                "xtick.bottom" : True, 
-                                    "ytick.left" : True},
-            style='white')
-        # sns.set_style('white')
+        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
 
-        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose Range',
-                height=3, aspect=1,s=80)
-
-        g.map(plt.axhline, y=10, ls='--', c='black')
-        g.map(plt.axhline, y=8, ls='--', c='black')
+        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose range',
+                height=3, aspect=1,s=80, palette=['tab:blue','tab:orange','white'])
+        
+        # Add gray region for therapeutic range
+        for ax in g.axes:
+            ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
+        
         g.set_titles('Patient {col_name}')
         g.set_ylabels('Tacrolimus level (ng/ml)')
-        g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),2))
+        g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),4),
+            xticks=np.arange(0, max(new_dat.Day+2), step=5))
         
-        # sns.move_legend(g, 'upper left', bbox_to_anchor=(0, 0), ncol=5)
-        c = g._legend.get_children()[0].get_children()[1].get_children()[0]
-        c._children = c._children[1:3] + c._children[4:]
+        # Move legend below plot
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.18,-0.05), ncol=2)
+        
+        legend1 = plt.legend()
+        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                            label='Region within therapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.75,-0.32), loc='upper left', frameon=False)
 
         plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+        
+        # Remove fake row before end of function
+        new_dat = new_dat[:-1]
 
-    return dat
+        return new_dat
 
 def indiv_profiles_all_data_dose_vs_response(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
