@@ -150,7 +150,7 @@ def prediction_error_PPM_RW(plot=False):
 
         # plt.savefig(column_string[1] + '.png', dpi=500, facecolor='w', bbox_inches='tight')
         
-        return dat
+    return dat
 
 def RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx'):
     """
