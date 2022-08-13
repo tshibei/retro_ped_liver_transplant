@@ -720,7 +720,7 @@ def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx',
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
 
-        return new_dat
+    return new_dat
 
 def indiv_profiles_all_data_dose_vs_response(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
@@ -1034,19 +1034,17 @@ def CURATE_assisted_result_distribution(method_dat, method_string):
 
         return final_df_list
 
-def effect_of_CURATE_RW():
+def effect_of_CURATE_RW(plot=True):
     """
     Facet grid scatter plot for effect of CURATE.AI-assisted dosing on 
     therapeutic ranges
     """
-    df = CURATE_could_be_useful()
+    dat = CURATE_could_be_useful()
 
     method_string = ['RW']
     method_dat = []
 
     for j in range(len(method_string)):
-
-        dat = df.copy()
 
         # Subset selected PPM/RW method
         dat = dat[dat['method']==('L_RW_wo_origin')]
@@ -1075,8 +1073,21 @@ def effect_of_CURATE_RW():
         dat = dat[['day', 'patient', 'adapted_within_range']]
 
         # Import data with all data including non-ideal data
-        dat_all_data = indiv_profiles_all_data_day(plot=False)
+        dat_all_data = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='clean')
 
+        # Create within-range column for color
+        dat_all_data['within_range'] = (dat_all_data.response <= 10) & (dat_all_data.response >= 8)
+
+        # Create low/med/high dose column
+        dat_all_data['dose_range'] = ""
+        for i in range(len(dat_all_data)):
+            if dat_all_data.dose[i] < 2:
+                dat_all_data.loc[i, 'dose_range'] = 'Low'
+            elif dat_all_data.dose[i] < 4:
+                dat_all_data.loc[i, 'dose_range'] = 'Medium'
+            else:
+                dat_all_data.loc[i, 'dose_range'] = 'High'
+                
         # Merge both dataframes
         combined_dat = dat_all_data.merge(dat, how='left', on=['patient', 'day'])
         combined_dat.loc[combined_dat['adapted_within_range'].isnull(),'adapted_within_range'] = \
@@ -1098,44 +1109,45 @@ def effect_of_CURATE_RW():
                                                                                             'True (RW_assisted)':'Improve to therapeutic range',
                                                                                             'False (RW_assisted)':'Worsen to non-therapeutic range'})
         combined_dat = combined_dat.rename(columns={'adapted_within_range':'Effect of CURATE.AI-assisted dosing', 'dose_range':'Dose range',
-                                                   'day':'Day', 'response':'Tacrolimus level (ng/ml)'})
+                                                'day':'Day', 'response':'Tacrolimus level (ng/ml)'})
         combined_dat['patient'] = combined_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
                                                     123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
                                                     133:15, 138:16})
 
-        # Plot
-        sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
-        hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
-                     'Improve to therapeutic range', 'Worsen to non-therapeutic range']
-        palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
-                  sns.color_palette()[3]]
+        if plot==True:
+            # Plot
+            sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
+            hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
+                        'Improve to therapeutic range', 'Worsen to non-therapeutic range']
+            palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
+                    sns.color_palette()[3]]
 
-        # Scatter point
-        g = sns.relplot(data=combined_dat, x='Day', y='Tacrolimus level (ng/ml)', hue='Effect of CURATE.AI-assisted dosing',\
-                        hue_order=hue_order, col='patient', palette=palette,\
-                        col_wrap=4, style='Dose range', height=3, aspect=1, s=80)
+            # Scatter point
+            g = sns.relplot(data=combined_dat, x='Day', y='Tacrolimus level (ng/ml)', hue='Effect of CURATE.AI-assisted dosing',\
+                            hue_order=hue_order, col='patient', palette=palette,\
+                            col_wrap=4, style='Dose range', height=3, aspect=1, s=80)
 
-        # Move legend below plot
-        sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
+            # Move legend below plot
+            sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
 
-        # Titles and labels
-        g.set_titles('Patient {col_name}')
-        g.set(yticks=np.arange(0,math.ceil(max(combined_dat['Tacrolimus level (ng/ml)'])),4),
-             xticks=np.arange(0,max(combined_dat.Day),step=5))
-        g.set_ylabels('Tacrolimus level (ng/ml)')
+            # Titles and labels
+            g.set_titles('Patient {col_name}')
+            g.set(yticks=np.arange(0,math.ceil(max(combined_dat['Tacrolimus level (ng/ml)'])),4),
+                xticks=np.arange(0,max(combined_dat.Day),step=5))
+            g.set_ylabels('Tacrolimus level (ng/ml)')
 
-        # Add gray region for therapeutic range
-        for ax in g.axes:
-            ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
+            # Add gray region for therapeutic range
+            for ax in g.axes:
+                ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
-        legend1 = plt.legend()
-        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                            label='Therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
+            legend1 = plt.legend()
+            legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                                label='Therapeutic range', alpha=.2)]
+            legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
 
-        plt.savefig('indiv_pt_profile_adapted_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
-        
-        return combined_dat
+            plt.savefig('indiv_pt_profile_adapted_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    return combined_dat
 
 def read_file_and_remove_unprocessed_pop_tau(file_string='output (with pop tau by LOOCV).xlsx', sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
@@ -1710,6 +1722,142 @@ def case_series_118_repeated_dosing_response_vs_dose():
     
     return dat
 
+def boxplot_first_day_to_therapeutic_range():
+    """
+    Create boxplot for first day to achieve therapeutic range for both
+    SOC and CURATE.AI-assisted dosing
+    """
+    dat = effect_of_CURATE_RW(plot=False)
+
+
+    # Compute values
+    SOC = dat[dat.within_range==True].groupby('patient').first().Day.reset_index()
+
+    CURATE = dat[(dat['Effect of CURATE.AI-assisted dosing']=='Improve to therapeutic range') | (dat['Effect of CURATE.AI-assisted dosing']=='Unaffected, remain as therapeutic range')]
+    CURATE = CURATE.groupby('patient').first().Day.reset_index()
+
+    # Add 'dosing' column to both dataframes
+    SOC['dosing'] = 'Standard of care\ndosing'
+    CURATE['dosing'] = 'CURATE.AI-assisted\ndosing'
+
+    # Concat dataframes
+    combined_dat = pd.concat([SOC, CURATE])
+
+    # Boxplot
+    sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+    g = sns.boxplot(x="dosing", y="Day", data=combined_dat, width=0.5, palette=['#ccb974','#8172b3'])
+    sns.despine()
+    g.set_xlabel(None)
+    g.set_ylabel('First day to reach therapeutic range')
+
+    # stats.kruskal(SOC.Day, CURATE.Day).pvalue
+
+    plt.savefig('effect_of_CURATE_first_days_median.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return combined_dat
+
+def barplot_first_day_to_achieve_therapeutic_range_per_patient():
+    
+    new_dat = boxplot_first_day_to_therapeutic_range()
+
+    new_dat['dosing'] = new_dat['dosing'].replace({'Standard of care\ndosing':'Standard of care dosing', 
+                                                 'CURATE.AI-assisted\ndosing':'CURATE.AI-assisted dosing'})
+
+    sns.set(font_scale=1.2, rc={"figure.figsize": (20,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+    sns.catplot(data=new_dat, x='patient', y='Day', hue='dosing', kind='bar',
+               palette=['#ccb974','#8172b3'], legend=None)
+
+    plt.legend(bbox_to_anchor=(1.04,0.5), frameon=False)
+    plt.xlabel('Patient')
+    plt.ylabel('First day to reach therapeutic range')
+
+    plt.savefig('effect_of_CURATE_first_day_per_patient.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return new_dat
+
+def barplot_percentage_days_in_therapeutic_range():
+    dat = effect_of_CURATE_RW(plot=False)
+
+    # Bar graph with percentage of days within therapeutic range for SOC and CURATE
+    SOC = (dat['within_range'].value_counts()[True]) / dat['within_range'].count() * 100
+
+    # Compute values
+    CURATE_therapeutic_range = dat['within_range'].sum() + \
+    dat['Effect of CURATE.AI-assisted dosing'].value_counts()['Improve to therapeutic range'] - \
+    dat['Effect of CURATE.AI-assisted dosing'].value_counts()['Worsen to non-therapeutic range']
+    CURATE = CURATE_therapeutic_range / dat['Effect of CURATE.AI-assisted dosing'].count() * 100
+
+    # Create dataframe with vales
+    plot_data = pd.Series({'Standard of care\ndosing': SOC, 'CURATE.AI-assisted\ndosing':CURATE}).to_frame().reset_index()
+    plot_data.columns = ['Dosing', 'Days within therapeutic range (%)']
+    plot_data['Days within therapeutic range (%)'] = plot_data['Days within therapeutic range (%)'].round(2)
+
+    # Plot
+    sns.set(font_scale=1.2, rc={"figure.figsize": (4,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+    fig, ax = plt.subplots()
+    bars = ax.bar(plot_data['Dosing'], plot_data['Days within therapeutic range (%)'], width=0.5, color=['y', 'm'])
+
+    # Label bars
+    for bars in ax.containers:
+        ax.bar_label(bars, fontsize=13)
+
+    # Aesthetics
+    plt.ylabel('Days within therapeutic range (%)')
+    sns.despine()
+
+    plt.savefig('effect_of_CURATE_TTR_days_all.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return plot_data
+
+def boxplot_percentage_days_in_therapeutic_range():
+    
+    dat = effect_of_CURATE_RW(plot=False)
+
+    # Compute values
+    SOC = dat.groupby('patient')['within_range'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
+    SOC['dosing'] = 'Standard of care\ndosing'
+
+    within_range = dat.groupby('patient')['within_range'].sum()
+    CURATE_effect = dat.groupby('patient')['Effect of CURATE.AI-assisted dosing'].apply(lambda x: (x=='Improve to therapeutic range').sum() - (x=='Worsen to non-therapeutic range').sum())
+    total = dat.groupby('patient')['within_range'].count()
+    CURATE = ((within_range + CURATE_effect) / total * 100).to_frame().reset_index()
+    CURATE['dosing'] = 'CURATE.AI-assisted\ndosing'
+    CURATE = CURATE.rename(columns={0:'Effect of CURATE.AI-assisted dosing'})
+
+    # Rename columns
+    SOC = SOC.rename(columns={'within_range':'Days within therapeutic range (%)'})
+    CURATE = CURATE.rename(columns={'Effect of CURATE.AI-assisted dosing':'Days within therapeutic range (%)'})
+
+    combined_data = pd.concat([SOC, CURATE])
+
+    # Boxplot
+    sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+    g = sns.boxplot(x="dosing", y="Days within therapeutic range (%)", data=combined_data, width=0.5, palette=['#ccb974','#8172b3'])
+    sns.despine()
+    g.set_xlabel(None)
+
+    plt.savefig('effect_of_CURATE_TTR_days_median.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return combined_data
+
+def barplot_percentage_days_therapeutic_range_per_patient():
+    
+    new_dat = barplot_percentage_days_in_therapeutic_range()
+
+    new_dat['dosing'] = new_dat['dosing'].replace({'Standard of care\ndosing':'Standard of care dosing', 
+                                                 'CURATE.AI-assisted\ndosing':'CURATE.AI-assisted dosing'})
+
+    sns.set(font_scale=1.2, rc={"figure.figsize": (20,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+    sns.catplot(data=new_dat, x='patient', y='Days within therapeutic range (%)', hue='dosing', kind='bar',
+               palette=['#ccb974','#8172b3'], legend=None)
+
+    plt.legend(bbox_to_anchor=(1.04,0.5), frameon=False)
+    plt.xlabel('Patient')
+
+    plt.savefig('effect_of_CURATE_per_patient.png', dpi=500, facecolor='w', bbox_inches='tight')
+    
+    return new_dat
+
 # LOOCV for all methods
 
 def LOOCV_all_methods(file_string):
@@ -1806,6 +1954,7 @@ def num_patients_and_list(method, linear_patient_list, quad_patient_list):
     return num_of_patients, patient_list
 
 ##### ANALYSIS
+
 def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
     """
     Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
