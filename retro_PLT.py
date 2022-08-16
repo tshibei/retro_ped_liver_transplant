@@ -44,11 +44,17 @@ from scipy import stats
 
 # +
 # %%time
-# ~18mins
+# ~5mins
 
 # Execute CURATE without pop tau
 execute_CURATE()
+# -
 
+
+result = pd.read_excel('output_dose_by_body_weight.xlsx', sheet_name='result')
+
+dat = result.copy()
+dat[dat.method=='L_RW_wo_origin']['prediction'].describe()
 
 # +
 # %%time
@@ -94,7 +100,7 @@ for patient in list_of_patients:
     df = keep_ideal_data(df, patient, list_of_patient_df)
     
     # Change to dose by body weight
-    df['dose'] = df['dose'] / list_of_body_weight[number_of_patients - 1]
+    df['dose'] = df['dose'] / list_of_body_weight[number_of_patients]
     
     # Counter for number of patients
     number_of_patients = number_of_patients + 1

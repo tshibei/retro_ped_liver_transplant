@@ -399,6 +399,17 @@ def generate_profiles(five_fold_cross_val_results_summary):
     list_of_result_df = []
     patients_to_exclude_linear = []
     patients_to_exclude_quad = []
+    list_of_body_weight = []
+
+    # Create list of body_weight
+    for i in range(len(list_of_patients)):    
+        data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', list_of_patients[i], index_col=None, usecols = "C", nrows=15)
+        data = data.reset_index(drop=True)
+        list_of_body_weight.append(data['Unnamed: 2'][13])
+        
+    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
+
+    number_of_patients = 0
 
     for patient in list_of_patients:
 
@@ -406,6 +417,12 @@ def generate_profiles(five_fold_cross_val_results_summary):
         df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
         df = clean_data(df, patient)
         df = keep_ideal_data(df, patient, list_of_patient_df)
+
+        # Change to dose by body weight
+        df['dose'] = df['dose'] / list_of_body_weight[number_of_patients]
+        
+        # Counter for number of patients
+        number_of_patients = number_of_patients + 1
 
         # Select data for calibration and efficacy-driven dosing
         cal_pred_linear, patients_to_exclude_linear = cal_pred_data(df, patient, patients_to_exclude_linear, 1)
