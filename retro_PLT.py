@@ -59,6 +59,115 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
-# -
+
+# +
+# Profile Generation
+input_file = 'Retrospective Liver Transplant Data.xlsx'
+rows_to_skip = 17
+
+# Get list of patients/sheet names
+list_of_patients = get_sheet_names(input_file)
+
+# Define lists
+list_of_patient_df = []
+list_of_cal_pred_df = []
+list_of_result_df = []
+patients_to_exclude_linear = []
+patients_to_exclude_quad = []
+list_of_body_weight = []
+
+# Create list of body_weight
+for i in range(len(list_of_patients)):    
+    data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', list_of_patients[i], index_col=None, usecols = "C", nrows=15)
+    data = data.reset_index(drop=True)
+    list_of_body_weight.append(data['Unnamed: 2'][13])
+    
+list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
+
+number_of_patients = 0
+
+for patient in list_of_patients:
+
+    # Create and clean patient dataframe        
+    df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
+    df = clean_data(df, patient)
+    df = keep_ideal_data(df, patient, list_of_patient_df)
+    
+    # Change to dose by body weight
+    df['dose'] = df['dose'] / list_of_body_weight[number_of_patients - 1]
+    
+    # Counter for number of patients
+    number_of_patients = number_of_patients + 1
+    
+list_of_patient_df
+
+# +
 
 
+list_of_body_weight
+
+# +
+file_string='all_data_including_non_ideal.xlsx'
+plot=True
+
+# Plot individual profiles
+dat = pd.read_excel(file_string, sheet_name='clean')
+
+# Create within-range column for color
+dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+
+# Create low/med/high dose column
+dat['dose_range'] = ""
+for i in range(len(dat)):
+    if dat.dose[i] < 2:
+        dat.loc[i, 'dose_range'] = 'Low'
+    elif dat.dose[i] < 4:
+        dat.loc[i, 'dose_range'] = 'Medium'
+    else:
+        dat.loc[i, 'dose_range'] = 'High'
+
+# Rename columns and entries
+new_dat = dat.copy()
+new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
+new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic Range', False: 'Non-therapeutic Range'})
+new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
+new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                            123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                            133:15, 138:16})
+
+if plot == True:
+
+    # Plot dose vs response
+    sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
+
+    plot = plt.scatter(new_dat.dose, new_dat.response, c=new_dat.Day, cmap=sns.cubehelix_palette(as_cmap=True))
+    plt.clf()
+    cbar = plt.colorbar(plot)
+    cbar.ax.tick_params(labelsize=20) 
+
+    plt.savefig('colorbar.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+#     g = sns.relplot(data=new_dat, x='dose', y='response', hue='Day', col='patient', col_wrap=4, style='Dose range',
+#             height=3, aspect=1,s=80)
+
+#     # Add gray region for therapeutic range
+#     for ax in g.axes:
+#         ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
+        
+#     g.set_titles('Patient {col_name}')
+#     g.set_ylabels('Tacrolimus level (ng/ml)')
+#     g.set_xlabels('Dose')
+#     g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),4),
+#         xticks=np.arange(0, max(new_dat.dose+1), step=1))
+
+#     plt.savefig('indiv_pt_profile_by_dose.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+
+# +
+dat = df.copy()
+# dat[(dat.Method=='RW') & (dat.Dataset=='Test')].describe()
+
+# Subset RW
+dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+dat['recommended_dose'] = [7.5, 7.5, 2.5, 2.5, 4.5, 8, 5.5, 5, 5, 2, 7, 3.3]

@@ -98,7 +98,7 @@ def prediction_error(file_string='output (with pop tau by LOOCV).xlsx', plot=Fal
 def prediction_error_PPM_RW(plot=False):
     """Boxplot of prediction error for top 2 methods."""
 
-    dat = prediction_error(plot)
+    dat = prediction_error()
 
     # Subset L_PPM_wo_origin and L_RW_wo_origin
     dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')].reset_index()
@@ -152,7 +152,7 @@ def prediction_error_PPM_RW(plot=False):
         
     return dat
 
-def RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx'):
+def RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx', plot=False):
     """
     Bar plot of RMSE for each method, grouped by pop tau and no pop tau,
     with broken y-axis
@@ -186,10 +186,11 @@ def RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx'):
         else:
             dat.loc[i, 'approach'] = 'RW'
 
-    g = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', kind='bar', col='approach', sharex=False)
-    g.set_xticklabels(rotation=90)
-    g.set_ylabels('RMSE')
-    plt.savefig('RMSE_by_approach.png', bbox_inches='tight', dpi=300, facecolor='w')
+    if plot==True:
+        g = sns.catplot(data=dat, x='OG_method', y='rmse', hue='pop_tau', kind='bar', col='approach', sharex=False)
+        g.set_xticklabels(rotation=90)
+        g.set_ylabels('RMSE')
+        plt.savefig('RMSE_by_approach.png', bbox_inches='tight', dpi=300, facecolor='w')
 
     return dat
 
@@ -229,7 +230,7 @@ def ideal_over_under_pred(file_string='output (with pop tau by LOOCV).xlsx', plo
     dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     # Calculate % of predictions within acceptable error, overprediction, and underprediction
-    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x > -2) & (x < 1.5)).sum()/ x.count()*100).reset_index()
+    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x >= -2) & (x <= 1.5)).sum()/ x.count()*100).reset_index()
     ideal['result'] = 'ideal'
     over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -2)).sum()/ x.count()*100).reset_index()
     over['result'] = 'over'
@@ -285,7 +286,7 @@ def ideal_over_under_pred(file_string='output (with pop tau by LOOCV).xlsx', plo
 
     return metric_df
 
-def ideal_over_under_pred_PPM_RW():
+def ideal_over_under_pred_PPM_RW(plot=False):
     """Bar plot of percentage of ideal/over/under predictions, by method"""
     
     dat = ideal_over_under_pred()
@@ -297,22 +298,23 @@ def ideal_over_under_pred_PPM_RW():
     dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'Predictions (%)'})
     dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
     dat['Result'] = dat['Result'].map({'ideal':'Ideal predictions', 'over':'Over predictions', 'under':'Under predictions'})
-    dat['Predictions (%)'] = dat['Predictions (%)'].round(1)
+    dat['Predictions (%)'] = dat['Predictions (%)'].round(2)
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(10,10))
+    if plot==True:
+        # Plot
+        fig, ax = plt.subplots(figsize=(10,10))
 
-    sns.set(font_scale=1.2, style='white', rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True})
+        sns.set(font_scale=1.2, style='white', rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True})
 
-    ax = sns.barplot(data=dat, x='Method', y='Predictions (%)', hue='Result')
-    sns.despine()
-    plt.legend(frameon=False, bbox_to_anchor=(1.3,0.5), loc='upper right')
+        ax = sns.barplot(data=dat, x='Method', y='Predictions (%)', hue='Result')
+        sns.despine()
+        plt.legend(frameon=False, bbox_to_anchor=(1.3,0.5), loc='upper right')
 
-    # Label bars
-    for container in ax.containers:
-        ax.bar_label(container, fontsize=13)
+        # Label bars
+        for container in ax.containers:
+            ax.bar_label(container, fontsize=13)
 
-    plt.savefig('ideal_over_under_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+        plt.savefig('ideal_over_under_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
 
     return dat
 
@@ -629,7 +631,7 @@ def LOOCV_all_methods_plot():
     
     return dat
 
-def LOOCV_PPM_RW():
+def LOOCV_PPM_RW(plot=False):
     """Boxplot for LOOCV results of PPM and RW only"""
     dat = pd.read_excel('all_methods_LOOCV.xlsx', sheet_name='Experiments')
     dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')]
@@ -644,18 +646,20 @@ def LOOCV_PPM_RW():
     dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
     dat['Dataset'] = dat['Dataset'].map({'train_median':'Training', 'test_median':'Test'})
 
-    sns.set(font_scale=1.8, style='white')
-    sns.despine()
+    if plot==True:
+        # Plot
+        sns.set(font_scale=1.8, style='white')
+        sns.despine()
 
-    m1 = dat.groupby(['Method']).median().round(2).values
-    mL1 = [str(np.round(s, 2)) for s in m1]
-    vertical_offset = 0.2 # offset from median for display
+        m1 = dat.groupby(['Method']).median().round(2).values
+        mL1 = [str(np.round(s, 2)) for s in m1]
+        vertical_offset = 0.2 # offset from median for display
 
-    box_plot = sns.boxplot(data=dat, x='Method', y='Absolute Prediction Error', hue='Dataset', palette='Paired')
+        box_plot = sns.boxplot(data=dat, x='Method', y='Absolute Prediction Error', hue='Dataset', palette='Paired')
 
-    plt.legend(bbox_to_anchor=(1,0.5),loc='center left')
+        plt.legend(bbox_to_anchor=(1,0.5),loc='center left')
 
-    plt.savefig('LOOCV_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
+        plt.savefig('LOOCV_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
 
     return dat
 
@@ -2030,11 +2034,11 @@ def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
             (dat.reasonable_dose==True) & \
                 (dat.within_range==False)
 
-    # # Keep only predictions with acceptable deviations
-    # dat = dat[dat.acceptable_deviation==True]
+    # Keep only predictions with acceptable deviations
+    dat = dat[dat.acceptable_deviation==True]
 
-    # # Keep only predictions with right range
-    # dat = dat[dat.wrong_range==False]
+    # Keep only predictions with right range
+    dat = dat[dat.wrong_range==False]
 
     # # Keep reasonable doses only
     # dat = dat[dat.reasonable_dose==True]
