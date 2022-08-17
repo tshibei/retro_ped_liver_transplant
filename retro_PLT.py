@@ -47,14 +47,112 @@ from scipy import stats
 # ~5mins
 
 # Execute CURATE without pop tau
-execute_CURATE()
+execute_CURATE(pop_tau_string='_by_body_weight_2')
 # -
 
+
+clean = pd.read_excel('output_dose_by_body_weight.xlsx', sheet_name='clean')
+
+dat = clean.copy()
+dat.dose.describe()
 
 result = pd.read_excel('output_dose_by_body_weight.xlsx', sheet_name='result')
 
 dat = result.copy()
 dat[dat.method=='L_RW_wo_origin']['prediction'].describe()
+
+df = CURATE_could_be_useful()
+
+# +
+dat = CURATE_could_be_useful()
+
+# Subset RW
+dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+# Find number of wrong range predictions
+number_of_unreliable_predictions = dat['wrong_range'].sum()
+
+# Keep reliable predictions
+dat = dat[dat.wrong_range==False].reset_index(drop=True)
+
+# Find number of inaccurate predictions with clinically acceptable prediction error
+number_of_inaccurate_predictions = len(dat) - dat.acceptable_deviation.sum()
+
+# Keep accurate predictions
+dat = dat[dat.acceptable_deviation==True].reset_index(drop=True)
+
+# Check if recommended doses are less than 0.55mg/kg/day
+dat['reasonable_dose'] = True
+for i in range(len(dat)):
+    dat.loc[i, 'reasonable_dose'] = min(dat.interpolated_dose_8[i], dat.interpolated_dose_9[i], dat.interpolated_dose_10[i]) < 0.55
+
+number_of_unreasonable_doses = len(dat) - dat.reasonable_dose.sum()
+
+# Keep reasonable doses
+dat = dat[dat.reasonable_dose==True].reset_index(drop=True)
+
+## Change pred_day to day 
+dat = dat.rename(columns={'pred_day':'day'})
+
+# Add original dose column
+clean_data = pd.read_excel('output_by_body_weight_2.xlsx', sheet_name='clean')
+combined_data = dat.merge(clean_data[['day', 'patient', 'dose_mg']], how='left', on=['patient', 'day'])
+
+# Declare lists
+list_of_patients = []
+list_of_body_weight = []
+
+# Create list of patients
+list_of_patients = get_sheet_names('Retrospective Liver Transplant Data.xlsx')
+
+# Create list of body_weight
+for i in range(len(list_of_patients)):    
+    data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', list_of_patients[i], index_col=None, usecols = "C", nrows=15)
+    data = data.reset_index(drop=True)
+    list_of_body_weight.append(data['Unnamed: 2'][13])
+
+list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
+
+# Add body weight column
+combined_data['body_weight'] = ""
+for j in range(len(combined_data)):
+    index_patient = list_of_patients.index(str(combined_data.patient[j]))
+    combined_data.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+    
+combined_data['interpolated_dose_8_mg'] = combined_data['interpolated_dose_8'] * combined_data['body_weight']
+combined_data['interpolated_dose_9_mg'] = combined_data['interpolated_dose_9'] * combined_data['body_weight']
+combined_data['interpolated_dose_10_mg'] = combined_data['interpolated_dose_10'] * combined_data['body_weight']
+
+combined_data[['interpolated_dose_8_mg', 'interpolated_dose_9_mg', 'interpolated_dose_10_mg']]
+
+recommended_dose_mg = [2.5, 2.5, 4.5, 5.5, 5, 5, 2, 2.5, 4.5, 4.5, np.nan, np.nan, 0, 6, 1.5, 2, 2.5, 3.5, 3.5, 2, 0,
+                      1.5, 1.5, np.nan, np.nan, np.nan, np.nan, 2.5, 2.5, 0, np.nan, 3, np.nan, 0.5, 0, 0, 2.5, 2.5, 3]
+
+combined_data['recommended_dose_mg'] = recommended_dose_mg
+
+combined_data['diff_dose_mg'] = combined_data['dose_mg'] - combined_data['recommended_dose_mg']
+combined_data['abs_diff_dose_mg'] = abs(combined_data['dose_mg'] - combined_data['recommended_dose_mg'])
+combined_data['diff_dose_mg_boolean'] = combined_data['abs_diff_dose_mg'] >= 0.5
+combined_data['recommended_dose'] = combined_data['recommended_dose_mg'] / combined_data['body_weight']
+
+number_of_similar_dose = len(combined_data) - combined_data.diff_dose_mg_boolean.sum()
+
+# Keep those with diff dose
+combined_data = combined_data[combined_data.diff_dose_mg_boolean==True].reset_index(drop=True)
+
+# Count number of non-therapeutic range
+number_of_non_therapeutic_range = len(combined_data) - combined_data.within_range.sum()
+
+# Keep non-therapeutic range only
+combined_data = combined_data[combined_data.within_range == False].reset_index(drop=True)
+
+combined_data['diff_dose'] = combined_data['dose'] - combined_data['recommended_dose']
+combined_data['abs_diff_dose'] = abs(combined_data['dose'] - combined_data['recommended_dose'])
+
+return combined_data
+# -
+
+21/119*100
 
 # +
 # %%time

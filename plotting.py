@@ -225,16 +225,16 @@ def RMSE_plot_PPM_RW():
     
     return dat
 
-def ideal_over_under_pred(file_string='output (with pop tau by LOOCV).xlsx', plot=False):
+def ideal_over_under_pred(file_string='output_dose_by_body_weight.xlsx', plot=False):
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
     dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     # Calculate % of predictions within acceptable error, overprediction, and underprediction
-    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x >= -2) & (x <= 1.5)).sum()/ x.count()*100).reset_index()
+    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x >= -1.5) & (x <= 2)).sum()/ x.count()*100).reset_index()
     ideal['result'] = 'ideal'
-    over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -2)).sum()/ x.count()*100).reset_index()
+    over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -1.5)).sum()/ x.count()*100).reset_index()
     over['result'] = 'over'
-    under = dat.groupby('method')['deviation'].apply(lambda x: ((x > 1.5)).sum()/ x.count()*100).reset_index()
+    under = dat.groupby('method')['deviation'].apply(lambda x: ((x >2)).sum()/ x.count()*100).reset_index()
     under['result'] = 'under'
 
     # Combine results into a dataframe
@@ -1153,7 +1153,7 @@ def effect_of_CURATE_RW(plot=True):
 
     return combined_dat
 
-def read_file_and_remove_unprocessed_pop_tau(file_string='output (with pop tau by LOOCV).xlsx', sheet_string='result'):
+def read_file_and_remove_unprocessed_pop_tau(file_string='output_by_body_weight_2.xlsx', sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 
     # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
@@ -1959,7 +1959,7 @@ def num_patients_and_list(method, linear_patient_list, quad_patient_list):
 
 ##### ANALYSIS
 
-def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
+def CURATE_could_be_useful(file_string='output_by_body_weight_2.xlsx'):
     """
     Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
     keep those that are useful.
@@ -2005,7 +2005,7 @@ def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
             if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
                 dat.loc[i, 'wrong_range'] = True
 
-    dat['acceptable_deviation'] = (round(dat['deviation'],2) > -2) & (round(dat['deviation'],2) < 1.5)
+    dat['acceptable_deviation'] = (round(dat['deviation'],2) >= -1.5) & (round(dat['deviation'],2) <= 2)
 
     # dat = dat.reset_index(drop=True)
 
@@ -2034,11 +2034,11 @@ def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
             (dat.reasonable_dose==True) & \
                 (dat.within_range==False)
 
-    # Keep only predictions with acceptable deviations
-    dat = dat[dat.acceptable_deviation==True]
+    # # Keep only predictions with acceptable deviations
+    # dat = dat[dat.acceptable_deviation==True]
 
-    # Keep only predictions with right range
-    dat = dat[dat.wrong_range==False]
+    # # Keep only predictions with right range
+    # dat = dat[dat.wrong_range==False]
 
     # # Keep reasonable doses only
     # dat = dat[dat.reasonable_dose==True]
@@ -2046,9 +2046,98 @@ def CURATE_could_be_useful(file_string='output (with pop tau by LOOCV).xlsx'):
     # # Keep those outside range
     # dat = dat[dat.within_range==False]
 
-    dat.groupby('method')['diff_dose'].describe().T.applymap('{:,.2f}'.format)
+    # dat.groupby('method')['diff_dose'].describe().T.applymap('{:,.2f}'.format)
 
     return dat
+
+def clinically_relevant_flow_chart():
+
+    dat = CURATE_could_be_useful()
+
+    # Subset RW
+    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Find number of wrong range predictions
+    number_of_unreliable_predictions = dat['wrong_range'].sum()
+
+    # Keep reliable predictions
+    dat = dat[dat.wrong_range==False].reset_index(drop=True)
+
+    # Find number of inaccurate predictions with clinically acceptable prediction error
+    number_of_inaccurate_predictions = len(dat) - dat.acceptable_deviation.sum()
+
+    # Keep accurate predictions
+    dat = dat[dat.acceptable_deviation==True].reset_index(drop=True)
+
+    # Check if recommended doses are less than 0.55mg/kg/day
+    dat['reasonable_dose'] = True
+    for i in range(len(dat)):
+        dat.loc[i, 'reasonable_dose'] = min(dat.interpolated_dose_8[i], dat.interpolated_dose_9[i], dat.interpolated_dose_10[i]) < 0.55
+
+    number_of_unreasonable_doses = len(dat) - dat.reasonable_dose.sum()
+
+    # Keep reasonable doses
+    dat = dat[dat.reasonable_dose==True].reset_index(drop=True)
+
+    ## Change pred_day to day 
+    dat = dat.rename(columns={'pred_day':'day'})
+
+    # Add original dose column
+    clean_data = pd.read_excel('output_by_body_weight_2.xlsx', sheet_name='clean')
+    combined_data = dat.merge(clean_data[['day', 'patient', 'dose_mg']], how='left', on=['patient', 'day'])
+
+    # Declare lists
+    list_of_patients = []
+    list_of_body_weight = []
+
+    # Create list of patients
+    list_of_patients = get_sheet_names('Retrospective Liver Transplant Data.xlsx')
+
+    # Create list of body_weight
+    for i in range(len(list_of_patients)):    
+        data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', list_of_patients[i], index_col=None, usecols = "C", nrows=15)
+        data = data.reset_index(drop=True)
+        list_of_body_weight.append(data['Unnamed: 2'][13])
+
+    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
+
+    # Add body weight column
+    combined_data['body_weight'] = ""
+    for j in range(len(combined_data)):
+        index_patient = list_of_patients.index(str(combined_data.patient[j]))
+        combined_data.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+        
+    combined_data['interpolated_dose_8_mg'] = combined_data['interpolated_dose_8'] * combined_data['body_weight']
+    combined_data['interpolated_dose_9_mg'] = combined_data['interpolated_dose_9'] * combined_data['body_weight']
+    combined_data['interpolated_dose_10_mg'] = combined_data['interpolated_dose_10'] * combined_data['body_weight']
+
+    combined_data[['interpolated_dose_8_mg', 'interpolated_dose_9_mg', 'interpolated_dose_10_mg']]
+
+    recommended_dose_mg = [2.5, 2.5, 4.5, 5.5, 5, 5, 2, 2.5, 4.5, 4.5, np.nan, np.nan, 0, 6, 1.5, 2, 2.5, 3.5, 3.5, 2, 0,
+                        1.5, 1.5, np.nan, np.nan, np.nan, np.nan, 2.5, 2.5, 0, np.nan, 3, np.nan, 0.5, 0, 0, 2.5, 2.5, 3]
+
+    combined_data['recommended_dose_mg'] = recommended_dose_mg
+
+    combined_data['diff_dose_mg'] = combined_data['dose_mg'] - combined_data['recommended_dose_mg']
+    combined_data['abs_diff_dose_mg'] = abs(combined_data['dose_mg'] - combined_data['recommended_dose_mg'])
+    combined_data['diff_dose_mg_boolean'] = combined_data['abs_diff_dose_mg'] >= 0.5
+    combined_data['recommended_dose'] = combined_data['recommended_dose_mg'] / combined_data['body_weight']
+
+    number_of_similar_dose = len(combined_data) - combined_data.diff_dose_mg_boolean.sum()
+
+    # Keep those with diff dose
+    combined_data = combined_data[combined_data.diff_dose_mg_boolean==True].reset_index(drop=True)
+
+    # Count number of non-therapeutic range
+    number_of_non_therapeutic_range = len(combined_data) - combined_data.within_range.sum()
+
+    # Keep non-therapeutic range only
+    combined_data = combined_data[combined_data.within_range == False].reset_index(drop=True)
+
+    combined_data['diff_dose'] = combined_data['dose'] - combined_data['recommended_dose']
+    combined_data['abs_diff_dose'] = abs(combined_data['dose'] - combined_data['recommended_dose'])
+
+    return combined_data
 
 def group_comparison(file_string):
     """ 
