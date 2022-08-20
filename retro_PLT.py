@@ -48,28 +48,11 @@ from scipy import stats
 
 # Execute CURATE without pop tau
 execute_CURATE(pop_tau_string='_by_body_weight_2')
-
-
-# +
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # -
+
+
+dat = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+dat.columns
 
 clean = pd.read_excel('output_dose_by_body_weight.xlsx', sheet_name='clean')
 

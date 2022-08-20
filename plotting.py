@@ -16,6 +16,12 @@ from openpyxl import load_workbook
 # Define file names
 output = 'output_dose_by_body_weight.xlsx'
 
+# Define clinically relevant parameters
+low_dose_upper_limit = 0.2
+medium_dose_upper_limit = 0.4
+overprediction_limit = -1.5
+underprediction_limit = 2
+
 # Create lists
 def find_list_of_body_weight():
 
@@ -725,11 +731,11 @@ def LOOCV_PPM_RW(plot=False):
 
     return dat
 
-def indiv_profiles_all_data_day(file_string=output, plot=True):
+def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
         
     # Plot individual profiles
-    dat = pd.read_excel(file_string, sheet_name='clean')
+    dat = pd.read_excel(file_string, sheet_name='data')
 
     # Create within-range column for color
     dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
@@ -737,9 +743,9 @@ def indiv_profiles_all_data_day(file_string=output, plot=True):
     # Create low/med/high dose column
     dat['dose_range'] = ""
     for i in range(len(dat)):
-        if dat.dose[i] < 0.2:
+        if dat.dose[i] < low_dose_upper_limit:
             dat.loc[i, 'dose_range'] = 'Low'
-        elif dat.dose[i] < 0.4:
+        elif dat.dose[i] < medium_dose_upper_limit:
             dat.loc[i, 'dose_range'] = 'Medium'
         else:
             dat.loc[i, 'dose_range'] = 'High'
@@ -756,7 +762,7 @@ def indiv_profiles_all_data_day(file_string=output, plot=True):
     if plot == True:
 
         # Add fake row with empty data under response to structure legend columns
-        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", "Low"]
+        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, "", "Low"]
         
         # Plot tac levels by day
         sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
@@ -781,7 +787,7 @@ def indiv_profiles_all_data_day(file_string=output, plot=True):
                             label='Region within therapeutic range', alpha=.2)]
         legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.75,-0.32), loc='upper left', frameon=False)
 
-        # plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+        plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
         
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
