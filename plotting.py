@@ -10,6 +10,68 @@ import math
 from matplotlib import colors
 from matplotlib.pyplot import cm
 from matplotlib.patches import Patch
+from Profile_Generation import *
+from openpyxl import load_workbook
+
+# Define file names
+output = 'output_dose_by_body_weight.xlsx'
+
+# Create lists
+def find_list_of_body_weight():
+
+    xl = pd.ExcelFile('Retrospective Liver Transplant Data.xlsx')
+    excel_sheet_names = xl.sheet_names
+
+    list_of_body_weight = []
+
+    # Create list of body_weight
+    for sheet in excel_sheet_names:    
+        data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', sheet_name=sheet, index_col=None, usecols = "C", nrows=15)
+        data = data.reset_index(drop=True)
+        list_of_body_weight.append(data['Unnamed: 2'][13])
+
+    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
+
+    return list_of_body_weight
+
+def find_list_of_patients():
+    # Declare list
+    list_of_patients = []
+
+    # Create list of patients
+    wb = load_workbook('Retrospective Liver Transplant Data.xlsx', read_only=True)
+    list_of_patients = wb.sheetnames
+
+    return list_of_patients
+
+# Edit excel sheets
+def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
+    
+    df = pd.read_excel('all_data_including_non_ideal.xlsx')
+
+    # Declare lists
+    list_of_body_weight = find_list_of_body_weight()
+    list_of_patients = find_list_of_patients()
+
+    # Add body weight column
+    df['body_weight'] = ""
+
+    for i in range(len(df)):
+        # Find index of patient in list_of_patients
+        index = list_of_patients.index(str(df.patient[i]))
+        body_weight = list_of_body_weight[index]    
+
+        # Add body weight to column
+        df.loc[i, 'body_weight'] = body_weight
+
+    # Change current dose column to dose_mg
+    df = df.rename(columns={'dose':'dose_mg'})
+
+    # Add column 'dose' by dividing dose_mg by body weight
+    df['dose'] = df['dose_mg'] / df['body_weight']
+
+    with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
+        df.to_excel(writer, sheet_name='data', index=False)
 
 ##### New graphs after meeting with NUH ######
 
@@ -663,7 +725,7 @@ def LOOCV_PPM_RW(plot=False):
 
     return dat
 
-def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
+def indiv_profiles_all_data_day(file_string=output, plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
         
     # Plot individual profiles
@@ -675,9 +737,9 @@ def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx',
     # Create low/med/high dose column
     dat['dose_range'] = ""
     for i in range(len(dat)):
-        if dat.dose[i] < 2:
+        if dat.dose[i] < 0.2:
             dat.loc[i, 'dose_range'] = 'Low'
-        elif dat.dose[i] < 4:
+        elif dat.dose[i] < 0.4:
             dat.loc[i, 'dose_range'] = 'Medium'
         else:
             dat.loc[i, 'dose_range'] = 'High'
@@ -719,7 +781,7 @@ def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx',
                             label='Region within therapeutic range', alpha=.2)]
         legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.75,-0.32), loc='upper left', frameon=False)
 
-        plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+        # plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
         
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
@@ -1043,7 +1105,7 @@ def effect_of_CURATE_RW(plot=True):
     Facet grid scatter plot for effect of CURATE.AI-assisted dosing on 
     therapeutic ranges
     """
-    dat = CURATE_could_be_useful()
+    dat = clinically_relevant_flow_chart()
 
     method_string = ['RW']
     method_dat = []
@@ -1067,10 +1129,10 @@ def effect_of_CURATE_RW(plot=True):
                 dat.loc[i, 'adapted_within_range'] = 'CURATE_no_impact'
 
         # Subset columns
-        dat = dat[['pred_day', 'patient', 'adapted_within_range']]
+        dat = dat[['day', 'patient', 'adapted_within_range']]
 
-        # Rename columns
-        dat.columns = ['day', 'patient', 'adapted_within_range']
+        # # Rename columns
+        # dat.columns = ['day', 'patient', 'adapted_within_range']
 
         # Only keep those that are affected by SOC
         dat = dat[dat.adapted_within_range != 'CURATE_no_impact']
@@ -2060,14 +2122,14 @@ def clinically_relevant_flow_chart():
     # Find number of wrong range predictions
     number_of_unreliable_predictions = dat['wrong_range'].sum()
 
-    # Keep reliable predictions
-    dat = dat[dat.wrong_range==False].reset_index(drop=True)
+    # # Keep reliable predictions
+    # dat = dat[dat.wrong_range==False].reset_index(drop=True)
 
     # Find number of inaccurate predictions with clinically acceptable prediction error
     number_of_inaccurate_predictions = len(dat) - dat.acceptable_deviation.sum()
 
-    # Keep accurate predictions
-    dat = dat[dat.acceptable_deviation==True].reset_index(drop=True)
+    # # Keep accurate predictions
+    # dat = dat[dat.acceptable_deviation==True].reset_index(drop=True)
 
     # Check if recommended doses are less than 0.55mg/kg/day
     dat['reasonable_dose'] = True
@@ -2076,8 +2138,8 @@ def clinically_relevant_flow_chart():
 
     number_of_unreasonable_doses = len(dat) - dat.reasonable_dose.sum()
 
-    # Keep reasonable doses
-    dat = dat[dat.reasonable_dose==True].reset_index(drop=True)
+    # # Keep reasonable doses
+    # dat = dat[dat.reasonable_dose==True].reset_index(drop=True)
 
     ## Change pred_day to day 
     dat = dat.rename(columns={'pred_day':'day'})
@@ -2091,7 +2153,9 @@ def clinically_relevant_flow_chart():
     list_of_body_weight = []
 
     # Create list of patients
-    list_of_patients = get_sheet_names('Retrospective Liver Transplant Data.xlsx')
+    wb = load_workbook('Retrospective Liver Transplant Data.xlsx', read_only=True)
+    list_of_patients = wb.sheetnames
+    wb.close()
 
     # Create list of body_weight
     for i in range(len(list_of_patients)):    
@@ -2113,29 +2177,34 @@ def clinically_relevant_flow_chart():
 
     combined_data[['interpolated_dose_8_mg', 'interpolated_dose_9_mg', 'interpolated_dose_10_mg']]
 
-    recommended_dose_mg = [2.5, 2.5, 4.5, 5.5, 5, 5, 2, 2.5, 4.5, 4.5, np.nan, np.nan, 0, 6, 1.5, 2, 2.5, 3.5, 3.5, 2, 0,
-                        1.5, 1.5, np.nan, np.nan, np.nan, np.nan, 2.5, 2.5, 0, np.nan, 3, np.nan, 0.5, 0, 0, 2.5, 2.5, 3]
+    # recommended_dose_mg = [2.5, 2.5, 4.5, 5.5, 5, 5, 2, 2.5, 4.5, 4.5, np.nan, np.nan, 0, 6, 1.5, 2, 2.5, 3.5, 3.5, 2, 0,
+    #                     1.5, 1.5, np.nan, np.nan, np.nan, np.nan, 2.5, 2.5, 0, np.nan, 3, np.nan, 0.5, 0, 0, 2.5, 2.5, 3]
 
-    combined_data['recommended_dose_mg'] = recommended_dose_mg
+    # combined_data['recommended_dose_mg'] = recommended_dose_mg
 
-    combined_data['diff_dose_mg'] = combined_data['dose_mg'] - combined_data['recommended_dose_mg']
-    combined_data['abs_diff_dose_mg'] = abs(combined_data['dose_mg'] - combined_data['recommended_dose_mg'])
-    combined_data['diff_dose_mg_boolean'] = combined_data['abs_diff_dose_mg'] >= 0.5
-    combined_data['recommended_dose'] = combined_data['recommended_dose_mg'] / combined_data['body_weight']
+    # combined_data['diff_dose_mg'] = combined_data['dose_mg'] - combined_data['recommended_dose_mg']
+    # combined_data['abs_diff_dose_mg'] = abs(combined_data['dose_mg'] - combined_data['recommended_dose_mg'])
+    # combined_data['diff_dose_mg_boolean'] = combined_data['abs_diff_dose_mg'] >= 0.5
+    # combined_data['recommended_dose'] = combined_data['recommended_dose_mg'] / combined_data['body_weight']
 
-    number_of_similar_dose = len(combined_data) - combined_data.diff_dose_mg_boolean.sum()
+    # number_of_similar_dose = len(combined_data) - combined_data.diff_dose_mg_boolean.sum()
 
-    # Keep those with diff dose
-    combined_data = combined_data[combined_data.diff_dose_mg_boolean==True].reset_index(drop=True)
+    # # Keep those with diff dose
+    # combined_data = combined_data[combined_data.diff_dose_mg_boolean==True].reset_index(drop=True)
 
     # Count number of non-therapeutic range
     number_of_non_therapeutic_range = len(combined_data) - combined_data.within_range.sum()
 
-    # Keep non-therapeutic range only
-    combined_data = combined_data[combined_data.within_range == False].reset_index(drop=True)
+    # # Keep non-therapeutic range only
+    # combined_data = combined_data[combined_data.within_range == False].reset_index(drop=True)
 
-    combined_data['diff_dose'] = combined_data['dose'] - combined_data['recommended_dose']
-    combined_data['abs_diff_dose'] = abs(combined_data['dose'] - combined_data['recommended_dose'])
+    # combined_data['diff_dose'] = combined_data['dose'] - combined_data['recommended_dose']
+    # combined_data['abs_diff_dose'] = abs(combined_data['dose'] - combined_data['recommended_dose'])
+
+    combined_data['CURATE_could_be_useful'] = (combined_data.acceptable_deviation==True) & \
+    (combined_data.wrong_range==False) & \
+        (combined_data.reasonable_dose==True) & \
+            (combined_data.within_range==False)
 
     return combined_data
 
