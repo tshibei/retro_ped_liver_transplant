@@ -17,10 +17,14 @@ from openpyxl import load_workbook
 output = 'output_dose_by_body_weight.xlsx'
 
 # Define clinically relevant parameters
-low_dose_upper_limit = 0.2
-medium_dose_upper_limit = 0.4
+low_dose_upper_limit = 0.3
+medium_dose_upper_limit = 0.6
 overprediction_limit = -1.5
 underprediction_limit = 2
+max_dose_recommendation = 0.85
+minimum_capsule = 0.5
+therapeutic_range_upper_limit = 10
+therapeutic_range_lower_limit = 8
 
 # Create lists
 def find_list_of_body_weight():
@@ -49,6 +53,12 @@ def find_list_of_patients():
     list_of_patients = wb.sheetnames
 
     return list_of_patients
+
+# Import data
+def import_raw_data_including_non_ideal():
+    df = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+
+    return df
 
 # Edit excel sheets
 def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
@@ -220,7 +230,7 @@ def prediction_error_PPM_RW(plot=False):
         
     return dat
 
-def RMSE_plot(file_string='output (with pop tau by LOOCV).xlsx', plot=False):
+def RMSE_plot(file_string=output, plot=False):
     """
     Bar plot of RMSE for each method, grouped by pop tau and no pop tau,
     with broken y-axis
@@ -308,15 +318,6 @@ def ideal_over_under_pred(file_string='output_dose_by_body_weight.xlsx', plot=Fa
     # Combine results into a dataframe
     metric_df = pd.concat([ideal, over, under]).reset_index(drop=True)
 
-    # Add pop tau column, and remove 'pop_tau' from method
-    metric_df['pop_tau'] = ""
-    for i in range(len(metric_df)):
-        if 'pop_tau' in metric_df.method[i]:
-            metric_df.loc[i, 'pop_tau'] = 'pop tau'
-            metric_df.loc[i, 'method'] = metric_df.loc[i, 'method'][:-8]
-        else: 
-            metric_df.loc[i, 'pop_tau'] = 'no pop tau'
-
     # # Perform shapiro test (result: some pvalue < 0.05, some > 0.05)
     # kstest_result = metric_df.groupby(['pop_tau', 'result'])['deviation'].apply(lambda x: stats.shapiro(x).pvalue < 0.05).reset_index()
 
@@ -350,39 +351,22 @@ def ideal_over_under_pred(file_string='output_dose_by_body_weight.xlsx', plot=Fa
         plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
 
     # Rename 'deviation' column to 'perc_predictions'
-    metric_df.columns = ['method', 'perc_predictions', 'result', 'pop_tau']
+    metric_df.columns = ['method', 'perc_predictions', 'result']
 
     return metric_df
 
-def ideal_over_under_pred_PPM_RW(plot=False):
+def ideal_over_under_pred_RW(plot=False):
     """Bar plot of percentage of ideal/over/under predictions, by method"""
     
     dat = ideal_over_under_pred()
     
     # Subset PPM and RW method
-    dat = dat[(dat.pop_tau=='no pop tau') & ((dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin'))]
+    dat = dat[(dat.method=='L_RW_wo_origin')]
 
     # Rename columns
     dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'Predictions (%)'})
-    dat['Method'] = dat['Method'].map({'L_PPM_wo_origin':'PPM', 'L_RW_wo_origin':'RW'})
     dat['Result'] = dat['Result'].map({'ideal':'Ideal predictions', 'over':'Over predictions', 'under':'Under predictions'})
     dat['Predictions (%)'] = dat['Predictions (%)'].round(2)
-
-    if plot==True:
-        # Plot
-        fig, ax = plt.subplots(figsize=(10,10))
-
-        sns.set(font_scale=1.2, style='white', rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True})
-
-        ax = sns.barplot(data=dat, x='Method', y='Predictions (%)', hue='Result')
-        sns.despine()
-        plt.legend(frameon=False, bbox_to_anchor=(1.3,0.5), loc='upper right')
-
-        # Label bars
-        for container in ax.containers:
-            ax.bar_label(container, fontsize=13)
-
-        plt.savefig('ideal_over_under_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
 
     return dat
 
@@ -1221,7 +1205,7 @@ def effect_of_CURATE_RW(plot=True):
 
     return combined_dat
 
-def read_file_and_remove_unprocessed_pop_tau(file_string='output_by_body_weight_2.xlsx', sheet_string='result'):
+def read_file_and_remove_unprocessed_pop_tau(file_string=output, sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 
     # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
@@ -2027,7 +2011,7 @@ def num_patients_and_list(method, linear_patient_list, quad_patient_list):
 
 ##### ANALYSIS
 
-def CURATE_could_be_useful(file_string='output_by_body_weight_2.xlsx'):
+def CURATE_could_be_useful(file_string=output):
     """
     Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
     keep those that are useful.
@@ -2151,7 +2135,7 @@ def clinically_relevant_flow_chart():
     dat = dat.rename(columns={'pred_day':'day'})
 
     # Add original dose column
-    clean_data = pd.read_excel('output_by_body_weight_2.xlsx', sheet_name='clean')
+    clean_data = pd.read_excel(output, sheet_name='clean')
     combined_data = dat.merge(clean_data[['day', 'patient', 'dose_mg']], how='left', on=['patient', 'day'])
 
     # Declare lists
@@ -2282,6 +2266,132 @@ def group_comparison(file_string):
 
     print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
     print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
+
+def create_df_for_CURATE_assessment():
+    # Import output results
+    dat = pd.read_excel(output, sheet_name='result')
+    dat_dose_by_mg = pd.read_excel(output, sheet_name='clean')
+
+    # Subset L_RW_wo_origin
+    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
+    dat['dose_recommendation_8'] = ""
+    dat['dose_recommendation_10'] = ""
+
+    for i in range(len(dat)):
+
+        # Create function
+        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(dat.dose) + 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        dat.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
+        dat.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
+
+    # Create list of patients
+    list_of_patients = find_list_of_patients()
+
+    # Create list of body weight
+    list_of_body_weight = find_list_of_body_weight()
+
+    # Add body weight column
+    dat['body_weight'] = ""
+
+    for j in range(len(dat)):
+        index_patient = list_of_patients.index(str(dat.patient[j]))
+        dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+
+    # Add dose administered by mg
+    dat_dose_by_mg = dat_dose_by_mg[['day', 'patient', 'dose_mg']]
+    dat_dose_by_mg = dat_dose_by_mg.rename(columns={'day':'pred_day'})
+
+    dat = dat.merge(dat_dose_by_mg, how='left', on=['patient', 'pred_day'])
+
+    # Add dose recommendations by mg
+    dat['possible_doses'] = ""
+    dat['dose_recommendation'] = ""
+    for i in range(len(dat)):
+        # Find minimum dose recommendation by mg
+        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
+
+        # Find maximum dose recommendation by mg
+        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
+
+        # Between and inclusive of min_dose_mg and max_dose_mg,
+        # find doses that are multiples of 0.5 mg
+        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
+        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
+
+        if possible_doses.size == 0:
+            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
+
+        # Add to column of possible doses
+        dat.at[i, 'possible_doses'] = possible_doses
+
+        # Add to column of dose recommendation with lowest out of possible doses
+        dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+
+    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation', 'body_weight']]
+
+    # Add columns for assessment
+    CURATE_assessment['reliable'] = ""
+    CURATE_assessment['accurate'] = ""
+    CURATE_assessment['diff_dose'] = ""
+    CURATE_assessment['therapeutic_range'] = ""
+    CURATE_assessment['actionable'] = ""
+    CURATE_assessment['effect_of_CURATE'] = ""
+
+    for i in range(len(CURATE_assessment)):
+
+        # Reliable
+        if (CURATE_assessment.prediction[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.prediction[i] <= therapeutic_range_upper_limit):
+            prediction_range = 'therapeutic'
+        else:
+            prediction_range = 'non-therapeutic'
+
+        if (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit):
+            response_range = 'therapeutic'
+        else:
+            response_range = 'non-therapeutic'
+
+        reliable = (prediction_range == response_range)
+        CURATE_assessment.loc[i, 'reliable'] = reliable
+
+        # Accurate
+        accurate = (dat.deviation[i] >= overprediction_limit) & (dat.deviation[i] <= underprediction_limit)
+        CURATE_assessment.loc[i, 'accurate'] = accurate
+
+        # Different dose
+        diff_dose = (dat.dose_mg[i] != dat.dose_recommendation[i])
+        CURATE_assessment.loc[i, 'diff_dose'] = diff_dose
+
+        # Therapeutic range
+        therapeutic_range = (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit)
+        CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
+
+        # Actionable
+        actionable = (dat.dose_recommendation[i] / dat.body_weight[i]) < max_dose_recommendation
+        CURATE_assessment.loc[i, 'actionable'] = actionable
+
+        # Effect of CURATE
+        if (reliable == True) & (accurate == True) & (diff_dose == True) & (therapeutic_range == False) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Improve'
+        elif (reliable == True) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        elif (reliable == False) & (accurate == True) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        elif (reliable == False) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        else:
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
+
+    return CURATE_assessment
 
 ##### Meeting with NUH ######
 
