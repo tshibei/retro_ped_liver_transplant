@@ -42,17 +42,21 @@ from matplotlib.pyplot import cm
 from matplotlib.patches import Patch
 from scipy import stats
 
+df = plot_effect_of_CURATE()
+df
+
+# +
+# Generate plot for effect of CURATE
+
+
+
 # +
 # %%time
 # ~5mins
 
 # Execute CURATE without pop tau
 execute_CURATE(pop_tau_string='_by_body_weight_2')
-# -
 
-
-# %%time
-values_in_clinically_relevant_flow_chart()
 
 # +
 # %%time

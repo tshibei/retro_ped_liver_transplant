@@ -90,7 +90,6 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
         df.to_excel(writer, sheet_name='data', index=False)
 
 ##### New graphs after meeting with NUH ######
-
 def cross_val():
     """ Line plot of train and test results of both K-Fold and Leave-One-Out Cross Validation for Pop Tau """
     CV_dat = pd.read_excel('GOOD OUTPUT DATA\pop_tau (by CV).xlsx', sheet_name='Overall')
@@ -1090,7 +1089,7 @@ def CURATE_assisted_result_distribution(method_dat, method_string):
 
         return final_df_list
 
-def effect_of_CURATE_RW(plot=True):
+def effect_of_CURATE_RW_old(plot=True):
     """
     Facet grid scatter plot for effect of CURATE.AI-assisted dosing on 
     therapeutic ranges
@@ -1913,6 +1912,111 @@ def barplot_percentage_days_therapeutic_range_per_patient():
     plt.savefig('effect_of_CURATE_per_patient.png', dpi=500, facecolor='w', bbox_inches='tight')
     
     return new_dat
+
+def plot_effect_of_CURATE():
+    """
+    Facetgrid scatter plot of effect of CURATE on all data.
+
+    Output:
+    - Plot (saved)
+    - Dataframe used to create the plot
+    """
+    
+    df = create_df_for_CURATE_assessment()
+
+    # Add column of 'Effect of CURATE.AI-assisted dosing' and 
+    # add column for dose range
+    df['Effect of CURATE.AI-assisted dosing'] = ""
+
+    for i in range(len(df)):
+        if (df.effect_of_CURATE[i] == 'Unaffected') & (df.therapeutic_range[i] == True):
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as therapeutic range'
+        elif (df.effect_of_CURATE[i] == 'Unaffected') & (df.therapeutic_range[i] == False):
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as non-therapeutic range'
+        elif df.effect_of_CURATE[i] == 'Improve':
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Improve to therapeutic range'
+        else:
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Worsen to non-therapeutic range'
+
+    # Rename column in df from 'pred_day' to 'day' before merging
+    df = df.rename(columns={'pred_day':'day'})
+
+    # Subset columns
+    df = df[['patient', 'day', 'Effect of CURATE.AI-assisted dosing']]
+
+    # Import all data
+    all_data = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+
+    # Subset patient, day, response, dose 
+    all_data = all_data[['patient', 'day', 'response', 'dose']]
+
+    # Add therapeutic range column
+    all_data['therapeutic_range'] = ""
+    for i in range(len(all_data)):
+        if (all_data.response[i] >= therapeutic_range_lower_limit) & (all_data.response[i] <= therapeutic_range_upper_limit):
+            all_data.loc[i, 'therapeutic_range'] = 'therapeutic'
+        else:
+            all_data.loc[i, 'therapeutic_range'] = 'non_therapeutic'
+
+    # Merge on all columns in all_data
+    combined_dat = all_data.merge(df, how='left', on=['patient', 'day'])
+
+    # Add dose range column and fill in 'Effect of CURATE'
+    combined_dat['Dose range'] = ""
+
+    for i in range(len(combined_dat)):
+        if combined_dat.dose[i] < low_dose_upper_limit:
+            combined_dat.loc[i, 'Dose range'] = 'Low'
+        elif combined_dat.dose[i] < medium_dose_upper_limit:
+            combined_dat.loc[i, 'Dose range'] = 'Medium'
+        else: 
+            combined_dat.loc[i, 'Dose range'] = 'High'
+
+        if str(combined_dat['Effect of CURATE.AI-assisted dosing'][i])=='nan':
+            if combined_dat.therapeutic_range[i] == 'therapeutic':
+                combined_dat.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as therapeutic range'
+            else:
+                combined_dat.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as non-therapeutic range' 
+
+    # Rename patients
+    combined_dat['patient'] = combined_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                                133:15, 138:16})
+
+    # Plot
+    sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
+    hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
+                'Improve to therapeutic range', 'Worsen to non-therapeutic range']
+    palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
+            sns.color_palette()[3]]
+
+    # Scatter point
+    g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
+                    hue_order=hue_order, col='patient', palette=palette,\
+                    col_wrap=4, style='Dose range', height=3, aspect=1, s=80)
+
+    # Move legend below plot
+    sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
+
+    # Titles and labels
+    g.set_titles('Patient {col_name}')
+    g.set(yticks=np.arange(0,math.ceil(max(combined_dat['response'])),4),
+        xticks=np.arange(0,max(combined_dat.day),step=5))
+    g.set_ylabels('Tacrolimus level (ng/ml)')
+    g.set_xlabels('Day')
+
+    # Add gray region for therapeutic range
+    for ax in g.axes:
+        ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+
+    legend1 = plt.legend()
+    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                        label='Therapeutic range', alpha=.2)]
+    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
+
+    plt.savefig('effect_of_CURATE.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    return combined_dat
 
 # LOOCV for all methods
 
