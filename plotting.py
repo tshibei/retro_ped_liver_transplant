@@ -89,6 +89,499 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
     with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
         df.to_excel(writer, sheet_name='data', index=False)
 
+# Most updated graphs
+def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
+    """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
+        
+    # Plot individual profiles
+    dat = pd.read_excel(file_string, sheet_name='data')
+
+    # Create within-range column for color
+    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+
+    # Create low/med/high dose column
+    dat['dose_range'] = ""
+    for i in range(len(dat)):
+        if dat.dose[i] < low_dose_upper_limit:
+            dat.loc[i, 'dose_range'] = 'Low'
+        elif dat.dose[i] < medium_dose_upper_limit:
+            dat.loc[i, 'dose_range'] = 'Medium'
+        else:
+            dat.loc[i, 'dose_range'] = 'High'
+
+    # Rename columns and entries
+    new_dat = dat.copy()
+    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
+    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
+    new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
+    new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                                133:15, 138:16})
+
+    if plot == True:
+
+        # Add fake row with empty data under response to structure legend columns
+        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, "", "Low"]
+        
+        # Plot tac levels by day
+        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
+
+        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose range',
+                height=3, aspect=1,s=80, palette=['tab:blue','tab:orange','white'])
+        
+        # Add gray region for therapeutic range
+        for ax in g.axes:
+            ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
+        
+        g.set_titles('Patient {col_name}')
+        g.set_ylabels('Tacrolimus level (ng/ml)')
+        g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),4),
+            xticks=np.arange(0, max(new_dat.Day+2), step=5))
+        
+        # Move legend below plot
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.18,-0.05), ncol=2)
+        
+        legend1 = plt.legend()
+        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                            label='Region within therapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.75,-0.32), loc='upper left', frameon=False)
+
+        plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+        
+        # Remove fake row before end of function
+        new_dat = new_dat[:-1]
+
+    return new_dat
+
+def ideal_over_under_pred(file_string='output_dose_by_body_weight.xlsx', plot=False):
+    """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
+
+    # Calculate % of predictions within acceptable error, overprediction, and underprediction
+    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x >= -1.5) & (x <= 2)).sum()/ x.count()*100).reset_index()
+    ideal['result'] = 'ideal'
+    over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -1.5)).sum()/ x.count()*100).reset_index()
+    over['result'] = 'over'
+    under = dat.groupby('method')['deviation'].apply(lambda x: ((x >2)).sum()/ x.count()*100).reset_index()
+    under['result'] = 'under'
+
+    # Combine results into a dataframe
+    metric_df = pd.concat([ideal, over, under]).reset_index(drop=True)
+
+    # # Perform shapiro test (result: some pvalue < 0.05, some > 0.05)
+    # kstest_result = metric_df.groupby(['pop_tau', 'result'])['deviation'].apply(lambda x: stats.shapiro(x).pvalue < 0.05).reset_index()
+
+    # # Describe ideal/over/under prediction results
+    # pd.set_option('display.float_format', lambda x: '%.2f' % x)
+    # metric_df.groupby(['pop_tau', 'result'])['deviation'].describe()
+
+    if plot == True:
+        # Plot
+        sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
+        sns.set_style("white")
+        ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'pop tau'], x='method', 
+                        y='deviation', hue='result', kind='bar', height=5,
+                        aspect=2)
+
+        ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
+            title='No. of Ideal/Over/Under Predictions (%) (Pop Tau Methods)')
+        ax.set_xticklabels(rotation=90)
+        ax._legend.set_title('Prediction')
+        plt.savefig('pop_tau_predictions.png', bbox_inches='tight', dpi=300)
+
+        sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
+        sns.set_style("white")
+        ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'no pop tau'], x='method', 
+                        y='deviation', hue='result', kind='bar', height=5,
+                        aspect=2)
+        ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
+            title='No. of Ideal/Over/Under Predictions (%)')
+        ax.set_xticklabels(rotation=90)
+        ax._legend.set_title('Prediction')
+        plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
+
+    # Rename 'deviation' column to 'perc_predictions'
+    metric_df.columns = ['method', 'perc_predictions', 'result']
+
+    return metric_df
+
+def ideal_over_under_pred_RW(plot=False):
+    """Bar plot of percentage of ideal/over/under predictions, by method"""
+    
+    dat = ideal_over_under_pred()
+    
+    # Subset PPM and RW method
+    dat = dat[(dat.method=='L_RW_wo_origin')]
+
+    # Rename columns
+    dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'Predictions (%)'})
+    dat['Result'] = dat['Result'].map({'ideal':'Ideal predictions', 'over':'Over predictions', 'under':'Under predictions'})
+    dat['Predictions (%)'] = dat['Predictions (%)'].round(2)
+
+    return dat
+
+def effect_of_CURATE():
+    """
+    Facetgrid scatter plot of effect of CURATE on all data.
+
+    Output:
+    - Plot (saved)
+    - Dataframe used to create the plot
+    """
+    
+    df = create_df_for_CURATE_assessment()
+
+    # Add column of 'Effect of CURATE.AI-assisted dosing' and 
+    # add column for dose range
+    df['Effect of CURATE.AI-assisted dosing'] = ""
+
+    for i in range(len(df)):
+        if (df.effect_of_CURATE[i] == 'Unaffected') & (df.therapeutic_range[i] == True):
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as therapeutic range'
+        elif (df.effect_of_CURATE[i] == 'Unaffected') & (df.therapeutic_range[i] == False):
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as non-therapeutic range'
+        elif df.effect_of_CURATE[i] == 'Improve':
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Improve to therapeutic range'
+        else:
+            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Worsen to non-therapeutic range'
+
+    # Rename column in df from 'pred_day' to 'day' before merging
+    df = df.rename(columns={'pred_day':'day'})
+
+    # Subset columns
+    df = df[['patient', 'day', 'Effect of CURATE.AI-assisted dosing']]
+
+    # Import all data
+    all_data = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+
+    # Subset patient, day, response, dose 
+    all_data = all_data[['patient', 'day', 'response', 'dose']]
+
+    # Add therapeutic range column
+    all_data['therapeutic_range'] = ""
+    for i in range(len(all_data)):
+        if (all_data.response[i] >= therapeutic_range_lower_limit) & (all_data.response[i] <= therapeutic_range_upper_limit):
+            all_data.loc[i, 'therapeutic_range'] = 'therapeutic'
+        else:
+            all_data.loc[i, 'therapeutic_range'] = 'non_therapeutic'
+
+    # Merge on all columns in all_data
+    combined_dat = all_data.merge(df, how='left', on=['patient', 'day'])
+
+    # Add dose range column and fill in 'Effect of CURATE'
+    combined_dat['Dose range'] = ""
+
+    for i in range(len(combined_dat)):
+        if combined_dat.dose[i] < low_dose_upper_limit:
+            combined_dat.loc[i, 'Dose range'] = 'Low'
+        elif combined_dat.dose[i] < medium_dose_upper_limit:
+            combined_dat.loc[i, 'Dose range'] = 'Medium'
+        else: 
+            combined_dat.loc[i, 'Dose range'] = 'High'
+
+        if str(combined_dat['Effect of CURATE.AI-assisted dosing'][i])=='nan':
+            if combined_dat.therapeutic_range[i] == 'therapeutic':
+                combined_dat.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as therapeutic range'
+            else:
+                combined_dat.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as non-therapeutic range' 
+
+    # Rename patients
+    combined_dat['patient'] = combined_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                                133:15, 138:16})
+
+    # Plot
+    sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
+    hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
+                'Improve to therapeutic range', 'Worsen to non-therapeutic range']
+    palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
+            sns.color_palette()[3]]
+
+    # Scatter point
+    g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
+                    hue_order=hue_order, col='patient', palette=palette,\
+                    col_wrap=4, style='Dose range', height=3, aspect=1, s=80)
+
+    # Move legend below plot
+    sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
+
+    # Titles and labels
+    g.set_titles('Patient {col_name}')
+    g.set(yticks=np.arange(0,math.ceil(max(combined_dat['response'])),4),
+        xticks=np.arange(0,max(combined_dat.day),step=5))
+    g.set_ylabels('Tacrolimus level (ng/ml)')
+    g.set_xlabels('Day')
+
+    # Add gray region for therapeutic range
+    for ax in g.axes:
+        ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+
+    legend1 = plt.legend()
+    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                        label='Therapeutic range', alpha=.2)]
+    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
+
+    plt.savefig('effect_of_CURATE.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    return combined_dat
+
+def create_df_for_CURATE_assessment():
+    # Import output results
+    dat = pd.read_excel(output, sheet_name='result')
+    dat_dose_by_mg = pd.read_excel(output, sheet_name='clean')
+
+    # Subset L_RW_wo_origin
+    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
+    dat['dose_recommendation_8'] = ""
+    dat['dose_recommendation_10'] = ""
+
+    for i in range(len(dat)):
+
+        # Create function
+        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(dat.dose) + 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        dat.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
+        dat.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
+
+    # Create list of patients
+    list_of_patients = find_list_of_patients()
+
+    # Create list of body weight
+    list_of_body_weight = find_list_of_body_weight()
+
+    # Add body weight column
+    dat['body_weight'] = ""
+
+    for j in range(len(dat)):
+        index_patient = list_of_patients.index(str(dat.patient[j]))
+        dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+
+    # Add dose administered by mg
+    dat_dose_by_mg = dat_dose_by_mg[['day', 'patient', 'dose_mg']]
+    dat_dose_by_mg = dat_dose_by_mg.rename(columns={'day':'pred_day'})
+
+    dat = dat.merge(dat_dose_by_mg, how='left', on=['patient', 'pred_day'])
+
+    # Add dose recommendations by mg
+    dat['possible_doses'] = ""
+    dat['dose_recommendation_mg'] = ""
+    dat['dose_recommendation_body_weight'] = ""
+    for i in range(len(dat)):
+        # Find minimum dose recommendation by mg
+        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
+
+        # Find maximum dose recommendation by mg
+        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
+
+        # Between and inclusive of min_dose_mg and max_dose_mg,
+        # find doses that are multiples of 0.5 mg
+        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
+        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
+
+        if possible_doses.size == 0:
+            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
+
+        # Add to column of possible doses
+        dat.at[i, 'possible_doses'] = possible_doses
+
+        # Add to column of dose recommendation with lowest out of possible doses
+        dat.loc[i, 'dose_recommendation_mg'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+
+        # Add column of dose recommended by multiplying back by body weight
+        dat.loc[i, 'dose_recommendation_body_weight'] = dat.dose_recommendation_mg[i] / dat.body_weight[i]
+
+    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation_mg', 'dose_recommendation_body_weight', 'body_weight']]
+
+    # Add columns for assessment
+    CURATE_assessment['reliable'] = ""
+    CURATE_assessment['accurate'] = ""
+    CURATE_assessment['diff_dose'] = ""
+    CURATE_assessment['therapeutic_range'] = ""
+    CURATE_assessment['actionable'] = ""
+    CURATE_assessment['effect_of_CURATE'] = ""
+
+    for i in range(len(CURATE_assessment)):
+
+        # Reliable
+        if (CURATE_assessment.prediction[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.prediction[i] <= therapeutic_range_upper_limit):
+            prediction_range = 'therapeutic'
+        else:
+            prediction_range = 'non-therapeutic'
+
+        if (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit):
+            response_range = 'therapeutic'
+        else:
+            response_range = 'non-therapeutic'
+
+        reliable = (prediction_range == response_range)
+        CURATE_assessment.loc[i, 'reliable'] = reliable
+
+        # Accurate
+        accurate = (dat.deviation[i] >= overprediction_limit) & (dat.deviation[i] <= underprediction_limit)
+        CURATE_assessment.loc[i, 'accurate'] = accurate
+
+        # Different dose
+        diff_dose = (dat.dose_mg[i] != dat.dose_recommendation_mg[i])
+        CURATE_assessment.loc[i, 'diff_dose'] = diff_dose
+
+        # Therapeutic range
+        therapeutic_range = (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit)
+        CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
+
+        # Actionable
+        actionable = (dat.dose_recommendation_body_weight[i]) < max_dose_recommendation
+        CURATE_assessment.loc[i, 'actionable'] = actionable
+
+        # Effect of CURATE
+        if (reliable == True) & (accurate == True) & (diff_dose == True) & (therapeutic_range == False) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Improve'
+        elif (reliable == True) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        elif (reliable == False) & (accurate == True) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        elif (reliable == False) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        else:
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
+
+    return CURATE_assessment
+
+def values_in_clinically_relevant_flow_chart():
+    
+    """
+    Calculate values for clinically relevant flow chart, in the flow chart boxes, and in additional information
+
+    Output: 
+    - Printed values for flow chart boxes and additional information
+    - Final dataframe with remaining predictions after all exclusions
+    """
+
+    df = create_df_for_CURATE_assessment()
+
+    # 1. Calculate values for clinially relevant flow chart (step 1 of 2)
+
+    total_predictions = len(df)
+    unreliable = len(df[df.reliable==False])
+
+    # Keep reliable predictions
+    df = df[df.reliable==True].reset_index(drop=True)
+
+    reliable = len(df)
+    inaccurate = len(df[df.accurate==False])
+
+    # Keep accurate predictions
+    df = df[df.accurate==True].reset_index(drop=True)
+
+    reliable_accurate = len(df)
+
+    print(f'Flowchart numbers:\ntotal_predictions {total_predictions} | unreliable {unreliable} | reliable {reliable} | inaccurate {inaccurate} | reliable_accurate {reliable_accurate}')
+
+    # 2. Calculate values for additional information
+
+    reliable_accurate_actionable = len(df[df.actionable==True])
+
+    # Keep actionable predictions
+    df = df[df.actionable==True].reset_index(drop=True)
+
+    reliable_accurate_actionable_diff_dose = len(df[df.diff_dose==True])
+
+    # Keep diff dose predictions
+    df = df[df.diff_dose==True].reset_index(drop=True)
+
+    reliable_accurate_actionable_diff_dose_non_therapeutic_range = len(df[df.therapeutic_range==False])
+
+    # Keep non therapeutic range
+    df = df[df.therapeutic_range==False].reset_index(drop=True)
+
+    print(f'\nAdditional information:\nreliable_accurate_actionable {reliable_accurate_actionable} out of {reliable_accurate} |\n\
+    reliable_accurate_actionable_diff_dose {reliable_accurate_actionable_diff_dose} out of {reliable_accurate_actionable} |\n\
+    reliable_accurate_actionable_diff_dose_non_therapeutic_range {reliable_accurate_actionable_diff_dose_non_therapeutic_range} out of {reliable_accurate_actionable_diff_dose}')
+
+    # Add column for difference in doses recommended and administered
+    df['diff_dose_recommended_and_administered'] = df['dose_recommendation_body_weight'] - df['dose']
+
+    median_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['50%']
+    lower_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['25%']
+    upper_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['75%']
+
+    print(f'\nDose recommended minus administered: median {median_difference:.2f} | IQR [{lower_quartile_difference:.2f} - {upper_quartile_difference:.2f}]')
+    
+    return df
+
+def response_vs_dose():
+    """
+    Facetgrid scatter plot of response vs dose, colored by number of days. 
+
+    Note: To plot color bar, uncomment commented code. 
+    """
+    # Plot individual profiles
+    dat = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+
+    # Create within-range column for color
+    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+
+    # Create low/med/high dose column
+    dat['dose_range'] = ""
+    for i in range(len(dat)):
+        if dat.dose[i] < low_dose_upper_limit:
+            dat.loc[i, 'dose_range'] = 'Low'
+        elif dat.dose[i] < medium_dose_upper_limit:
+            dat.loc[i, 'dose_range'] = 'Medium'
+        else:
+            dat.loc[i, 'dose_range'] = 'High'
+
+    # Rename columns and entries
+    new_dat = dat.copy()
+    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
+    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic Range', False: 'Non-therapeutic Range'})
+    new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
+    new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
+                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
+                                                133:15, 138:16})
+    # Plot response vs dose
+    # Settings
+    sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
+
+    # Plot
+    ax = sns.relplot(data=new_dat, x='dose', y='response', hue='Day', col='patient', col_wrap=4, style='Dose range',
+            height=3, aspect=1,s=80)
+
+    # Add gray region for therapeutic range
+    for g in ax.axes:
+        g.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+
+    # Label
+    ax.set_ylabels('Tacrolimus level (ng/ml)')
+    ax.set_titles('Patient {col_name}')
+    ax.set_xlabels('Dose')
+
+    # Legend
+    ax.legend.remove()
+    ax.fig.legend(handles=ax.legend.legendHandles[6:], bbox_to_anchor=(0.9,0.5), loc='center left', frameon=False)
+
+    plt.savefig('response_vs_dose.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    # # Colorbar
+    # norm = plt.Normalize(new_dat.Day.min(), new_dat.Day.max())
+    # sm = plt.cm.ScalarMappable(cmap=sns.cubehelix_palette(as_cmap=True), norm=norm)
+    # sm.set_array([])
+    # colorbar = ax.figure.colorbar(sm, orientation='vertical')
+
+    # plt.savefig('response_vs_dose_colorbar.png', dpi=1000, facecolor='w', bbox_inches='tight')
+    
+    return new_dat
+
+##### Archive
+
 ##### New graphs after meeting with NUH ######
 def cross_val():
     """ Line plot of train and test results of both K-Fold and Leave-One-Out Cross Validation for Pop Tau """
@@ -300,73 +793,6 @@ def RMSE_plot_PPM_RW():
 
     plt.savefig('RMSE_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
     
-    return dat
-
-def ideal_over_under_pred(file_string='output_dose_by_body_weight.xlsx', plot=False):
-    """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
-    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
-
-    # Calculate % of predictions within acceptable error, overprediction, and underprediction
-    ideal = dat.groupby('method')['deviation'].apply(lambda x: ((x >= -1.5) & (x <= 2)).sum()/ x.count()*100).reset_index()
-    ideal['result'] = 'ideal'
-    over = dat.groupby('method')['deviation'].apply(lambda x: ((x < -1.5)).sum()/ x.count()*100).reset_index()
-    over['result'] = 'over'
-    under = dat.groupby('method')['deviation'].apply(lambda x: ((x >2)).sum()/ x.count()*100).reset_index()
-    under['result'] = 'under'
-
-    # Combine results into a dataframe
-    metric_df = pd.concat([ideal, over, under]).reset_index(drop=True)
-
-    # # Perform shapiro test (result: some pvalue < 0.05, some > 0.05)
-    # kstest_result = metric_df.groupby(['pop_tau', 'result'])['deviation'].apply(lambda x: stats.shapiro(x).pvalue < 0.05).reset_index()
-
-    # # Describe ideal/over/under prediction results
-    # pd.set_option('display.float_format', lambda x: '%.2f' % x)
-    # metric_df.groupby(['pop_tau', 'result'])['deviation'].describe()
-
-    if plot == True:
-        # Plot
-        sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
-        sns.set_style("white")
-        ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'pop tau'], x='method', 
-                        y='deviation', hue='result', kind='bar', height=5,
-                        aspect=2)
-
-        ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
-            title='No. of Ideal/Over/Under Predictions (%) (Pop Tau Methods)')
-        ax.set_xticklabels(rotation=90)
-        ax._legend.set_title('Prediction')
-        plt.savefig('pop_tau_predictions.png', bbox_inches='tight', dpi=300)
-
-        sns.set(font_scale=1.8, rc={'figure.figsize':(10,20)})
-        sns.set_style("white")
-        ax = sns.catplot(data=metric_df[metric_df.pop_tau == 'no pop tau'], x='method', 
-                        y='deviation', hue='result', kind='bar', height=5,
-                        aspect=2)
-        ax.set(xlabel=None, ylabel='No. of Predictions (%)', 
-            title='No. of Ideal/Over/Under Predictions (%)')
-        ax.set_xticklabels(rotation=90)
-        ax._legend.set_title('Prediction')
-        plt.savefig('no_pop_tau_predictions.png', bbox_inches='tight', dpi=300)
-
-    # Rename 'deviation' column to 'perc_predictions'
-    metric_df.columns = ['method', 'perc_predictions', 'result']
-
-    return metric_df
-
-def ideal_over_under_pred_RW(plot=False):
-    """Bar plot of percentage of ideal/over/under predictions, by method"""
-    
-    dat = ideal_over_under_pred()
-    
-    # Subset PPM and RW method
-    dat = dat[(dat.method=='L_RW_wo_origin')]
-
-    # Rename columns
-    dat = dat.rename(columns={'result':'Result', 'method':'Method', 'perc_predictions':'Predictions (%)'})
-    dat['Result'] = dat['Result'].map({'ideal':'Ideal predictions', 'over':'Over predictions', 'under':'Under predictions'})
-    dat['Predictions (%)'] = dat['Predictions (%)'].round(2)
-
     return dat
 
 def can_benefit_SOC_predictions(file_string):
@@ -713,69 +1139,6 @@ def LOOCV_PPM_RW(plot=False):
         plt.savefig('LOOCV_PPM_RW.png', dpi=500, facecolor='w', bbox_inches='tight')
 
     return dat
-
-def indiv_profiles_all_data_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
-    """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
-        
-    # Plot individual profiles
-    dat = pd.read_excel(file_string, sheet_name='data')
-
-    # Create within-range column for color
-    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
-
-    # Create low/med/high dose column
-    dat['dose_range'] = ""
-    for i in range(len(dat)):
-        if dat.dose[i] < low_dose_upper_limit:
-            dat.loc[i, 'dose_range'] = 'Low'
-        elif dat.dose[i] < medium_dose_upper_limit:
-            dat.loc[i, 'dose_range'] = 'Medium'
-        else:
-            dat.loc[i, 'dose_range'] = 'High'
-
-    # Rename columns and entries
-    new_dat = dat.copy()
-    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
-    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
-    new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
-    new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
-                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
-                                                133:15, 138:16})
-
-    if plot == True:
-
-        # Add fake row with empty data under response to structure legend columns
-        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, "", "Low"]
-        
-        # Plot tac levels by day
-        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
-
-        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose range',
-                height=3, aspect=1,s=80, palette=['tab:blue','tab:orange','white'])
-        
-        # Add gray region for therapeutic range
-        for ax in g.axes:
-            ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
-        
-        g.set_titles('Patient {col_name}')
-        g.set_ylabels('Tacrolimus level (ng/ml)')
-        g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),4),
-            xticks=np.arange(0, max(new_dat.Day+2), step=5))
-        
-        # Move legend below plot
-        sns.move_legend(g, 'center', bbox_to_anchor=(0.18,-0.05), ncol=2)
-        
-        legend1 = plt.legend()
-        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                            label='Region within therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.75,-0.32), loc='upper left', frameon=False)
-
-        plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
-        
-        # Remove fake row before end of function
-        new_dat = new_dat[:-1]
-
-    return new_dat
 
 def indiv_profiles_all_data_dose_vs_response(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
@@ -1913,110 +2276,6 @@ def barplot_percentage_days_therapeutic_range_per_patient():
     
     return new_dat
 
-def plot_effect_of_CURATE():
-    """
-    Facetgrid scatter plot of effect of CURATE on all data.
-
-    Output:
-    - Plot (saved)
-    - Dataframe used to create the plot
-    """
-    
-    df = create_df_for_CURATE_assessment()
-
-    # Add column of 'Effect of CURATE.AI-assisted dosing' and 
-    # add column for dose range
-    df['Effect of CURATE.AI-assisted dosing'] = ""
-
-    for i in range(len(df)):
-        if (df.effect_of_CURATE[i] == 'Unaffected') & (df.therapeutic_range[i] == True):
-            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as therapeutic range'
-        elif (df.effect_of_CURATE[i] == 'Unaffected') & (df.therapeutic_range[i] == False):
-            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as non-therapeutic range'
-        elif df.effect_of_CURATE[i] == 'Improve':
-            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Improve to therapeutic range'
-        else:
-            df.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Worsen to non-therapeutic range'
-
-    # Rename column in df from 'pred_day' to 'day' before merging
-    df = df.rename(columns={'pred_day':'day'})
-
-    # Subset columns
-    df = df[['patient', 'day', 'Effect of CURATE.AI-assisted dosing']]
-
-    # Import all data
-    all_data = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
-
-    # Subset patient, day, response, dose 
-    all_data = all_data[['patient', 'day', 'response', 'dose']]
-
-    # Add therapeutic range column
-    all_data['therapeutic_range'] = ""
-    for i in range(len(all_data)):
-        if (all_data.response[i] >= therapeutic_range_lower_limit) & (all_data.response[i] <= therapeutic_range_upper_limit):
-            all_data.loc[i, 'therapeutic_range'] = 'therapeutic'
-        else:
-            all_data.loc[i, 'therapeutic_range'] = 'non_therapeutic'
-
-    # Merge on all columns in all_data
-    combined_dat = all_data.merge(df, how='left', on=['patient', 'day'])
-
-    # Add dose range column and fill in 'Effect of CURATE'
-    combined_dat['Dose range'] = ""
-
-    for i in range(len(combined_dat)):
-        if combined_dat.dose[i] < low_dose_upper_limit:
-            combined_dat.loc[i, 'Dose range'] = 'Low'
-        elif combined_dat.dose[i] < medium_dose_upper_limit:
-            combined_dat.loc[i, 'Dose range'] = 'Medium'
-        else: 
-            combined_dat.loc[i, 'Dose range'] = 'High'
-
-        if str(combined_dat['Effect of CURATE.AI-assisted dosing'][i])=='nan':
-            if combined_dat.therapeutic_range[i] == 'therapeutic':
-                combined_dat.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as therapeutic range'
-            else:
-                combined_dat.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as non-therapeutic range' 
-
-    # Rename patients
-    combined_dat['patient'] = combined_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
-                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
-                                                133:15, 138:16})
-
-    # Plot
-    sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
-    hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
-                'Improve to therapeutic range', 'Worsen to non-therapeutic range']
-    palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
-            sns.color_palette()[3]]
-
-    # Scatter point
-    g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
-                    hue_order=hue_order, col='patient', palette=palette,\
-                    col_wrap=4, style='Dose range', height=3, aspect=1, s=80)
-
-    # Move legend below plot
-    sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
-
-    # Titles and labels
-    g.set_titles('Patient {col_name}')
-    g.set(yticks=np.arange(0,math.ceil(max(combined_dat['response'])),4),
-        xticks=np.arange(0,max(combined_dat.day),step=5))
-    g.set_ylabels('Tacrolimus level (ng/ml)')
-    g.set_xlabels('Day')
-
-    # Add gray region for therapeutic range
-    for ax in g.axes:
-        ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
-
-    legend1 = plt.legend()
-    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                        label='Therapeutic range', alpha=.2)]
-    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
-
-    plt.savefig('effect_of_CURATE.png', dpi=500, facecolor='w', bbox_inches='tight')
-
-    return combined_dat
 
 # LOOCV for all methods
 
@@ -2206,68 +2465,6 @@ def CURATE_could_be_useful(file_string=output):
 
     return dat
 
-def values_in_clinically_relevant_flow_chart():
-    
-    """
-    Calculate values for clinically relevant flow chart, in the flow chart boxes, and in additional information
-
-    Output: 
-    - Printed values for flow chart boxes and additional information
-    - Final dataframe with remaining predictions after all exclusions
-    """
-
-    df = create_df_for_CURATE_assessment()
-
-    # 1. Calculate values for clinially relevant flow chart (step 1 of 2)
-
-    total_predictions = len(df)
-    unreliable = len(df[df.reliable==False])
-
-    # Keep reliable predictions
-    df = df[df.reliable==True].reset_index(drop=True)
-
-    reliable = len(df)
-    inaccurate = len(df[df.accurate==False])
-
-    # Keep accurate predictions
-    df = df[df.accurate==True].reset_index(drop=True)
-
-    reliable_accurate = len(df)
-
-    print(f'Flowchart numbers:\ntotal_predictions {total_predictions} | unreliable {unreliable} | reliable {reliable} | inaccurate {inaccurate} | reliable_accurate {reliable_accurate}')
-
-    # 2. Calculate values for additional information
-
-    reliable_accurate_actionable = len(df[df.actionable==True])
-
-    # Keep actionable predictions
-    df = df[df.actionable==True].reset_index(drop=True)
-
-    reliable_accurate_actionable_diff_dose = len(df[df.diff_dose==True])
-
-    # Keep diff dose predictions
-    df = df[df.diff_dose==True].reset_index(drop=True)
-
-    reliable_accurate_actionable_diff_dose_non_therapeutic_range = len(df[df.therapeutic_range==False])
-
-    # Keep non therapeutic range
-    df = df[df.therapeutic_range==False].reset_index(drop=True)
-
-    print(f'\nAdditional information:\nreliable_accurate_actionable {reliable_accurate_actionable} out of {reliable_accurate} |\n\
-    reliable_accurate_actionable_diff_dose {reliable_accurate_actionable_diff_dose} out of {reliable_accurate_actionable} |\n\
-    reliable_accurate_actionable_diff_dose_non_therapeutic_range {reliable_accurate_actionable_diff_dose_non_therapeutic_range} out of {reliable_accurate_actionable_diff_dose}')
-
-    # Add column for difference in doses recommended and administered
-    df['diff_dose_recommended_and_administered'] = df['dose_recommendation_body_weight'] - df['dose']
-
-    median_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['50%']
-    lower_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['25%']
-    upper_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['75%']
-
-    print(f'\nDose recommended minus administered: median {median_difference:.2f} | IQR [{lower_quartile_difference:.2f} - {upper_quartile_difference:.2f}]')
-    
-    return df
-
 def clinically_relevant_flow_chart_old():
 
     dat = CURATE_could_be_useful()
@@ -2432,136 +2629,6 @@ def group_comparison(file_string):
 
     print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
     print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
-
-def create_df_for_CURATE_assessment():
-    # Import output results
-    dat = pd.read_excel(output, sheet_name='result')
-    dat_dose_by_mg = pd.read_excel(output, sheet_name='clean')
-
-    # Subset L_RW_wo_origin
-    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
-
-    # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
-    dat['dose_recommendation_8'] = ""
-    dat['dose_recommendation_10'] = ""
-
-    for i in range(len(dat)):
-
-        # Create function
-        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
-        coeff = coeff[~np.isnan(coeff)]
-        p = np.poly1d(coeff)
-        x = np.linspace(0, max(dat.dose) + 2)
-        y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
-
-        dat.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
-        dat.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
-
-    # Create list of patients
-    list_of_patients = find_list_of_patients()
-
-    # Create list of body weight
-    list_of_body_weight = find_list_of_body_weight()
-
-    # Add body weight column
-    dat['body_weight'] = ""
-
-    for j in range(len(dat)):
-        index_patient = list_of_patients.index(str(dat.patient[j]))
-        dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
-
-    # Add dose administered by mg
-    dat_dose_by_mg = dat_dose_by_mg[['day', 'patient', 'dose_mg']]
-    dat_dose_by_mg = dat_dose_by_mg.rename(columns={'day':'pred_day'})
-
-    dat = dat.merge(dat_dose_by_mg, how='left', on=['patient', 'pred_day'])
-
-    # Add dose recommendations by mg
-    dat['possible_doses'] = ""
-    dat['dose_recommendation_mg'] = ""
-    dat['dose_recommendation_body_weight'] = ""
-    for i in range(len(dat)):
-        # Find minimum dose recommendation by mg
-        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
-
-        # Find maximum dose recommendation by mg
-        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
-
-        # Between and inclusive of min_dose_mg and max_dose_mg,
-        # find doses that are multiples of 0.5 mg
-        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
-        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
-
-        if possible_doses.size == 0:
-            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
-
-        # Add to column of possible doses
-        dat.at[i, 'possible_doses'] = possible_doses
-
-        # Add to column of dose recommendation with lowest out of possible doses
-        dat.loc[i, 'dose_recommendation_mg'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
-
-        # Add column of dose recommended by multiplying back by body weight
-        dat.loc[i, 'dose_recommendation_body_weight'] = dat.dose_recommendation_mg[i] / dat.body_weight[i]
-
-    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation_mg', 'dose_recommendation_body_weight', 'body_weight']]
-
-    # Add columns for assessment
-    CURATE_assessment['reliable'] = ""
-    CURATE_assessment['accurate'] = ""
-    CURATE_assessment['diff_dose'] = ""
-    CURATE_assessment['therapeutic_range'] = ""
-    CURATE_assessment['actionable'] = ""
-    CURATE_assessment['effect_of_CURATE'] = ""
-
-    for i in range(len(CURATE_assessment)):
-
-        # Reliable
-        if (CURATE_assessment.prediction[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.prediction[i] <= therapeutic_range_upper_limit):
-            prediction_range = 'therapeutic'
-        else:
-            prediction_range = 'non-therapeutic'
-
-        if (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit):
-            response_range = 'therapeutic'
-        else:
-            response_range = 'non-therapeutic'
-
-        reliable = (prediction_range == response_range)
-        CURATE_assessment.loc[i, 'reliable'] = reliable
-
-        # Accurate
-        accurate = (dat.deviation[i] >= overprediction_limit) & (dat.deviation[i] <= underprediction_limit)
-        CURATE_assessment.loc[i, 'accurate'] = accurate
-
-        # Different dose
-        diff_dose = (dat.dose_mg[i] != dat.dose_recommendation_mg[i])
-        CURATE_assessment.loc[i, 'diff_dose'] = diff_dose
-
-        # Therapeutic range
-        therapeutic_range = (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit)
-        CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
-
-        # Actionable
-        actionable = (dat.dose_recommendation_body_weight[i]) < max_dose_recommendation
-        CURATE_assessment.loc[i, 'actionable'] = actionable
-
-        # Effect of CURATE
-        if (reliable == True) & (accurate == True) & (diff_dose == True) & (therapeutic_range == False) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Improve'
-        elif (reliable == True) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
-        elif (reliable == False) & (accurate == True) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
-        elif (reliable == False) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
-        else:
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
-
-    return CURATE_assessment
 
 ##### Meeting with NUH ######
 
