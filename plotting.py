@@ -2102,7 +2102,69 @@ def CURATE_could_be_useful(file_string=output):
 
     return dat
 
-def clinically_relevant_flow_chart():
+def values_in_clinically_relevant_flow_chart():
+    
+    """
+    Calculate values for clinically relevant flow chart, in the flow chart boxes, and in additional information
+
+    Output: 
+    - Printed values for flow chart boxes and additional information
+    - Final dataframe with remaining predictions after all exclusions
+    """
+
+    df = create_df_for_CURATE_assessment()
+
+    # 1. Calculate values for clinially relevant flow chart (step 1 of 2)
+
+    total_predictions = len(df)
+    unreliable = len(df[df.reliable==False])
+
+    # Keep reliable predictions
+    df = df[df.reliable==True].reset_index(drop=True)
+
+    reliable = len(df)
+    inaccurate = len(df[df.accurate==False])
+
+    # Keep accurate predictions
+    df = df[df.accurate==True].reset_index(drop=True)
+
+    reliable_accurate = len(df)
+
+    print(f'Flowchart numbers:\ntotal_predictions {total_predictions} | unreliable {unreliable} | reliable {reliable} | inaccurate {inaccurate} | reliable_accurate {reliable_accurate}')
+
+    # 2. Calculate values for additional information
+
+    reliable_accurate_actionable = len(df[df.actionable==True])
+
+    # Keep actionable predictions
+    df = df[df.actionable==True].reset_index(drop=True)
+
+    reliable_accurate_actionable_diff_dose = len(df[df.diff_dose==True])
+
+    # Keep diff dose predictions
+    df = df[df.diff_dose==True].reset_index(drop=True)
+
+    reliable_accurate_actionable_diff_dose_non_therapeutic_range = len(df[df.therapeutic_range==False])
+
+    # Keep non therapeutic range
+    df = df[df.therapeutic_range==False].reset_index(drop=True)
+
+    print(f'\nAdditional information:\nreliable_accurate_actionable {reliable_accurate_actionable} out of {reliable_accurate} |\n\
+    reliable_accurate_actionable_diff_dose {reliable_accurate_actionable_diff_dose} out of {reliable_accurate_actionable} |\n\
+    reliable_accurate_actionable_diff_dose_non_therapeutic_range {reliable_accurate_actionable_diff_dose_non_therapeutic_range} out of {reliable_accurate_actionable_diff_dose}')
+
+    # Add column for difference in doses recommended and administered
+    df['diff_dose_recommended_and_administered'] = df['dose_recommendation_body_weight'] - df['dose']
+
+    median_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['50%']
+    lower_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['25%']
+    upper_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['75%']
+
+    print(f'\nDose recommended minus administered: median {median_difference:.2f} | IQR [{lower_quartile_difference:.2f} - {upper_quartile_difference:.2f}]')
+    
+    return df
+
+def clinically_relevant_flow_chart_old():
 
     dat = CURATE_could_be_useful()
 
@@ -2315,7 +2377,8 @@ def create_df_for_CURATE_assessment():
 
     # Add dose recommendations by mg
     dat['possible_doses'] = ""
-    dat['dose_recommendation'] = ""
+    dat['dose_recommendation_mg'] = ""
+    dat['dose_recommendation_body_weight'] = ""
     for i in range(len(dat)):
         # Find minimum dose recommendation by mg
         min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
@@ -2335,9 +2398,12 @@ def create_df_for_CURATE_assessment():
         dat.at[i, 'possible_doses'] = possible_doses
 
         # Add to column of dose recommendation with lowest out of possible doses
-        dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+        dat.loc[i, 'dose_recommendation_mg'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
 
-    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation', 'body_weight']]
+        # Add column of dose recommended by multiplying back by body weight
+        dat.loc[i, 'dose_recommendation_body_weight'] = dat.dose_recommendation_mg[i] / dat.body_weight[i]
+
+    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation_mg', 'dose_recommendation_body_weight', 'body_weight']]
 
     # Add columns for assessment
     CURATE_assessment['reliable'] = ""
@@ -2368,7 +2434,7 @@ def create_df_for_CURATE_assessment():
         CURATE_assessment.loc[i, 'accurate'] = accurate
 
         # Different dose
-        diff_dose = (dat.dose_mg[i] != dat.dose_recommendation[i])
+        diff_dose = (dat.dose_mg[i] != dat.dose_recommendation_mg[i])
         CURATE_assessment.loc[i, 'diff_dose'] = diff_dose
 
         # Therapeutic range
@@ -2376,7 +2442,7 @@ def create_df_for_CURATE_assessment():
         CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
 
         # Actionable
-        actionable = (dat.dose_recommendation[i] / dat.body_weight[i]) < max_dose_recommendation
+        actionable = (dat.dose_recommendation_body_weight[i]) < max_dose_recommendation
         CURATE_assessment.loc[i, 'actionable'] = actionable
 
         # Effect of CURATE
