@@ -25,6 +25,7 @@ max_dose_recommendation = 0.85
 minimum_capsule = 0.5
 therapeutic_range_upper_limit = 10
 therapeutic_range_lower_limit = 8
+dosing_strategy_cutoff = 0.4
 
 # Create lists
 def find_list_of_body_weight():
@@ -89,7 +90,7 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
     with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
         df.to_excel(writer, sheet_name='data', index=False)
 
-# Most updated graphs
+# Most updated code
 def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
         
@@ -579,6 +580,74 @@ def response_vs_dose():
     # plt.savefig('response_vs_dose_colorbar.png', dpi=1000, facecolor='w', bbox_inches='tight')
     
     return new_dat
+
+def values_by_dosing_strategy():
+    """
+    Find therapeutic range values by dosing strategy
+
+    Output: 
+    - Printed values of number of patients, first day 
+    to achieve therapeutic range, and percentage of days in
+    therapeutic range, by dosing strategy
+    - combined_df: final dataframe of all values by dosing
+    strategy
+    """
+
+    # Import data and list of patients
+    df = import_raw_data_including_non_ideal()
+    list_of_patients = find_list_of_patients()
+
+    # Create therapeutic range column
+    df['therapeutic_range'] = ""
+    for i in range(len(df)):
+        if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
+            df.loc[i, 'therapeutic_range'] = 'therapeutic'
+        else:
+            df.loc[i, 'therapeutic_range'] = 'non-therapeutic'
+
+    # Find percentage of therapeutic range per patient
+    perc_therapeutic_range = df.groupby('patient')['therapeutic_range'].apply(lambda x: (x=='therapeutic').sum()/x.count()*100)
+    perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
+    perc_therapeutic_range = perc_therapeutic_range.rename(columns={'therapeutic_range':'perc_therapeutic_range'})
+
+    # Find first day of achieving therapeutic range per patient
+    first_day_of_therapeutic_range = df[df.therapeutic_range=='therapeutic'].groupby('patient')['day'].first()
+    first_day_of_therapeutic_range = first_day_of_therapeutic_range.to_frame().reset_index()
+    first_day_of_therapeutic_range = first_day_of_therapeutic_range.rename(columns={'day':'first_day_therapeutic_range'})
+
+    # Categorise patients
+    dosing_strategy = df.groupby('patient')['dose'].apply(lambda x: \
+                                                          'distributed' if ((x.max()-x.min()) >= dosing_strategy_cutoff) \
+                                                          else 'repeated')
+    dosing_strategy = dosing_strategy.to_frame().reset_index()
+    dosing_strategy = dosing_strategy.rename(columns={'dose':'dosing_strategy'})
+
+    # Merge all three dataframes
+    combined_df = dosing_strategy.merge(first_day_of_therapeutic_range, how='left', on='patient')
+    combined_df = combined_df.merge(perc_therapeutic_range, how='left', on='patient')
+
+    print(f'Repeated:\nN = {combined_df.dosing_strategy.value_counts().loc["repeated"]}\n\
+    First day to achieve therapeutic range: \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
+    Days in therapeutic range (%): \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
+
+    print(f'\nDistributed:\nN = {combined_df.dosing_strategy.value_counts().loc["distributed"]}\n\
+    First day to achieve therapeutic range: \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
+    Days in therapeutic range (%): \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
+
+    return combined_df
+
 
 ##### Archive
 
