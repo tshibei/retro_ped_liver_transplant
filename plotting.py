@@ -61,6 +61,10 @@ def import_raw_data_including_non_ideal():
 
     return df
 
+def import_CURATE_results():
+    df = pd.read_excel('output_dose_by_body_weight.xlsx', sheet_name='result')
+    return df
+
 # Edit excel sheets
 def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
     
