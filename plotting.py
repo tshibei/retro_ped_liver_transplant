@@ -652,6 +652,31 @@ def values_by_dosing_strategy():
 
     return combined_df
 
+def extreme_prediction_errors():
+    """
+    Analysis of extreme prediction errors
+    Output: 
+    - Printed values of upper quartile of 
+    absolute prediction errors, and distribution within
+    extreme prediction errors from the upper quartile.
+    """
+
+    df = import_raw_data_including_non_ideal()
+
+    # Subset RW
+    df = df[df.method=='L_RW_wo_origin']
+
+    upper_quartile = df.abs_deviation.describe().loc['75%']
+    print(f'upper quartile: {upper_quartile:.2f}\n')
+
+    # Extract predictions with deviation higher than upper quartile
+    extreme_prediction_errors = df[df.abs_deviation>upper_quartile]
+
+    print(f'distribution within extreme prediction errors: {extreme_prediction_errors["abs_deviation"].describe().loc["50%"]:.2f}\
+     [IQR {extreme_prediction_errors["abs_deviation"].describe().loc["25%"]:.2f} - \
+     {extreme_prediction_errors["abs_deviation"].describe().loc["75%"]:.2f}]')
+
+    extreme_prediction_errors[['patient','pred_day','abs_deviation']]
 
 ##### Archive
 
