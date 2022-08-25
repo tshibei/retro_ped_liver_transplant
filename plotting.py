@@ -14,7 +14,8 @@ from Profile_Generation import *
 from openpyxl import load_workbook
 
 # Define file names
-output = 'output_dose_by_body_weight.xlsx'
+output_file = 'output.xlsx'
+raw_data_file = 'Retrospective Liver Transplant Data - edited.xlsx'
 
 # Define clinically relevant parameters
 low_dose_upper_limit = 0.3
@@ -30,14 +31,14 @@ dosing_strategy_cutoff = 0.4
 # Create lists
 def find_list_of_body_weight():
 
-    xl = pd.ExcelFile('Retrospective Liver Transplant Data.xlsx')
+    xl = pd.ExcelFile(raw_data_file)
     excel_sheet_names = xl.sheet_names
 
     list_of_body_weight = []
 
     # Create list of body_weight
     for sheet in excel_sheet_names:    
-        data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', sheet_name=sheet, index_col=None, usecols = "C", nrows=15)
+        data = pd.read_excel(raw_data_file, sheet_name=sheet, index_col=None, usecols = "C", nrows=15)
         data = data.reset_index(drop=True)
         list_of_body_weight.append(data['Unnamed: 2'][13])
 
@@ -50,7 +51,7 @@ def find_list_of_patients():
     list_of_patients = []
 
     # Create list of patients
-    wb = load_workbook('Retrospective Liver Transplant Data.xlsx', read_only=True)
+    wb = load_workbook(raw_data_file, read_only=True)
     list_of_patients = wb.sheetnames
 
     return list_of_patients
@@ -62,7 +63,7 @@ def import_raw_data_including_non_ideal():
     return df
 
 def import_CURATE_results():
-    df = pd.read_excel('output_dose_by_body_weight.xlsx', sheet_name='result')
+    df = pd.read_excel(output_file, sheet_name='result')
     return df
 
 # Edit excel sheets
@@ -93,6 +94,94 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
 
     with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
         df.to_excel(writer, sheet_name='data', index=False)
+
+# Create excel sheets
+def all_data():
+    """
+    Clean raw data and label which are ideal or non-ideal.
+    Export all data to excel.
+    
+    Output: 
+    - Dataframe of all cleaned raw data with label of ideal/non-ideal.
+    - 'all_data.xlsx' with dataframe
+    """
+
+    # Create dataframe from all sheets
+    list_of_patients = find_list_of_patients()
+    list_of_body_weight = find_list_of_body_weight()
+
+    df = pd.DataFrame()
+
+    for patient in list_of_patients:
+        patient_df = pd.read_excel('Retrospective Liver Transplant Data - edited.xlsx', sheet_name=patient, skiprows=17)
+        patient_df['patient'] = patient
+        df = pd.concat([df, patient_df])
+
+    df.reset_index(drop=True)
+    df['patient'] = df['patient'].astype(int)
+
+    # Subset dataframe
+    df = df[['Day #', 'Tac level (prior to am dose)', 'Eff 24h Tac Dose', 'patient']]
+
+    # Shift dose column
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].shift(1)
+
+    # Remove "mg"/"ng" from dose
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('ng', '')
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
+
+    # Rename columns
+    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', 'Eff 24h Tac Dose':'dose_mg'})
+
+    # Import output dataframe from 'clean'
+    ideal_df = pd.read_excel(output_file, sheet_name='clean')
+
+    # Add ideal column == TRUE
+    ideal_df['ideal'] = True
+
+    # Subset columns
+    ideal_df = ideal_df[['day', 'patient', 'ideal']]
+
+    # Merge dataframes
+    combined_df = df.merge(ideal_df, how='left', on=['day', 'patient'])
+
+    # Fill in ideal column with False if NaN
+    combined_df['ideal'] = combined_df['ideal'].fillna(False)
+
+    # Fill in body weight
+    combined_df['body_weight'] = ""
+
+    for i in range(len(combined_df)):
+        # Find index of patient in list_of_patients
+        index = list_of_patients.index(str(combined_df.patient[i]))
+        body_weight = list_of_body_weight[index]    
+
+        # Add body weight to column
+        combined_df.loc[i, 'body_weight'] = body_weight
+
+    # Add column 'dose' by dividing dose_mg by body weight
+    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
+    combined_df['dose_mg'] = combined_df['dose_mg'].astype(float)
+    combined_df['dose'] = combined_df['dose_mg'] / combined_df['body_weight']
+
+    # Clean up response column
+    for i in range(len(combined_df)):
+
+        # For response column, if there is a '/', take first value
+        if '/' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = combined_df.response[i].split('/')[0]
+        else: 
+            combined_df.loc[i, 'response'] = combined_df.response[i]
+
+        # If response is <2, which means contain '<', label as NaN
+        if '<' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = np.nan
+
+    # Export to excel
+    combined_df.to_excel(r'all_data.xlsx', index = False, header=True)
+    
+    return combined_df
 
 # Most updated code
 def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
@@ -158,7 +247,7 @@ def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
 
     return new_dat
 
-def ideal_over_under_pred(file_string='output_dose_by_body_weight.xlsx', plot=False):
+def ideal_over_under_pred(file_string=output_file, plot=False):
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
     dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
@@ -332,8 +421,8 @@ def effect_of_CURATE():
 
 def create_df_for_CURATE_assessment():
     # Import output results
-    dat = pd.read_excel(output, sheet_name='result')
-    dat_dose_by_mg = pd.read_excel(output, sheet_name='clean')
+    dat = pd.read_excel(output_file, sheet_name='result')
+    dat_dose_by_mg = pd.read_excel(output_file, sheet_name='clean')
 
     # Subset L_RW_wo_origin
     dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
@@ -1665,7 +1754,7 @@ def effect_of_CURATE_RW_old(plot=True):
 
     return combined_dat
 
-def read_file_and_remove_unprocessed_pop_tau(file_string=output, sheet_string='result'):
+def read_file_and_remove_unprocessed_pop_tau(file_string=output_file, sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 
     # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
@@ -1928,7 +2017,7 @@ def case_series_118(plot=False):
     colors representing prediction days, and number circles for the day from which
     the dose-response pairs were obtained from.
     """
-    dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='result')
+    dat = pd.read_excel(output_file, sheet_name='result')
     # Subset L_RW_wo_origin and patient 118
     dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==118)]
 
@@ -2146,7 +2235,7 @@ def case_series_118_repeated_dosing_dose_vs_day():
     """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
     
     dat_original, combined_df = case_series_118()
-    clean_dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+    clean_dat = pd.read_excel(output_file, sheet_name='clean')
     
     # Subset pred_days with repeated dose of 6mg
     dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)]
@@ -2186,7 +2275,7 @@ def case_series_118_repeated_dosing_dose_vs_day():
 def case_series_118_repeated_dosing_response_vs_dose():
     """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
     dat_original, combined_df = case_series_118()
-    clean_dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='clean')
+    clean_dat = pd.read_excel(output_file, sheet_name='clean')
 
     # Subset pred_days with repeated dose of 6mg
     dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)].reset_index(drop=True)
@@ -2472,7 +2561,7 @@ def num_patients_and_list(method, linear_patient_list, quad_patient_list):
 
 ##### ANALYSIS
 
-def CURATE_could_be_useful(file_string=output):
+def CURATE_could_be_useful(file_string=output_file):
     """
     Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
     keep those that are useful.
@@ -2596,7 +2685,7 @@ def clinically_relevant_flow_chart_old():
     dat = dat.rename(columns={'pred_day':'day'})
 
     # Add original dose column
-    clean_data = pd.read_excel(output, sheet_name='clean')
+    clean_data = pd.read_excel(output_file, sheet_name='clean')
     combined_data = dat.merge(clean_data[['day', 'patient', 'dose_mg']], how='left', on=['patient', 'day'])
 
     # Declare lists

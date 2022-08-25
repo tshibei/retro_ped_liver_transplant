@@ -49,7 +49,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 # ~5mins
 
 # Execute CURATE without pop tau
-execute_CURATE(pop_tau_string='_by_body_weight_2')
+execute_CURATE(pop_tau_string='')
 
 
 # +
@@ -61,25 +61,3 @@ execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summ
 # Perform LOOCV
 five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
 execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
-
-# +
-a = pd.Series([1,2,3])
-b = pd.Series([4,5,6])
-
-c = pd.DataFrame({'a': a, 'b':b})
-
-# Create extra row with empty cell in b
-c.loc[len(c), 'a'] = ""
-
-c['a'] = c['a'].shift(1)
-
-c
-# -
-
-df = dat.copy()
-df[df.day<3]
-
-
-
-df = values_by_dosing_strategy()
-df

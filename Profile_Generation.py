@@ -387,7 +387,7 @@ def generate_profiles(five_fold_cross_val_results_summary):
     """
 
     # Profile Generation
-    input_file = 'Retrospective Liver Transplant Data.xlsx'
+    input_file = 'Retrospective Liver Transplant Data - edited.xlsx'
     rows_to_skip = 17
 
     # Get list of patients/sheet names
@@ -403,7 +403,7 @@ def generate_profiles(five_fold_cross_val_results_summary):
 
     # Create list of body_weight
     for i in range(len(list_of_patients)):    
-        data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', list_of_patients[i], index_col=None, usecols = "C", nrows=15)
+        data = pd.read_excel(input_file, list_of_patients[i], index_col=None, usecols = "C", nrows=15)
         data = data.reset_index(drop=True)
         list_of_body_weight.append(data['Unnamed: 2'][13])
         
@@ -415,7 +415,7 @@ def generate_profiles(five_fold_cross_val_results_summary):
 
         # Create and clean patient dataframe        
         df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
-        df = clean_data(df, patient)
+        df = clean_data(df)
         df = keep_ideal_data(df, patient, list_of_patient_df)
 
         # Change to dose by body weight
@@ -473,7 +473,7 @@ def get_sheet_names(input_file):
     wb.close()
     return patient_list
 
-def clean_data(df, patient):
+def clean_data(df):
     """ 
     Keep target columns from excel, shift tac level one cell up, remove "mg"/"ng" 
     from dose, replace NaN with 0 in dose.
@@ -490,15 +490,15 @@ def clean_data(df, patient):
     df = df[["Day #", "Tac level (prior to am dose)", "Eff 24h Tac Dose"]]
 
     # Shift tac level one cell up to match dose-response to one day
-    df['Tac level (prior to am dose)'] = df['Tac level (prior to am dose)'].shift(-1)
+    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].shift(1)
 
     # Remove "mg"/"ng" from dose
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('ng', '')
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
 
-    # Replace NA with 0 in dose column
-    df["Eff 24h Tac Dose"] = df["Eff 24h Tac Dose"].fillna(0)
+    # # Replace NA with 0 in dose column
+    # df["Eff 24h Tac Dose"] = df["Eff 24h Tac Dose"].fillna(0)
     
     return df
 
