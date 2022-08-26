@@ -1,0 +1,9 @@
+Flowchart numbers:
+total_predictions 117 | unreliable 43 | reliable 74 | inaccurate 32 | reliable_accurate 42
+
+Additional information:
+reliable_accurate_actionable 42 out of 42 |
+    reliable_accurate_actionable_diff_dose 32 out of 42 |
+    reliable_accurate_actionable_diff_dose_non_therapeutic_range 30 out of 32
+
+Dose recommended minus administered: median -0.02 | IQR [-0.04 - 0.06]

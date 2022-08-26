@@ -11,6 +11,8 @@ from matplotlib.pyplot import cm
 from matplotlib.patches import Patch
 from Profile_Generation import *
 from openpyxl import load_workbook
+import sys
+from scipy.stats import levene
 
 # Define file names
 result_file = 'CURATE_results.xlsx'
@@ -573,6 +575,9 @@ def values_in_clinically_relevant_flow_chart():
     - Printed values for flow chart boxes and additional information
     - Final dataframe with remaining predictions after all exclusions
     """
+    # Uncomment to write output to txt file
+    file_path = 'clinically_relevant_flow_chart.txt'
+    sys.stdout = open(file_path, "w")
 
     df = create_df_for_CURATE_assessment()
 
@@ -624,6 +629,8 @@ def values_in_clinically_relevant_flow_chart():
 
     print(f'\nDose recommended minus administered: median {median_difference:.2f} | IQR [{lower_quartile_difference:.2f} - {upper_quartile_difference:.2f}]')
     
+    sys.stdout.close() # Uncomment if writing to txt file
+
     return df
 
 def response_vs_dose():
@@ -793,100 +800,69 @@ def clinically_relevant_performance_metrics():
     # file_path = 'Clinically relevant performance metrics.txt'
     # sys.stdout = open(file_path, "w")
 
-    # Clinically relevant performance metrics. 
-    # Calculate the results, conduct statistical tests, and
-    # print them out. 
+    original_stdout = sys.stdout
+    with open('clinically_relevant_perf_metrics.txt', 'w') as f:
+        sys.stdout = f
 
-    # 1. Find percentage of days within clinically acceptable 
-    # tac levels (6.5 to 12 ng/ml)
+        # 1. Find percentage of days within clinically acceptable 
+        # tac levels (6.5 to 12 ng/ml)
 
-    data = pd.read_excel(all_data_file)
+        data = pd.read_excel(all_data_file)
 
-    # Add acceptable tacrolimus levels column
-    data['acceptable'] = (data['response'] >= acceptable_tac_lower_limit) & (data['response'] <= acceptable_tac_upper_limit)
+        # Add acceptable tacrolimus levels column
+        data['acceptable'] = (data['response'] >= acceptable_tac_lower_limit) & (data['response'] <= acceptable_tac_upper_limit)
 
-    # Calculate results
-    acceptable_SOC = \
-    data.groupby('patient')['acceptable'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
-    shapiro_p = stats.shapiro(acceptable_SOC.acceptable).pvalue
-    if shapiro_p < 0.05:
-        shapiro_result_string = 'reject normality'
-    else:
-        shapiro_result_string = 'assume normality'
+        # Calculate results
+        acceptable_SOC = \
+        data.groupby('patient')['acceptable'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
 
-    # Print results and normality test results
-    print(f'(1) % of days within clinically acceptable tac levels:\n{acceptable_SOC.acceptable.describe()}\n')
-    print(f'p-value = {shapiro_p:.2f}, Shapiro-Wilk test, {shapiro_result_string}')
+        result_and_distribution(acceptable_SOC.acceptable, '(1) % of days within clinically acceptable tac levels:')
 
-    # 2. Find % of predictions within clinically acceptable
-    # prediction error (between -1.5 and +2 ng/ml)
+        # 2. Find % of predictions within clinically acceptable
+        # prediction error (between -1.5 and +2 ng/ml)
 
-    dat = pd.read_excel(result_file, sheet_name='result')
-    dat = dat[dat.method=='L_RW_wo_origin'].reset_index()
-    dat = dat[['patient', 'pred_day', 'deviation']]
+        dat = pd.read_excel(result_file, sheet_name='result')
+        dat = dat[dat.method=='L_RW_wo_origin'].reset_index()
+        dat = dat[['patient', 'pred_day', 'deviation']]
 
-    # Add acceptable therapeutic range column
-    dat['acceptable'] = (dat['deviation'] >=overprediction_limit) & (dat['deviation'] <= underprediction_limit)
+        # Add acceptable therapeutic range column
+        dat['acceptable'] = (dat['deviation'] >=overprediction_limit) & (dat['deviation'] <= underprediction_limit)
 
-    # Calculate results
-    acceptable_CURATE = \
-    dat.groupby('patient')['acceptable'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
-    shapiro_p = stats.shapiro(acceptable_CURATE.acceptable).pvalue
-    if shapiro_p < 0.05:
-        shapiro_result_string = 'reject normality'
-    else:
-        shapiro_result_string = 'assume normality'
+        # Calculate results
+        acceptable_CURATE = \
+        dat.groupby('patient')['acceptable'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
 
-    print(f'\n(2) % of predictions within clinically acceptable prediction error:\n{acceptable_CURATE.acceptable.describe()}\n')
-    print(f'p-value = {shapiro_p:.2f}, Shapiro-Wilk test, {shapiro_result_string}\n')
+        result_and_distribution(acceptable_CURATE.acceptable, '(2) % of predictions within clinically acceptable prediction error:')
 
-    # Check for equal variance between (1) and (2): result p = 0.97, assume equal variance
-    stat, p = levene(acceptable_SOC.acceptable, acceptable_CURATE.acceptable, center='mean')
-    if p < 0.05:
-        levene_result_string = 'unequal variance'
-    else:
-        levene_result_string = 'assume equal variance'
-    print(f'p-value = {p:.2f}, Levene test, {levene_result_string}\n')
+        # Check for equal variance between (1) and (2): result p = 0.97, assume equal variance
+        result = stats.kruskal(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue
+        if result < 0.05:
+            result_string = 'assume unequal medians'
+        else:
+            result_string = 'assume equal medians'
 
-    # Check for equal means
-    t_test = stats.ttest_ind(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue
-    if p < 0.05:
-        result_string = 'unequal means'
-    else:
-        result_string = 'assume equal means'
+        print(f'Comparison of means between (1) and (2), Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
 
-    print(f'Comparison of means between (1) and (2), p-value = {p:.2f}, {result_string}\n')
+        # 3. Clinically unacceptable overprediction
 
-    # 3. Clinically unacceptable overprediction
+        # Add unacceptable overprediction
+        dat['unacceptable_overprediction'] = (dat['deviation'] < overprediction_limit)
+        dat['unacceptable_underprediction'] = (dat['deviation'] > underprediction_limit)
 
-    # Add unacceptable overprediction
-    dat['unacceptable_overprediction'] = (dat['deviation'] < overprediction_limit)
-    dat['unacceptable_underprediction'] = (dat['deviation'] > underprediction_limit)
+        unacceptable_overprediction = \
+        dat.groupby('patient')['unacceptable_overprediction'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
 
-    unacceptable_overprediction = \
-    dat.groupby('patient')['unacceptable_overprediction'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
-    result = stats.shapiro(unacceptable_overprediction.unacceptable_overprediction).pvalue
-    if result < 0.05:
-        result_string = 'reject normality'
-    else:
-        result_string = 'assume normality'
+        result_and_distribution(unacceptable_overprediction.unacceptable_overprediction, '(3) % clinically unacceptable overprediction')
 
-    print(f'(3) % clinically unacceptable overprediction:\n{unacceptable_overprediction.unacceptable_overprediction.describe()}\n')
-    print(f'p-value = {result:.2f}, Shapiro-Wilk test, {result_string}\n')
+        # 4. Clinically unacceptable underprediction
 
-    # 4. Clinically unacceptable underprediction
+        # Add unacceptable underprediction
+        unacceptable_underprediction = \
+        dat.groupby('patient')['unacceptable_underprediction'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
 
-    # Add unacceptable underprediction
-    unacceptable_underprediction = \
-    dat.groupby('patient')['unacceptable_underprediction'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
-    result = stats.shapiro(unacceptable_underprediction.unacceptable_underprediction).pvalue
-    if result < 0.05:
-        result_string = 'reject normality'
-    else:
-        result_string = 'assume normality'
-
-    print(f'(4) % clinically unacceptable underprediction:\n{unacceptable_underprediction.unacceptable_underprediction.describe()}\n')
-    print(f'p-value = {result:.2f}, Shapiro-Wilk test, {result_string}\n')
+        result_and_distribution(unacceptable_underprediction.unacceptable_underprediction, '(4) % clinically unacceptable underprediction')
+    
+    sys.stdout = original_stdout
 
 def patient_journey_values():
     """
@@ -963,9 +939,9 @@ def result_and_distribution(df, metric_string):
         p = ks_test_result(df, metric_string)
         
     if p < 0.05:
-        median_IQR_range(data.response)
+        median_IQR_range(df)
     else:
-        mean_and_SD(data.response)
+        mean_and_SD(df)
         
 def ks_test_result(df, metric_string):
     ks_test = stats.kstest(df, "norm").pvalue
@@ -1007,7 +983,7 @@ def median_IQR_range(df):
     maximum = df.describe()['max']
     count = df.describe()['count']
 
-    print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f}| range {minimum} - {maximum:.2f} | count {count}\n')
+    print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f}| range {minimum:.2f} - {maximum:.2f} | count {count}\n')
 
 ##### Archive
 
