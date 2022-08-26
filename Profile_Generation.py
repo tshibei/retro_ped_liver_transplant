@@ -437,6 +437,7 @@ def generate_profiles(five_fold_cross_val_results_summary):
         list_of_result_df = apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exclude_quad,
                   cal_pred_linear, cal_pred_quad, list_of_result_df, five_fold_cross_val_results_summary)
         
+        print(f'finished patient {patient}')
     return patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df
 
 def print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad):
@@ -460,7 +461,7 @@ def join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df):
 
 def output_df_to_excel(df, cal_pred, result_df, pop_tau_string):
     """Output dataframes to excel as individual sheets"""
-    with pd.ExcelWriter('output' + pop_tau_string + '.xlsx') as writer:
+    with pd.ExcelWriter('CURATE_results.xlsx') as writer:
         df.to_excel(writer, sheet_name='clean', index=False)
         cal_pred.to_excel(writer, sheet_name='calibration_and_efficacy_driven', index=False)
         result_df.to_excel(writer, sheet_name='result', index=False)
@@ -497,8 +498,14 @@ def clean_data(df):
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('ng', '')
     df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
 
-    # # Replace NA with 0 in dose column
-    # df["Eff 24h Tac Dose"] = df["Eff 24h Tac Dose"].fillna(0)
+    first_day_of_dosing = df['Day #'].loc[~df['Eff 24h Tac Dose'].isnull()].iloc[0]
+
+    # Keep data from first day of dosing
+    df = df[df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
+
+    # Set the first day of dosing as day 2 (because first dose received on day 1)
+    for i in range(len(df)):
+        df.loc[i, 'Day #'] = i + 2
     
     return df
 
@@ -545,7 +552,10 @@ def keep_ideal_data(df, patient, list_of_patient_df):
         df_temp = print("there are >1 chunks of data with the longest length.")
     else:
         # Find index of largest chunk to keep in dataframe
-        min_idx = df_temp.loc[0, 'min'] + 1 # First index where non-NA begins is 1 after the min index, thus add 1 to min index
+        if (df_temp.loc[0, 'min'] == 0) & (df_cum_sum_non_ideal[0] == 0):
+            min_idx = df_temp.loc[0, 'min']
+        else:
+            min_idx = df_temp.loc[0, 'min'] + 1 
         max_idx = df_temp.loc[0, 'max'] # Get max index where non-NA chunk ends
 
         # Keep largest chunk in dataframe

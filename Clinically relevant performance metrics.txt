@@ -1,0 +1,56 @@
+(1) % of days within clinically acceptable tac levels:
+count    16.000000
+mean     43.483967
+std      18.746935
+min      13.793103
+25%      29.107143
+50%      49.076355
+75%      57.512315
+max      71.428571
+Name: acceptable, dtype: float64
+
+p-value = 0.20, Shapiro-Wilk test, assume normality
+
+(2) % of predictions within clinically acceptable prediction error:
+count     13.000000
+mean      52.610967
+std       21.719827
+min       21.428571
+25%       35.714286
+50%       54.545455
+75%       60.000000
+max      100.000000
+Name: acceptable, dtype: float64
+
+p-value = 0.64, Shapiro-Wilk test, assume normality
+
+p-value = 0.97, Levene test, assume equal variance
+
+Comparison of means between (1) and (2), p-value = 0.97, assume equal means
+
+(3) % clinically unacceptable overprediction:
+count    13.000000
+mean     24.433002
+std      17.144551
+min       0.000000
+25%      17.647059
+50%      25.000000
+75%      37.500000
+max      50.000000
+Name: unacceptable_overprediction, dtype: float64
+
+p-value = 0.24, Shapiro-Wilk test, assume normality
+
+(4) % clinically unacceptable underprediction:
+count    13.000000
+mean     22.956031
+std      13.587987
+min       0.000000
+25%      18.181818
+50%      23.529412
+75%      28.571429
+max      44.444444
+Name: unacceptable_underprediction, dtype: float64
+
+p-value = 0.62, Shapiro-Wilk test, assume normality
+
