@@ -436,8 +436,7 @@ def generate_profiles(five_fold_cross_val_results_summary):
         # Apply methods
         list_of_result_df = apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exclude_quad,
                   cal_pred_linear, cal_pred_quad, list_of_result_df, five_fold_cross_val_results_summary)
-        
-        print(f'finished patient {patient}')
+
     return patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df
 
 def print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad):

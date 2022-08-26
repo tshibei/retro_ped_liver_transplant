@@ -196,19 +196,21 @@ def all_data():
     return combined_df
 
 # Most updated code
-def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
+def response_vs_day(file_string=all_data_file, plot=True):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
         
     # Plot individual profiles
-    dat = pd.read_excel(file_string, sheet_name='data')
+    dat = pd.read_excel(file_string)
 
     # Create within-range column for color
-    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+    dat['within_range'] = (dat.response <= therapeutic_range_upper_limit) & (dat.response >= therapeutic_range_lower_limit)
 
     # Create low/med/high dose column
     dat['dose_range'] = ""
     for i in range(len(dat)):
-        if dat.dose[i] < low_dose_upper_limit:
+        if np.isnan(dat.dose[i]):
+             dat.loc[i, 'dose_range'] = 'Unavailable'
+        elif dat.dose[i] < low_dose_upper_limit:
             dat.loc[i, 'dose_range'] = 'Low'
         elif dat.dose[i] < medium_dose_upper_limit:
             dat.loc[i, 'dose_range'] = 'Medium'
@@ -217,8 +219,8 @@ def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
 
     # Rename columns and entries
     new_dat = dat.copy()
-    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
-    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
+    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus levels'})
+    new_dat['Tacrolimus levels'] = new_dat['Tacrolimus levels'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
     new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
     new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
@@ -228,16 +230,17 @@ def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
 
         # Add fake row with empty data under response to structure legend columns
         new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, "", "Low"]
+        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, " ", "Low"]
         
         # Plot tac levels by day
         sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
 
-        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus Levels', col='patient', col_wrap=4, style='Dose range',
-                height=3, aspect=1,s=80, palette=['tab:blue','tab:orange','white'])
+        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus levels', col='patient', col_wrap=4, style='Dose range',
+                height=3, aspect=1,s=80, palette=['tab:blue','tab:orange','white','white'], style_order=['Low', 'Medium', 'High', 'Unavailable'])
         
         # Add gray region for therapeutic range
         for ax in g.axes:
-            ax.axhspan(8, 10, facecolor='grey', alpha=0.2)
+            ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
         
         g.set_titles('Patient {col_name}')
         g.set_ylabels('Tacrolimus level (ng/ml)')
@@ -250,9 +253,9 @@ def response_vs_day(file_string='all_data_including_non_ideal.xlsx', plot=True):
         legend1 = plt.legend()
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
                             label='Region within therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.75,-0.32), loc='upper left', frameon=False)
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.7,-0.26), loc='upper left', frameon=False)
 
-        plt.savefig('indiv_pt_profile_by_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+        plt.savefig('response_vs_day.png', dpi=500, facecolor='w', bbox_inches='tight')
         
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
@@ -884,6 +887,127 @@ def clinically_relevant_performance_metrics():
 
     print(f'(4) % clinically unacceptable underprediction:\n{unacceptable_underprediction.unacceptable_underprediction.describe()}\n')
     print(f'p-value = {result:.2f}, Shapiro-Wilk test, {result_string}\n')
+
+def patient_journey_values():
+    """
+    Print out results of 
+    1. Response
+    2. % of days within therapeutic range
+    3. % of participants that reached therapeutic range within first week
+    4. Day where patient first achieved therapeutic range
+    5. Dose administered by mg
+    6. Dose administered by body weight
+    """
+    # # Uncomment to write output to txt file
+    # file_path = 'patient_journey_values.txt'
+    # sys.stdout = open(file_path, "w")
+    
+    data = response_vs_day()
+
+    # 1. Response
+    result_and_distribution(data.response, '1. Response')
+
+    # 2. % of days within therapeutic range
+
+    # Drop rows where response is NaN
+    data = data[data.response.notna()].reset_index(drop=True)
+
+    # Add therapeutic range column
+    for i in range(len(data)):
+        if (data.response[i] >= therapeutic_range_lower_limit) & (data.response[i] <= therapeutic_range_upper_limit):
+            data.loc[i, 'therapeutic_range'] = True
+        else:
+            data.loc[i, 'therapeutic_range'] = False
+
+    perc_therapeutic_range = data.groupby('patient')['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100)
+    perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
+
+    # Result and distribution
+    result_and_distribution(perc_therapeutic_range.therapeutic_range, '2. % of days within therapeutic range')
+
+    # 3. % of participants that reached therapeutic range within first week
+    first_week_df = data.copy()
+    first_week_df = first_week_df[first_week_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+    first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
+    result = first_week_df.Day.sum()/first_week_df.Day.count()*100
+
+    print(f'3. % of participants that reached therapeutic range within first week:\n{result:.2f}%,\
+     {first_week_df.Day.sum()} out of 16 patients\n')
+
+    # 4. Day where patient first achieved therapeutic range
+    first_TR_df = data.copy()
+    first_TR_df = first_TR_df[first_TR_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+    first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
+
+    # Result and distribution
+    result_and_distribution(first_TR_df.Day, '4. Day where patient first achieved therapeutic range')
+
+    # 5. Dose administered by mg
+    dose_df = data.copy()
+    result_and_distribution(dose_df.dose_mg, '5. Dose administered')
+
+    # 6. Dose administered by body weight
+    dose_df = data.copy()
+    result_and_distribution(dose_df.dose, '6. Dose administered by body weight')
+
+# Statistical test
+def result_and_distribution(df, metric_string):
+    """
+    Determine which normality test to do based on n.
+    Conduct normality test and print results.
+    Based on p-value of normality test, choose mean/median to print.
+    """
+    if df.count() > 50:
+        p = shapiro_test_result(df, metric_string)
+    else:
+        p = ks_test_result(df, metric_string)
+        
+    if p < 0.05:
+        median_IQR_range(data.response)
+    else:
+        mean_and_SD(data.response)
+        
+def ks_test_result(df, metric_string):
+    ks_test = stats.kstest(df, "norm").pvalue
+    
+    if ks_test < 0.05:
+        result_string = 'reject normality'
+    else:
+        result_string = 'assume normality'
+
+    print(f'{metric_string}:\nKS test p-value = {ks_test:.2f}, {result_string}')
+    
+    return ks_test
+    
+def shapiro_test_result(df, metric_string):
+    shapiro_result = stats.shapiro(df).pvalue
+    
+    if shapiro_result < 0.05:
+        result_string = 'reject normality'
+    else:
+        result_string = 'assume normality'
+
+    print(f'{metric_string}:\nShapiro test p-value = {shapiro_result}, {result_string}')
+    
+    return shapiro_result
+    
+def mean_and_SD(df):
+    # Mean and SD
+    mean = df.describe()['mean']
+    std = df.describe()['std']
+    count = df.describe()['count']
+
+    print(f'mean {mean:.2f} | std {std:.2f} | count {count}\n')
+    
+def median_IQR_range(df):
+    median = df.describe()['50%']
+    lower_quartile = df.describe()['25%']
+    upper_quartile = df.describe()['75%']
+    minimum = df.describe()['min']
+    maximum = df.describe()['max']
+    count = df.describe()['count']
+
+    print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f}| range {minimum} - {maximum:.2f} | count {count}\n')
 
 ##### Archive
 
