@@ -419,8 +419,7 @@ def generate_profiles(five_fold_cross_val_results_summary):
         df = keep_ideal_data(df, patient, list_of_patient_df)
 
         # Change to dose by body weight
-        df['dose_mg'] = df['dose']
-        df['dose'] = df['dose'] / list_of_body_weight[number_of_patients]
+        df['dose_BW'] = df['dose'] / list_of_body_weight[number_of_patients]
         
         # Counter for number of patients
         number_of_patients = number_of_patients + 1
