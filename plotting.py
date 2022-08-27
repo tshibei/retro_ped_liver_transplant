@@ -614,7 +614,7 @@ def values_in_clinically_relevant_flow_chart():
     reliable_accurate_actionable_diff_dose_non_therapeutic_range {reliable_accurate_actionable_diff_dose_non_therapeutic_range} out of {reliable_accurate_actionable_diff_dose}')
 
     # Add column for difference in doses recommended and administered
-    df['diff_dose_recommended_and_administered'] = df['dose_recommendation_body_weight'] - df['dose']
+    df['diff_dose_recommended_and_administered'] = df['dose_recommendation'] - df['dose']
 
     median_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['50%']
     lower_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['25%']
