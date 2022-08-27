@@ -1,0 +1,14 @@
+Repeated dose: > 4.0 repeats
+
+1. % of patients with repeated dose (> 4.0 repeats):         75.0%, 12 patients
+Patients with repeated doses (> 4.0 repeats): [ 2  4  5  6  7  9 10 11 12 14 15 16]
+
+2. % of days in TR when there are repeated doses:
+KS test p-value = 0.00, reject normality
+median 20.00 | IQR 14.29 - 40.00| range 0.00 - 87.50 | count 17.0
+
+Distributed dose: > 4.0 mg
+
+3. % of patients with distributed dose: 18.75%,        3 out of 16 patients
+Patients with distributed doses (> 4.0 mg range): [5, 8, 13]
+First day where TR is achieved for distributed dose: [8, 7, 6]

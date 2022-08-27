@@ -928,15 +928,15 @@ def dosing_strategy_values():
                 df.loc[i, 'therapeutic_range'] = False
 
         # Count number of repeats
-        repeated_count = df.groupby('patient')['dose_mg'].value_counts().reset_index(name='count')
+        repeated_count = df.groupby('patient')['dose'].value_counts().reset_index(name='count')
         repeated_dose_threshold = repeated_count['count'].describe().loc['75%']
 
         print(f'Repeated dose: > {repeated_dose_threshold} repeats\n')
 
         # Count number of times in therapeutic range among repeats
-        repeated_therapeutic_range = df.groupby(['patient', 'dose_mg'])['therapeutic_range'].apply(lambda x: x.sum() if x.sum() != 0 else np.nan).reset_index(name='TR')
+        repeated_therapeutic_range = df.groupby(['patient', 'dose'])['therapeutic_range'].apply(lambda x: x.sum() if x.sum() != 0 else np.nan).reset_index(name='TR')
 
-        combined_df = repeated_count.merge(repeated_therapeutic_range, how='left', on=['patient','dose_mg']).reset_index(drop=True)
+        combined_df = repeated_count.merge(repeated_therapeutic_range, how='left', on=['patient','dose']).reset_index(drop=True)
 
         # Keep those with > 4 repeats
         combined_df = combined_df[combined_df['count'] > repeated_dose_threshold].reset_index(drop=True)
@@ -953,7 +953,7 @@ def dosing_strategy_values():
         # 3. % of patients with distributed dose
 
         # Find dose range
-        dose_range = df.groupby('patient')['dose_mg'].apply(lambda x: x.max() - x.min()).reset_index(name='dose_range')
+        dose_range = df.groupby('patient')['dose'].apply(lambda x: x.max() - x.min()).reset_index(name='dose_range')
         distributed_dose_threshold = dose_range['dose_range'].describe().loc['75%']
 
         print(f'Distributed dose: > {distributed_dose_threshold} mg\n')
@@ -971,7 +971,7 @@ def dosing_strategy_values():
         first_day_distributed_dose = first_day_distributed_dose.groupby('patient')['Day'].first().reset_index(name='first_day_to_TR')
         print(f'First day where TR is achieved for distributed dose: {first_day_distributed_dose.first_day_to_TR.to_list()}')
 
-        sys.stdout = original_stdout
+    sys.stdout = original_stdout
 
 # Statistical test
 def result_and_distribution(df, metric_string):
