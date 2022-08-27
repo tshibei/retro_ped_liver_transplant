@@ -1,0 +1,23 @@
+1. Prediction error:
+Shapiro test p-value = 0.34, assume normality
+mean 0.21 | std 2.78 | count 117.0
+
+*for comparison with non-parametric abs prediction error,
+median 0.10 | IQR -1.70 - 1.90| range -7.20 - 9.90 | count 117.0
+
+2. Absolute prediction error:
+Shapiro test p-value = 0.00, reject normality
+median 1.80 | IQR 0.80 - 2.80| range 0.00 - 9.90 | count 117.0
+
+3. RMSE: 2.77
+
+4. LOOCV
+
+Training set LOOCV:
+KS test p-value = 0.00, reject normality
+median 1.80 | IQR 1.70 - 1.80| range 1.70 - 1.85 | count 13.0
+
+Test set LOOCV:
+KS test p-value = 0.00, reject normality
+median 1.70 | IQR 1.30 - 2.10| range 0.40 - 2.90 | count 13.0
+

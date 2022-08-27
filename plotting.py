@@ -31,6 +31,7 @@ therapeutic_range_lower_limit = 8
 dosing_strategy_cutoff = 0.4
 acceptable_tac_upper_limit = 12
 acceptable_tac_lower_limit = 6.5
+repeated_dose_threshold = 5
 
 # Create lists
 def find_list_of_body_weight():
@@ -633,17 +634,17 @@ def values_in_clinically_relevant_flow_chart():
 
     return df
 
-def response_vs_dose():
+def response_vs_dose(plot=False):
     """
     Facetgrid scatter plot of response vs dose, colored by number of days. 
 
     Note: To plot color bar, uncomment commented code. 
     """
     # Plot individual profiles
-    dat = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+    dat = pd.read_excel(all_data_file)
 
     # Create within-range column for color
-    dat['within_range'] = (dat.response <= 10) & (dat.response >= 8)
+    dat['within_range'] = (dat.response <= therapeutic_range_upper_limit) & (dat.response >= therapeutic_range_lower_limit)
 
     # Create low/med/high dose column
     dat['dose_range'] = ""
@@ -663,105 +664,40 @@ def response_vs_dose():
     new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
                                                 133:15, 138:16})
-    # Plot response vs dose
-    # Settings
-    sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
-
-    # Plot
-    ax = sns.relplot(data=new_dat, x='dose', y='response', hue='Day', col='patient', col_wrap=4, style='Dose range',
-            height=3, aspect=1,s=80)
-
-    # Add gray region for therapeutic range
-    for g in ax.axes:
-        g.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
-
-    # Label
-    ax.set_ylabels('Tacrolimus level (ng/ml)')
-    ax.set_titles('Patient {col_name}')
-    ax.set_xlabels('Dose')
-
-    # Legend
-    ax.legend.remove()
-    ax.fig.legend(handles=ax.legend.legendHandles[6:], bbox_to_anchor=(0.9,0.5), loc='center left', frameon=False)
-
-    plt.savefig('response_vs_dose.png', dpi=1000, facecolor='w', bbox_inches='tight')
-
-    # # Colorbar
-    # norm = plt.Normalize(new_dat.Day.min(), new_dat.Day.max())
-    # sm = plt.cm.ScalarMappable(cmap=sns.cubehelix_palette(as_cmap=True), norm=norm)
-    # sm.set_array([])
-    # colorbar = ax.figure.colorbar(sm, orientation='vertical')
-
-    # plt.savefig('response_vs_dose_colorbar.png', dpi=1000, facecolor='w', bbox_inches='tight')
     
+    if plot == True:
+        # Plot response vs dose
+        # Settings
+        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
+
+        # Plot
+        ax = sns.relplot(data=new_dat, x='dose', y='response', hue='Day', col='patient', col_wrap=4, style='Dose range',
+                height=3, aspect=1,s=80)
+
+        # Add gray region for therapeutic range
+        for g in ax.axes:
+            g.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+
+        # Label
+        ax.set_ylabels('Tacrolimus level (ng/ml)')
+        ax.set_titles('Patient {col_name}')
+        ax.set_xlabels('Dose (mg/kg/day)')
+
+        # Legend
+        ax.legend.remove()
+        ax.fig.legend(handles=ax.legend.legendHandles[7:], bbox_to_anchor=(0.9,0.5), loc='center left', frameon=False)
+
+        plt.savefig('response_vs_dose.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+        # # Colorbar
+        # norm = plt.Normalize(new_dat.Day.min(), new_dat.Day.max())
+        # sm = plt.cm.ScalarMappable(cmap=sns.cubehelix_palette(as_cmap=True), norm=norm)
+        # sm.set_array([])
+        # colorbar = ax.figure.colorbar(sm, orientation='vertical')
+
+        # plt.savefig('response_vs_dose_colorbar.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        
     return new_dat
-
-def values_by_dosing_strategy():
-    """
-    Find therapeutic range values by dosing strategy
-
-    Output: 
-    - Printed values of number of patients, first day 
-    to achieve therapeutic range, and percentage of days in
-    therapeutic range, by dosing strategy
-    - combined_df: final dataframe of all values by dosing
-    strategy
-    """
-
-    # Import data and list of patients
-    df = import_raw_data_including_non_ideal()
-    list_of_patients = find_list_of_patients()
-
-    # Create therapeutic range column
-    df['therapeutic_range'] = ""
-    for i in range(len(df)):
-        if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
-            df.loc[i, 'therapeutic_range'] = 'therapeutic'
-        else:
-            df.loc[i, 'therapeutic_range'] = 'non-therapeutic'
-
-    # Find percentage of therapeutic range per patient
-    perc_therapeutic_range = df.groupby('patient')['therapeutic_range'].apply(lambda x: (x=='therapeutic').sum()/x.count()*100)
-    perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
-    perc_therapeutic_range = perc_therapeutic_range.rename(columns={'therapeutic_range':'perc_therapeutic_range'})
-
-    # Find first day of achieving therapeutic range per patient
-    first_day_of_therapeutic_range = df[df.therapeutic_range=='therapeutic'].groupby('patient')['day'].first()
-    first_day_of_therapeutic_range = first_day_of_therapeutic_range.to_frame().reset_index()
-    first_day_of_therapeutic_range = first_day_of_therapeutic_range.rename(columns={'day':'first_day_therapeutic_range'})
-
-    # Categorise patients
-    dosing_strategy = df.groupby('patient')['dose'].apply(lambda x: \
-                                                          'distributed' if ((x.max()-x.min()) >= dosing_strategy_cutoff) \
-                                                          else 'repeated')
-    dosing_strategy = dosing_strategy.to_frame().reset_index()
-    dosing_strategy = dosing_strategy.rename(columns={'dose':'dosing_strategy'})
-
-    # Merge all three dataframes
-    combined_df = dosing_strategy.merge(first_day_of_therapeutic_range, how='left', on='patient')
-    combined_df = combined_df.merge(perc_therapeutic_range, how='left', on='patient')
-
-    print(f'Repeated:\nN = {combined_df.dosing_strategy.value_counts().loc["repeated"]}\n\
-    First day to achieve therapeutic range: \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
-    Days in therapeutic range (%): \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
-
-    print(f'\nDistributed:\nN = {combined_df.dosing_strategy.value_counts().loc["distributed"]}\n\
-    First day to achieve therapeutic range: \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
-    Days in therapeutic range (%): \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
-
-    return combined_df
 
 def extreme_prediction_errors():
     """
@@ -864,6 +800,46 @@ def clinically_relevant_performance_metrics():
     
     sys.stdout = original_stdout
 
+def technical_performance_metrics():
+    """
+    Print the following technical performance metrics
+    1. Prediction erorr
+    2. Absolute prediction error
+    3. RMSE
+    4. LOOCV
+    """
+    original_stdout = sys.stdout
+    with open('technical_perf_metrics.txt', 'w') as f:
+        sys.stdout = f
+
+        df = pd.read_excel(result_file, sheet_name='result')
+
+        # Subset method
+        df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+        # 1. Prediction error
+        result_and_distribution(df.deviation, '1. Prediction error')
+
+        print('*for comparison with non-parametric abs prediction error,')
+        median_IQR_range(df.deviation)
+
+        # 2. Absolute prediction error
+        result_and_distribution(df.abs_deviation, '2. Absolute prediction error')
+
+        # 3. RMSE
+        RMSE = (math.sqrt(mean_squared_error(df.response, df.prediction)))
+        print(f'3. RMSE: {RMSE:.2f}\n')
+
+        # 4. LOOCV
+        print('4. LOOCV\n')
+        experiment = pd.read_excel('LOOCV_results.xlsx', sheet_name='Experiments')
+
+        experiment = experiment[experiment.method=='L_RW_wo_origin']
+        result_and_distribution(experiment.train_median, 'Training set LOOCV')
+        result_and_distribution(experiment.test_median, 'Test set LOOCV')
+
+    sys.stdout = original_stdout
+
 def patient_journey_values():
     """
     Print out results of 
@@ -926,6 +902,77 @@ def patient_journey_values():
     dose_df = data.copy()
     result_and_distribution(dose_df.dose, '6. Dose administered by body weight')
 
+def dosing_strategy_values():
+    """
+    Print the following, to file:
+    - Thresholds for repeated and distributed doses
+    - 1. % of patients with repeated doses
+    - 2. % of days in TR when there are repeated doses
+    - 3. % of patients with distributed dose
+    - 4. First day where TR is achieved for distributed dose
+    """
+    # Uncomment stdout if not writing to file.
+    original_stdout = sys.stdout
+    with open('dosing_strategy_values.txt', 'w') as f:
+        sys.stdout = f
+        
+        df = response_vs_dose()
+        df = df.dropna().reset_index(drop=True)
+
+        # 1. % of patients with repeated doses
+        # Create therapeutic_range column
+        for i in range(len(df)):
+            if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
+                df.loc[i, 'therapeutic_range'] = True
+            else:
+                df.loc[i, 'therapeutic_range'] = False
+
+        # Count number of repeats
+        repeated_count = df.groupby('patient')['dose_mg'].value_counts().reset_index(name='count')
+        repeated_dose_threshold = repeated_count['count'].describe().loc['75%']
+
+        print(f'Repeated dose: > {repeated_dose_threshold} repeats\n')
+
+        # Count number of times in therapeutic range among repeats
+        repeated_therapeutic_range = df.groupby(['patient', 'dose_mg'])['therapeutic_range'].apply(lambda x: x.sum() if x.sum() != 0 else np.nan).reset_index(name='TR')
+
+        combined_df = repeated_count.merge(repeated_therapeutic_range, how='left', on=['patient','dose_mg']).reset_index(drop=True)
+
+        # Keep those with > 4 repeats
+        combined_df = combined_df[combined_df['count'] > repeated_dose_threshold].reset_index(drop=True)
+        combined_df = combined_df.fillna(0)
+
+        print(f'1. % of patients with repeated dose (> {repeated_dose_threshold} repeats): \
+        {(len(combined_df.patient.unique())/len(df.patient.unique())*100)}%, {len(combined_df.patient.unique())} patients')
+        print(f'Patients with repeated doses (> {repeated_dose_threshold} repeats): {combined_df.patient.unique()}')
+
+        # 2. % of days in TR when there are repeated doses
+        combined_df['perc_TR_with_repeated_dose'] = combined_df['TR'] / combined_df['count'] * 100
+        result_and_distribution(combined_df.perc_TR_with_repeated_dose, '\n2. % of days in TR when there are repeated doses')
+
+        # 3. % of patients with distributed dose
+
+        # Find dose range
+        dose_range = df.groupby('patient')['dose_mg'].apply(lambda x: x.max() - x.min()).reset_index(name='dose_range')
+        distributed_dose_threshold = dose_range['dose_range'].describe().loc['75%']
+
+        print(f'Distributed dose: > {distributed_dose_threshold} mg\n')
+
+        patients_with_distributed_dose = dose_range[dose_range.dose_range > distributed_dose_threshold].loc[:, "patient"].to_list()
+
+        print(f'3. % of patients with distributed dose: {len(patients_with_distributed_dose)/len(df.patient.unique())*100}%,\
+        {len(patients_with_distributed_dose)} out of 16 patients')
+        print(f'Patients with distributed doses (> {distributed_dose_threshold} mg range): {patients_with_distributed_dose}')
+
+        # 4. First day where TR is achieved for distributed dose
+        first_day_distributed_dose = df[df.patient.isin(patients_with_distributed_dose)]
+        first_day_distributed_dose = first_day_distributed_dose[first_day_distributed_dose.therapeutic_range == True]
+
+        first_day_distributed_dose = first_day_distributed_dose.groupby('patient')['Day'].first().reset_index(name='first_day_to_TR')
+        print(f'First day where TR is achieved for distributed dose: {first_day_distributed_dose.first_day_to_TR.to_list()}')
+
+    sys.stdout = original_stdout
+
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
@@ -963,7 +1010,7 @@ def shapiro_test_result(df, metric_string):
     else:
         result_string = 'assume normality'
 
-    print(f'{metric_string}:\nShapiro test p-value = {shapiro_result}, {result_string}')
+    print(f'{metric_string}:\nShapiro test p-value = {shapiro_result:.2f}, {result_string}')
     
     return shapiro_result
     
@@ -987,6 +1034,73 @@ def median_IQR_range(df):
 
 ##### Archive
 
+def values_by_dosing_strategy():
+    """
+    Find therapeutic range values by dosing strategy
+
+    Output: 
+    - Printed values of number of patients, first day 
+    to achieve therapeutic range, and percentage of days in
+    therapeutic range, by dosing strategy
+    - combined_df: final dataframe of all values by dosing
+    strategy
+    """
+
+    # Import data and list of patients
+    df = import_raw_data_including_non_ideal()
+    list_of_patients = find_list_of_patients()
+
+    # Create therapeutic range column
+    df['therapeutic_range'] = ""
+    for i in range(len(df)):
+        if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
+            df.loc[i, 'therapeutic_range'] = 'therapeutic'
+        else:
+            df.loc[i, 'therapeutic_range'] = 'non-therapeutic'
+
+    # Find percentage of therapeutic range per patient
+    perc_therapeutic_range = df.groupby('patient')['therapeutic_range'].apply(lambda x: (x=='therapeutic').sum()/x.count()*100)
+    perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
+    perc_therapeutic_range = perc_therapeutic_range.rename(columns={'therapeutic_range':'perc_therapeutic_range'})
+
+    # Find first day of achieving therapeutic range per patient
+    first_day_of_therapeutic_range = df[df.therapeutic_range=='therapeutic'].groupby('patient')['day'].first()
+    first_day_of_therapeutic_range = first_day_of_therapeutic_range.to_frame().reset_index()
+    first_day_of_therapeutic_range = first_day_of_therapeutic_range.rename(columns={'day':'first_day_therapeutic_range'})
+
+    # Categorise patients
+    dosing_strategy = df.groupby('patient')['dose'].apply(lambda x: \
+                                                          'distributed' if ((x.max()-x.min()) >= dosing_strategy_cutoff) \
+                                                          else 'repeated')
+    dosing_strategy = dosing_strategy.to_frame().reset_index()
+    dosing_strategy = dosing_strategy.rename(columns={'dose':'dosing_strategy'})
+
+    # Merge all three dataframes
+    combined_df = dosing_strategy.merge(first_day_of_therapeutic_range, how='left', on='patient')
+    combined_df = combined_df.merge(perc_therapeutic_range, how='left', on='patient')
+
+    print(f'Repeated:\nN = {combined_df.dosing_strategy.value_counts().loc["repeated"]}\n\
+    First day to achieve therapeutic range: \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
+    Days in therapeutic range (%): \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
+    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
+
+    print(f'\nDistributed:\nN = {combined_df.dosing_strategy.value_counts().loc["distributed"]}\n\
+    First day to achieve therapeutic range: \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
+    Days in therapeutic range (%): \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
+    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
+
+    return combined_df
+
 ##### New graphs after meeting with NUH ######
 def cross_val():
     """ Line plot of train and test results of both K-Fold and Leave-One-Out Cross Validation for Pop Tau """
@@ -1007,7 +1121,7 @@ def cross_val():
     plt.ylabel('Absolute Prediction Error (Mean \u00b1 SEM)')
     plt.savefig('cross_val.png', dpi=300, facecolor='w', bbox_inches='tight')
 
-def prediction_error(file_string='output (with pop tau by LOOCV).xlsx', plot=False):
+def prediction_error_old(file_string='output (with pop tau by LOOCV).xlsx', plot=False):
     """ Boxplot of prediction error and absolute prediction error
     by approach, type, origin_inclusion, pop_tau."""
 
@@ -2684,7 +2798,7 @@ def barplot_percentage_days_therapeutic_range_per_patient():
 
 # LOOCV for all methods
 
-def LOOCV_all_methods(file_string):
+def LOOCV_all_methods(file_string=result_file):
     """
     Perform LOOCV for all methods
     
@@ -2737,7 +2851,7 @@ def LOOCV_all_methods(file_string):
     # test_median_shapiro = experiment_results_df.groupby('method')['test_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
 
     # Output dataframes to excel as individual sheets
-    with pd.ExcelWriter('all_methods_LOOCV.xlsx') as writer:
+    with pd.ExcelWriter('LOOCV_results.xlsx') as writer:
         experiment_results_df.to_excel(writer, sheet_name='Experiments', index=False)
         overall_results_df.to_excel(writer, sheet_name='Overall', index=False)
 
