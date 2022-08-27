@@ -853,10 +853,10 @@ def patient_journey_values():
     6. Dose administered by body weight
     """
     original_stdout = sys.stdout
-    with open('dosing_strategy_values.txt', 'w') as f:
+    with open('patient_journey_values.txt', 'w') as f:
         sys.stdout = f
         
-        data = response_vs_day()
+        data = response_vs_day(plot=False)
 
         # 1. Response
         result_and_distribution(data.response, '1. Response')
@@ -898,11 +898,11 @@ def patient_journey_values():
 
         # 5. Dose administered by mg
         dose_df = data.copy()
-        result_and_distribution(dose_df.dose_mg, '5. Dose administered')
+        result_and_distribution(dose_df.dose, '5. Dose administered')
 
         # 6. Dose administered by body weight
         dose_df = data.copy()
-        result_and_distribution(dose_df.dose, '6. Dose administered by body weight')
+        result_and_distribution(dose_df.dose_BW, '6. Dose administered by body weight')
 
     sys.stdout = original_stdout
 
@@ -975,7 +975,7 @@ def dosing_strategy_values():
         first_day_distributed_dose = first_day_distributed_dose.groupby('patient')['Day'].first().reset_index(name='first_day_to_TR')
         print(f'First day where TR is achieved for distributed dose: {first_day_distributed_dose.first_day_to_TR.to_list()}')
 
-    sys.stdout = original_stdout
+        sys.stdout = original_stdout
 
 # Statistical test
 def result_and_distribution(df, metric_string):
