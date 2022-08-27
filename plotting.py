@@ -679,7 +679,7 @@ def response_vs_dose(plot=False):
         # Label
         ax.set_ylabels('Tacrolimus level (ng/ml)')
         ax.set_titles('Patient {col_name}')
-        ax.set_xlabels('Dose (mg/kg/day)')
+        ax.set_xlabels('Dose (mg)')
 
         # Legend
         ax.legend.remove()
