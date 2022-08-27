@@ -2117,7 +2117,7 @@ def case_series_120(plot=False):
     with regression line for RW by prediction day
     """
 
-    dat = pd.read_excel('output (with pop tau by LOOCV).xlsx', sheet_name='result')
+    dat = pd.read_excel(result_file, sheet_name='result')
 
     # Subset L_RW_wo_origin and patient 118
     dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==120)]
