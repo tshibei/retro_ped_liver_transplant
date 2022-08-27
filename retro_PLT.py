@@ -45,7 +45,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import levene
 import sys
 
-dat = all_data()
+dat = response_vs_day()
 
 
 df = dat.copy()
