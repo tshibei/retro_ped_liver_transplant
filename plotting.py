@@ -147,7 +147,7 @@ def all_data():
     df['patient'] = df['patient'].astype(int)
 
     # Rename columns
-    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', 'Eff 24h Tac Dose':'dose_mg'})
+    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', 'Eff 24h Tac Dose':'dose'})
 
     # Import output dataframe from 'clean'
     ideal_df = pd.read_excel(result_file, sheet_name='clean')
@@ -177,8 +177,8 @@ def all_data():
 
     # Add column 'dose' by dividing dose_mg by body weight
     combined_df['body_weight'] = combined_df['body_weight'].astype(float)
-    combined_df['dose_mg'] = combined_df['dose_mg'].astype(float)
-    combined_df['dose'] = combined_df['dose_mg'] / combined_df['body_weight']
+    combined_df['dose'] = combined_df['dose'].astype(float)
+    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
 
     # Clean up response column
     for i in range(len(combined_df)):
