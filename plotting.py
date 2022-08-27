@@ -478,23 +478,16 @@ def create_df_for_CURATE_assessment():
     for j in range(len(dat)):
         index_patient = list_of_patients.index(str(dat.patient[j]))
         dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
-
-    # Add dose administered by mg
-    dat_dose_by_mg = dat_dose_by_mg[['day', 'patient', 'dose_mg']]
-    dat_dose_by_mg = dat_dose_by_mg.rename(columns={'day':'pred_day'})
-
-    dat = dat.merge(dat_dose_by_mg, how='left', on=['patient', 'pred_day'])
-
-    # Add dose recommendations by mg
+        
+    # Add dose recommendations
     dat['possible_doses'] = ""
-    dat['dose_recommendation_mg'] = ""
-    dat['dose_recommendation_body_weight'] = ""
+    dat['dose_recommendation'] = ""
     for i in range(len(dat)):
         # Find minimum dose recommendation by mg
-        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
+        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
 
         # Find maximum dose recommendation by mg
-        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * dat.body_weight[i] * 2) / 2
+        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
 
         # Between and inclusive of min_dose_mg and max_dose_mg,
         # find doses that are multiples of 0.5 mg
@@ -508,12 +501,9 @@ def create_df_for_CURATE_assessment():
         dat.at[i, 'possible_doses'] = possible_doses
 
         # Add to column of dose recommendation with lowest out of possible doses
-        dat.loc[i, 'dose_recommendation_mg'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+        dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
 
-        # Add column of dose recommended by multiplying back by body weight
-        dat.loc[i, 'dose_recommendation_body_weight'] = dat.dose_recommendation_mg[i] / dat.body_weight[i]
-
-    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation_mg', 'dose_recommendation_body_weight', 'body_weight']]
+    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation', 'body_weight']]
 
     # Add columns for assessment
     CURATE_assessment['reliable'] = ""
@@ -544,7 +534,7 @@ def create_df_for_CURATE_assessment():
         CURATE_assessment.loc[i, 'accurate'] = accurate
 
         # Different dose
-        diff_dose = (dat.dose_mg[i] != dat.dose_recommendation_mg[i])
+        diff_dose = (dat.dose[i] != dat.dose_recommendation[i])
         CURATE_assessment.loc[i, 'diff_dose'] = diff_dose
 
         # Therapeutic range
@@ -552,7 +542,7 @@ def create_df_for_CURATE_assessment():
         CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
 
         # Actionable
-        actionable = (dat.dose_recommendation_body_weight[i]) < max_dose_recommendation
+        actionable = (dat.dose_recommendation[i]) < max_dose_recommendation
         CURATE_assessment.loc[i, 'actionable'] = actionable
 
         # Effect of CURATE
@@ -566,7 +556,7 @@ def create_df_for_CURATE_assessment():
             CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
         else:
             CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
-
+    
     return CURATE_assessment
 
 def values_in_clinically_relevant_flow_chart():

@@ -47,10 +47,6 @@ import sys
 
 
 
-
-df = dat.copy()
-df
-
 # +
 # %%time
 # ~5mins
