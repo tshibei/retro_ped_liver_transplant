@@ -973,6 +973,91 @@ def dosing_strategy_values():
 
     sys.stdout = original_stdout
 
+def patient_120_day_4_recommendation():
+    """
+    Line plot of response vs dose for patient 120's day recommendation,
+    with data points as (dose, response) pairs on day 2 and 3,
+    and with linear regression line. 
+    """
+    df = pd.read_excel(result_file, sheet_name='result')
+
+    # Subset patient 120 and method
+    df = df[(df.patient==120) & (df.method=='L_RW_wo_origin') & (df.pred_day==4)]
+
+    df = df[['patient', 'pred_day', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 
+             'coeff_1x', 'coeff_0x', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation']].reset_index(drop=True)
+
+    # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
+    df['dose_recommendation_8'] = ""
+    df['dose_recommendation_10'] = ""
+
+    for i in range(len(df)):
+
+        # Create function
+        coeff = df.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max_dose_recommendation + 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        df.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
+        df.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
+
+    df = df[['patient', 'pred_day', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2']]
+
+    # Create dataframe for x as doses to fit regression model
+    df_1 = df[['patient', 'pred_day', 'fit_dose_1', 'fit_dose_2']]
+    df_1 = df_1.set_index(['patient', 'pred_day'])
+    df_1 = df_1.stack().reset_index()
+    df_1 = df_1.rename(columns={'level_2':'day', 0:'x'})
+    df_1['day'] = df_1['day'].replace({'fit_dose_1':2, 'fit_dose_2':3})
+
+    # Create dataframe for y as response to fit regression model
+    df_2 = df[['patient', 'pred_day', 'fit_response_1', 'fit_response_2']]
+    df_2 = df_2.set_index(['patient', 'pred_day'])
+    df_2 = df_2.stack().reset_index()
+    df_2 = df_2.rename(columns={'level_2':'day', 0:'y'})
+    df_2['day'] = df_2['day'].replace({'fit_response_1':2, 'fit_response_2':3})
+
+    combined_df = df_1.merge(df_2, how='left', on=['patient', 'pred_day', 'day'])
+
+    # Plot
+    sns.set(style='white', font_scale=2,
+           rc={"figure.figsize":(7,7), "xtick.bottom":True, "ytick.left":True})
+
+    # Plot regression line
+    x = np.array([combined_df.x[0],combined_df.x[1]])
+    y = np.array([combined_df.y[0],combined_df.y[1]])
+    a, b = np.polyfit(x, y, 1)
+    x_values = np.linspace(0, 3)
+    plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
+
+    # Plot scatter points
+    plt.scatter(x, y, s=100, color='y')
+
+    # Plot therapeutic range
+    plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+    # Label days
+    for i in range(combined_df.shape[0]):
+        plt.text(x=combined_df.x[i]+0.1,y=combined_df.y[i]+0.1,s=int(combined_df.day[i]),
+                 fontdict=dict(color='black',size=13),
+                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+
+    sns.despine()
+    plt.title('Day 4 Recommendation')
+    plt.xlabel('Dose (mg)')
+    plt.ylabel('Tacrolimus level (ng/ml)')
+    plt.xticks(np.arange(0,3.5,step=0.5))
+    plt.xlim(0,2.5)
+    
+    plt.savefig('patient_120_day_4_recommendation.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return combined_df
+
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
