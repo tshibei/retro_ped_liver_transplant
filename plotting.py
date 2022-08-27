@@ -20,18 +20,20 @@ raw_data_file = 'Retrospective Liver Transplant Data - edited.xlsx'
 all_data_file = 'all_data.xlsx'
 
 # Define clinically relevant parameters
-low_dose_upper_limit = 0.3
-medium_dose_upper_limit = 0.6
+low_dose_upper_limit = 2
+medium_dose_upper_limit = 4
+low_dose_upper_limit_BW = 0.3
+medium_dose_upper_limit_BW = 0.6
 overprediction_limit = -1.5
 underprediction_limit = 2
-max_dose_recommendation = 0.85
+max_dose_recommendation = 6
+max_dose_recommendation_BW = 0.85
 minimum_capsule = 0.5
 therapeutic_range_upper_limit = 10
 therapeutic_range_lower_limit = 8
 dosing_strategy_cutoff = 0.4
 acceptable_tac_upper_limit = 12
 acceptable_tac_lower_limit = 6.5
-repeated_dose_threshold = 5
 
 # Create lists
 def find_list_of_body_weight():
