@@ -973,7 +973,7 @@ def dosing_strategy_values():
 
     sys.stdout = original_stdout
 
-def patient_120_day_4_recommendation():
+def patient_120_day_4_recommendation(plot=False):
     """
     Line plot of response vs dose for patient 120's day recommendation,
     with data points as (dose, response) pairs on day 2 and 3,
@@ -1006,6 +1006,8 @@ def patient_120_day_4_recommendation():
         df.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
         df.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
 
+    df_original = df.copy()
+
     df = df[['patient', 'pred_day', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2']]
 
     # Create dataframe for x as doses to fit regression model
@@ -1024,39 +1026,93 @@ def patient_120_day_4_recommendation():
 
     combined_df = df_1.merge(df_2, how='left', on=['patient', 'pred_day', 'day'])
 
-    # Plot
-    sns.set(style='white', font_scale=2,
-           rc={"figure.figsize":(7,7), "xtick.bottom":True, "ytick.left":True})
+    if plot == True:
+        # Plot
+        sns.set(style='white', font_scale=2,
+            rc={"figure.figsize":(7,7), "xtick.bottom":True, "ytick.left":True})
 
-    # Plot regression line
-    x = np.array([combined_df.x[0],combined_df.x[1]])
-    y = np.array([combined_df.y[0],combined_df.y[1]])
-    a, b = np.polyfit(x, y, 1)
-    x_values = np.linspace(0, 3)
-    plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
+        # Plot regression line
+        x = np.array([combined_df.x[0],combined_df.x[1]])
+        y = np.array([combined_df.y[0],combined_df.y[1]])
+        a, b = np.polyfit(x, y, 1)
+        x_values = np.linspace(0, 3)
+        plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
 
-    # Plot scatter points
-    plt.scatter(x, y, s=100, color='y')
+        # Plot scatter points
+        plt.scatter(x, y, s=100, color='y')
 
-    # Plot therapeutic range
-    plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+        # Plot therapeutic range
+        plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
-    # Label days
-    for i in range(combined_df.shape[0]):
-        plt.text(x=combined_df.x[i]+0.1,y=combined_df.y[i]+0.1,s=int(combined_df.day[i]),
-                 fontdict=dict(color='black',size=13),
-                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+        # Label days
+        for i in range(combined_df.shape[0]):
+            plt.text(x=combined_df.x[i]+0.1,y=combined_df.y[i]+0.1,s=int(combined_df.day[i]),
+                    fontdict=dict(color='black',size=13),
+                    bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
 
-    sns.despine()
-    plt.title('Day 4 Recommendation')
-    plt.xlabel('Dose (mg)')
-    plt.ylabel('Tacrolimus level (ng/ml)')
-    plt.xticks(np.arange(0,3.5,step=0.5))
-    plt.xlim(0,2.5)
+        sns.despine()
+        plt.title('Day 4 Recommendation')
+        plt.xlabel('Dose (mg)')
+        plt.ylabel('Tacrolimus level (ng/ml)')
+        plt.xticks(np.arange(0,3.5,step=0.5))
+        plt.xlim(0,2.5)
+        
+        plt.savefig('patient_120_day_4_recommendation.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return combined_df, df_original
+
+def patient_120_response_vs_day(plot=False):
+    """
+    Scatter plot of response vs day for patient 120,
+    with green marker for first day in therapeutic range, 
+    and purple marker for potential first day with
+    CURATE.AI. 
+    """
     
-    plt.savefig('patient_120_day_4_recommendation.png', dpi=1000, facecolor='w', bbox_inches='tight')
+    df, df_original = patient_120_day_4_recommendation()
 
-    return combined_df
+    # Find predicted response on day 4
+    predicted_response = (df_original.loc[0, 'coeff_1x'] * 2) + (df_original.loc[0, 'coeff_0x'])
+
+    # SOC data
+    patient_120 = pd.read_excel('all_data.xlsx')
+    patient_120 = patient_120[patient_120.patient==120]
+    patient_120 = patient_120[['day', 'response']].reset_index(drop=True)
+
+    if plot==True:
+        # Plot
+        fig, axes = plt.subplots(figsize=(7,7))
+        sns.set(style='white', font_scale=2,
+            rc={"xtick.bottom":True, "ytick.left":True})
+
+        plt.plot(patient_120.day, patient_120.response, 'yo', linestyle='-', ms=10)
+        plt.scatter(x=patient_120.day[0], y=patient_120.response[0], color='y', s=100, label='Standard of care dosing')
+        plt.plot(4, predicted_response, 'm^', ms=10, label='First day of therapeutic range\nwith CURATE.AI-assisted dosing')
+        plt.plot(8, 9.9, 'go', ms=10, label='First day of therapeutic range\nwith standard of care dosing')
+
+        plt.ylim(0,max(patient_120.response+1))
+
+        sns.despine()
+        plt.xticks(np.arange(2,max(patient_120.day),step=4))
+        plt.xlabel('Day')
+        plt.ylabel('Tacrolimus level (ng/ml)')
+        plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+        handles, labels = plt.gca().get_legend_handles_labels()
+        order = [2,1,0]
+        legend1 = plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
+                bbox_to_anchor=(1.04,0.5), loc='center left', frameon=False) 
+
+        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                                label='Therapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(1.04,0.34), loc='upper left', frameon=False)
+
+        axes.add_artist(legend1)
+        axes.add_artist(legend2)
+        
+        plt.savefig('patient_120_response_vs_day.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return patient_120
 
 # Statistical test
 def result_and_distribution(df, metric_string):
@@ -1116,75 +1172,6 @@ def median_IQR_range(df):
     count = df.describe()['count']
 
     print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f}| range {minimum:.2f} - {maximum:.2f} | count {count}\n')
-
-##### Archive
-
-def values_by_dosing_strategy():
-    """
-    Find therapeutic range values by dosing strategy
-
-    Output: 
-    - Printed values of number of patients, first day 
-    to achieve therapeutic range, and percentage of days in
-    therapeutic range, by dosing strategy
-    - combined_df: final dataframe of all values by dosing
-    strategy
-    """
-
-    # Import data and list of patients
-    df = import_raw_data_including_non_ideal()
-    list_of_patients = find_list_of_patients()
-
-    # Create therapeutic range column
-    df['therapeutic_range'] = ""
-    for i in range(len(df)):
-        if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
-            df.loc[i, 'therapeutic_range'] = 'therapeutic'
-        else:
-            df.loc[i, 'therapeutic_range'] = 'non-therapeutic'
-
-    # Find percentage of therapeutic range per patient
-    perc_therapeutic_range = df.groupby('patient')['therapeutic_range'].apply(lambda x: (x=='therapeutic').sum()/x.count()*100)
-    perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
-    perc_therapeutic_range = perc_therapeutic_range.rename(columns={'therapeutic_range':'perc_therapeutic_range'})
-
-    # Find first day of achieving therapeutic range per patient
-    first_day_of_therapeutic_range = df[df.therapeutic_range=='therapeutic'].groupby('patient')['day'].first()
-    first_day_of_therapeutic_range = first_day_of_therapeutic_range.to_frame().reset_index()
-    first_day_of_therapeutic_range = first_day_of_therapeutic_range.rename(columns={'day':'first_day_therapeutic_range'})
-
-    # Categorise patients
-    dosing_strategy = df.groupby('patient')['dose'].apply(lambda x: \
-                                                          'distributed' if ((x.max()-x.min()) >= dosing_strategy_cutoff) \
-                                                          else 'repeated')
-    dosing_strategy = dosing_strategy.to_frame().reset_index()
-    dosing_strategy = dosing_strategy.rename(columns={'dose':'dosing_strategy'})
-
-    # Merge all three dataframes
-    combined_df = dosing_strategy.merge(first_day_of_therapeutic_range, how='left', on='patient')
-    combined_df = combined_df.merge(perc_therapeutic_range, how='left', on='patient')
-
-    print(f'Repeated:\nN = {combined_df.dosing_strategy.value_counts().loc["repeated"]}\n\
-    First day to achieve therapeutic range: \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
-    Days in therapeutic range (%): \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
-    {combined_df[combined_df.dosing_strategy=="repeated"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
-
-    print(f'\nDistributed:\nN = {combined_df.dosing_strategy.value_counts().loc["distributed"]}\n\
-    First day to achieve therapeutic range: \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["50%"]} [IQR \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["25%"]} - \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["first_day_therapeutic_range"].describe().loc["75%"]}] days\n\
-    Days in therapeutic range (%): \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["50%"]:.2f} [IQR \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["25%"]:.2f} - \
-    {combined_df[combined_df.dosing_strategy=="distributed"]["perc_therapeutic_range"].describe().loc["75%"]:.2f}]')
-
-    return combined_df
 
 ##### New graphs after meeting with NUH ######
 def cross_val():
@@ -2321,46 +2308,6 @@ def case_series_120(plot=False):
         plt.savefig('patient_120_RW_profiles.png', dpi=500, facecolor='w', bbox_inches='tight')
 
     return dat_original, combined_df
-
-def case_series_120_day_4_regression():
-    """Scatter and line plot of day 4 recommendation for patient 120"""
-    dat_original, combined_df = case_series_120()
-
-    # Subset first prediction since it could outperform SOC
-    dat = combined_df[combined_df.pred_day==4].reset_index(drop=True)
-
-    sns.set(style='white', font_scale=2,
-           rc={"figure.figsize":(7,7), "xtick.bottom":True, "ytick.left":True})
-
-    # Plot regression line
-    x = np.array([dat.x[0],dat.x[1]])
-    y = np.array([dat.y[0],dat.y[1]])
-    a, b = np.polyfit(x, y, 1)
-    x_values = np.linspace(0, 3)
-    plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
-
-    # Plot scatter points
-    plt.scatter(x, y, s=100, color='y')
-
-    # Plot therapeutic range
-    plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
-
-    # Label days
-    for i in range(dat.shape[0]):
-        plt.text(x=dat.x[i]+0.1,y=dat.y[i]+0.1,s=int(dat.day[i]),
-                 fontdict=dict(color='black',size=13),
-                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
-
-    sns.despine()
-    plt.title('Day 4 recommendation')
-    plt.xlabel('Dose (mg)')
-    plt.ylabel('Tacrolimus level (ng/ml)')
-    plt.xticks(np.arange(0,3.5,step=0.5))
-    plt.xlim(0,2.5)
-
-    plt.savefig('patient_120_case_series_reco.png',dpi=500)
-    
-    return dat
 
 def case_series_120_response_vs_day():
     """
