@@ -438,7 +438,7 @@ def effect_of_CURATE():
                         label='Therapeutic range', alpha=.2)]
     legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
 
-    plt.savefig('effect_of_CURATE.png', dpi=500, facecolor='w', bbox_inches='tight')
+    plt.savefig('effect_of_CURATE.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_dat
 
