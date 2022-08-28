@@ -779,7 +779,7 @@ def clinically_relevant_performance_metrics():
         else:
             result_string = 'assume equal medians'
 
-        print(f'Comparison of means between (1) and (2), Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
+        print(f'Comparison of medians between (1) and (2), Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
 
         # 3. Clinically unacceptable overprediction
 
