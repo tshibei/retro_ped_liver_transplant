@@ -1227,6 +1227,68 @@ def SOC_CURATE_perc_in_TR(plot=False):
     
     return perc_days_TR
 
+def SOC_CURATE_perc_pts_TR_in_first_week(plot=False):
+    """
+    Barplot of % of patients in TR within first week, of
+    SOC and CURATE.
+    """
+    # SOC
+    data = response_vs_day(plot=False)
+
+    # Drop rows where response is NaN
+    data = data[data.response.notna()].reset_index(drop=True)
+
+    # Add therapeutic range column
+    for i in range(len(data)):
+        if (data.response[i] >= therapeutic_range_lower_limit) & (data.response[i] <= therapeutic_range_upper_limit):
+            data.loc[i, 'therapeutic_range'] = True
+        else:
+            data.loc[i, 'therapeutic_range'] = False
+
+    first_week_df = data.copy()
+    first_week_df = first_week_df[first_week_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+    first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
+    result = first_week_df.Day.sum()/first_week_df.Day.count()*100
+
+    SOC = result
+
+    # CURATE
+    df = effect_of_CURATE()
+    # Drop rows where response is NaN
+    df = df[df.response.notna()].reset_index(drop=True)
+
+    # Create column of final therapeutic range result
+    for i in range(len(df)):
+        if 'non' in df['Effect of CURATE.AI-assisted dosing'][i]:
+            df.loc[i, 'final_response_in_TR'] = False
+        else:
+            df.loc[i, 'final_response_in_TR'] = True
+
+    # % of participants that reach within first week
+    reach_TR_in_first_week = df[df.final_response_in_TR==True].groupby('patient')['day'].first().reset_index(name='first_day')
+    reach_TR_in_first_week['result'] = reach_TR_in_first_week['first_day'] <= 7
+    result = reach_TR_in_first_week['result'].sum() / len(reach_TR_in_first_week) * 100
+
+    CURATE = result
+
+    # Restructure dataframe for plotting with seaborn
+    plot_df = pd.DataFrame({'SOC':[SOC], 'CURATE':[CURATE]}).stack()
+    plot_df = plot_df.to_frame().reset_index()
+    plot_df = plot_df.rename(columns={'level_1':'Dosing', 0:'perc_reach_TR_in_first_week'})
+
+    # Plot
+    if plot == True:
+        sns.set(font_scale=1.2, rc={"figure.figsize": (4,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+        fig, ax = plt.subplots()
+        ax.bar(plot_df.Dosing, plot_df.perc_reach_TR_in_first_week, width=.5, color=['#ccb974','#8172b3'])
+        sns.despine()
+        ax.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
+        plt.ylabel('Patients who achieve therapeutic\nrange in first week (%)')
+
+        plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return plot_df
+
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
