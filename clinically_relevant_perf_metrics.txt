@@ -6,7 +6,7 @@ median 49.08 | IQR 29.11 - 57.51| range 13.79 - 71.43 | count 16.0
 KS test p-value = 0.00, reject normality
 median 54.55 | IQR 33.33 - 60.00| range 25.00 - 100.00 | count 13.0
 
-Comparison of means between (1) and (2), Kruskal Wallis p-value = 0.35, assume equal medians
+Comparison of medians between (1) and (2), Kruskal Wallis p-value = 0.35, assume equal medians
 
 (3) % clinically unacceptable overprediction:
 KS test p-value = 0.00, reject normality
