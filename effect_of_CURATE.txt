@@ -1,0 +1,10 @@
+1. % of days within therapeutic range:
+KS test p-value = 0.00, reject normality
+median 30.00 | IQR 20.62 - 32.20| range 0.00 - 50.00 | count 16.0
+
+2. % of participants that reach within first week: 66.67, 10 out of 15 patients
+
+3. Day where patient first achieved therapeutic range:
+KS test p-value = 0.00, reject normality
+median 5.00 | IQR 4.00 - 8.00| range 3.00 - 14.00 | count 15.0
+
