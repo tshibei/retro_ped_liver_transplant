@@ -366,7 +366,7 @@ def effect_of_CURATE():
     df = df[['patient', 'day', 'Effect of CURATE.AI-assisted dosing']]
 
     # Import all data
-    all_data = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+    all_data = pd.read_excel(all_data_file)
 
     # Subset patient, day, response, dose 
     all_data = all_data[['patient', 'day', 'response', 'dose']]
