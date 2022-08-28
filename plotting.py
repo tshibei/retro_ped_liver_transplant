@@ -1118,6 +1118,48 @@ def patient_120_response_vs_day(plot=False):
 
     return patient_120
 
+def effect_of_CURATE_values():
+    """
+    Output: 
+    1) Print:
+    - 1. % of days within therapeutic range
+    - 2. % of participants that reach within first week
+    - 3. Day where patient first achieved therapeutic range
+    2) Corresponding dataframes
+    """
+    original_stdout = sys.stdout
+    with open('effect_of_CURATE.txt', 'w') as f:
+        sys.stdout = f
+        df = effect_of_CURATE()
+
+        # Drop rows where response is NaN
+        df = df[df.response.notna()].reset_index(drop=True)
+
+        # Create column of final therapeutic range result
+        for i in range(len(df)):
+            if 'non' in df['Effect of CURATE.AI-assisted dosing'][i]:
+                df.loc[i, 'final_response_in_TR'] = False
+            else:
+                df.loc[i, 'final_response_in_TR'] = True
+
+        # 1. % of days within therapeutic range
+        perc_days_within_TR = df.groupby('patient')['final_response_in_TR'].apply(lambda x: x.sum()/x.count()*100)
+        perc_days_within_TR = perc_days_within_TR.reset_index(name='result')
+        result_and_distribution(perc_days_within_TR.result, '1. % of days within therapeutic range')
+
+        # 2. % of participants that reach within first week
+        reach_TR_in_first_week = df[df.final_response_in_TR==True].groupby('patient')['day'].first().reset_index(name='first_day')
+        reach_TR_in_first_week['result'] = reach_TR_in_first_week['first_day'] <= 7
+        result = reach_TR_in_first_week['result'].sum() / len(reach_TR_in_first_week) * 100
+        print(f'2. % of participants that reach within first week: {result:.2f}, {reach_TR_in_first_week["result"].sum()} out of {len(reach_TR_in_first_week)} patients\n')
+
+        # 3. Day where patient first achieved therapeutic range
+        result_and_distribution(reach_TR_in_first_week.first_day, '3. Day where patient first achieved therapeutic range')
+
+    sys.stdout = original_stdout
+
+    return perc_days_within_TR, reach_TR_in_first_week
+
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
@@ -2259,7 +2301,7 @@ def case_series_118(plot=False):
 
     combined_df = df_fit_dose.merge(df_fit_response, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
     combined_df = combined_df.merge(df_day, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
-
+    
     if plot==True:
         # Plot
         sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True},
@@ -2638,7 +2680,6 @@ def barplot_percentage_days_therapeutic_range_per_patient():
     plt.savefig('effect_of_CURATE_per_patient.png', dpi=500, facecolor='w', bbox_inches='tight')
     
     return new_dat
-
 
 # LOOCV for all methods
 
