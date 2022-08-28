@@ -1160,6 +1160,73 @@ def effect_of_CURATE_values():
 
     return perc_days_within_TR, reach_TR_in_first_week
 
+def SOC_CURATE_perc_in_TR(plot=False):
+    """
+    Boxplot of % of days in TR, for SOC and CURATE.
+    Print out kruskal wallis test for difference in medians.
+    """
+
+    # SOC
+    perc_days_TR_SOC = response_vs_day(plot=False)
+
+    # Drop rows where response is NaN
+    perc_days_TR_SOC = perc_days_TR_SOC[perc_days_TR_SOC.response.notna()].reset_index(drop=True)
+
+    # Add therapeutic range column
+    for i in range(len(perc_days_TR_SOC)):
+        if (perc_days_TR_SOC.response[i] >= therapeutic_range_lower_limit) & (perc_days_TR_SOC.response[i] <= therapeutic_range_upper_limit):
+            perc_days_TR_SOC.loc[i, 'therapeutic_range'] = True
+        else:
+            perc_days_TR_SOC.loc[i, 'therapeutic_range'] = False
+
+    perc_days_TR_SOC = perc_days_TR_SOC.groupby('patient')['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100)
+    perc_days_TR_SOC = perc_days_TR_SOC.reset_index(name='SOC')
+
+    # CURATE
+    perc_days_TR_CURATE = effect_of_CURATE()
+
+    # Drop rows where response is NaN
+    perc_days_TR_CURATE = perc_days_TR_CURATE[perc_days_TR_CURATE.response.notna()].reset_index(drop=True)
+
+    # Create column of final therapeutic range result
+    for i in range(len(perc_days_TR_CURATE)):
+        if 'non' in perc_days_TR_CURATE['Effect of CURATE.AI-assisted dosing'][i]:
+            perc_days_TR_CURATE.loc[i, 'final_response_in_TR'] = False
+        else:
+            perc_days_TR_CURATE.loc[i, 'final_response_in_TR'] = True
+
+    perc_days_TR_CURATE = perc_days_TR_CURATE.groupby('patient')['final_response_in_TR'].apply(lambda x: x.sum()/x.count()*100)
+    perc_days_TR_CURATE = perc_days_TR_CURATE.reset_index(name='CURATE')
+
+    perc_days_TR = perc_days_TR_SOC.merge(perc_days_TR_CURATE, how='left', on='patient')
+
+    # Compare medians
+    result = stats.kruskal(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue
+    if result < 0.05:
+        result_string = 'assume unequal medians'
+    else:
+        result_string = 'assume equal medians'
+    print(f'Comparison of medians between SOC and CURATE, Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
+
+    # Rearrage dataframe for seaborn boxplot
+    perc_days_TR_plot = perc_days_TR.set_index('patient')
+    perc_days_TR_plot = perc_days_TR_plot.stack().reset_index()
+    perc_days_TR_plot = perc_days_TR_plot.rename(columns={'level_1':'Dosing', 0:'Days in therapeutic range (%)'})
+
+    if plot == True:
+        # Plot
+        sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+        g = sns.boxplot(x="Dosing", y="Days in therapeutic range (%)", data=perc_days_TR_plot, width=0.5, palette=['#ccb974','#8172b3'])
+        sns.despine()
+        g.set_xlabel(None)
+        g.set_ylabel('Days in therapeutic range (%)')
+        g.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
+
+        # Save
+        plt.savefig('SOC_CURATE_perc_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
+    
+    return perc_days_TR
+
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
