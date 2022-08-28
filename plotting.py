@@ -334,7 +334,7 @@ def ideal_over_under_pred_RW(plot=False):
 
     return dat
 
-def effect_of_CURATE():
+def effect_of_CURATE(plot=False):
     """
     Facetgrid scatter plot of effect of CURATE on all data.
 
@@ -406,39 +406,40 @@ def effect_of_CURATE():
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
                                                 133:15, 138:16})
 
-    # Plot
-    sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
-    hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
-                'Improve to therapeutic range', 'Worsen to non-therapeutic range']
-    palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
-            sns.color_palette()[3]]
-    style_order = ['Low', 'Medium', 'High', 'Unavailable']
+    if plot == True:
+        # Plot
+        sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
+        hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
+                    'Improve to therapeutic range', 'Worsen to non-therapeutic range']
+        palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
+                sns.color_palette()[3]]
+        style_order = ['Low', 'Medium', 'High', 'Unavailable']
 
-    # Scatter point
-    g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
-                    hue_order=hue_order, col='patient', palette=palette,\
-                    col_wrap=4, style='Dose range', height=3, aspect=1, s=80, style_order=style_order)
+        # Scatter point
+        g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
+                        hue_order=hue_order, col='patient', palette=palette,\
+                        col_wrap=4, style='Dose range', height=3, aspect=1, s=80, style_order=style_order)
 
-    # Move legend below plot
-    sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
+        # Move legend below plot
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
 
-    # Titles and labels
-    g.set_titles('Patient {col_name}')
-    g.set(yticks=np.arange(0,math.ceil(max(combined_dat['response'])),4),
-        xticks=np.arange(0,max(combined_dat.day),step=5))
-    g.set_ylabels('Tacrolimus level (ng/ml)')
-    g.set_xlabels('Day')
+        # Titles and labels
+        g.set_titles('Patient {col_name}')
+        g.set(yticks=np.arange(0,math.ceil(max(combined_dat['response'])),4),
+            xticks=np.arange(0,max(combined_dat.day),step=5))
+        g.set_ylabels('Tacrolimus level (ng/ml)')
+        g.set_xlabels('Day')
 
-    # Add gray region for therapeutic range
-    for ax in g.axes:
-        ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+        # Add gray region for therapeutic range
+        for ax in g.axes:
+            ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
 
-    legend1 = plt.legend()
-    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                        label='Therapeutic range', alpha=.2)]
-    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
+        legend1 = plt.legend()
+        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                            label='Therapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
 
-    plt.savefig('effect_of_CURATE.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('effect_of_CURATE.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_dat
 
