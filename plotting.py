@@ -386,7 +386,9 @@ def effect_of_CURATE():
     combined_dat['Dose range'] = ""
 
     for i in range(len(combined_dat)):
-        if combined_dat.dose[i] < low_dose_upper_limit:
+        if np.isnan(combined_dat.dose[i]):
+            combined_dat.loc[i, 'Dose range'] = 'Unavailable'
+        elif combined_dat.dose[i] < low_dose_upper_limit:
             combined_dat.loc[i, 'Dose range'] = 'Low'
         elif combined_dat.dose[i] < medium_dose_upper_limit:
             combined_dat.loc[i, 'Dose range'] = 'Medium'
