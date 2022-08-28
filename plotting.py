@@ -412,11 +412,12 @@ def effect_of_CURATE():
                 'Improve to therapeutic range', 'Worsen to non-therapeutic range']
     palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
             sns.color_palette()[3]]
+    style_order = ['Low', 'Medium', 'High', 'Unavailable']
 
     # Scatter point
     g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
                     hue_order=hue_order, col='patient', palette=palette,\
-                    col_wrap=4, style='Dose range', height=3, aspect=1, s=80)
+                    col_wrap=4, style='Dose range', height=3, aspect=1, s=80, style_order=style_order)
 
     # Move legend below plot
     sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
