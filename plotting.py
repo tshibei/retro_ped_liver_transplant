@@ -1208,7 +1208,7 @@ def SOC_CURATE_perc_in_TR(plot=False):
         result_string = 'assume equal medians'
     print(f'Comparison of medians between SOC and CURATE, Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
 
-    # Rearrage dataframe for seaborn boxplot
+    # Rearrange dataframe for seaborn boxplot
     perc_days_TR_plot = perc_days_TR.set_index('patient')
     perc_days_TR_plot = perc_days_TR_plot.stack().reset_index()
     perc_days_TR_plot = perc_days_TR_plot.rename(columns={'level_1':'Dosing', 0:'Days in therapeutic range (%)'})
