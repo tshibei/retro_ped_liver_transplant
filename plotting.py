@@ -2650,8 +2650,8 @@ def case_series_118_repeated_dosing_dose_vs_day():
     clean_dat = pd.read_excel(result_file, sheet_name='clean')
     
     # Subset pred_days with repeated dose of 6mg
-    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)]
-    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
+    dat = dat_original[(dat_original.pred_day >= 6) & (dat_original.pred_day <= 9)]
+    CURATE_dosing = [5.5, 5.5, 5, 5]
     dat['CURATE.AI-assisted dosing'] = CURATE_dosing
 
     # Subset columns
@@ -2678,9 +2678,10 @@ def case_series_118_repeated_dosing_dose_vs_day():
     plt.xlabel('Day')
     plt.ylabel('Dose (mg)')
     plt.yticks(np.arange(5,8,step=0.5))
+    plt.ylim(4.5, 6.5)
 
     plt.tight_layout()
-    plt.savefig('patient_118_repeated_dose_dose_vs_day.png',dpi=500)
+    plt.savefig('patient_118_repeated_dose_dose_vs_day.png',dpi=1000)
 
     return combined_dat
 
@@ -2690,10 +2691,10 @@ def case_series_118_repeated_dosing_response_vs_dose():
     clean_dat = pd.read_excel(result_file, sheet_name='clean')
 
     # Subset pred_days with repeated dose of 6mg
-    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)].reset_index(drop=True)
+    dat = dat_original[(dat_original.pred_day >= 6) & (dat_original.pred_day <= 9)].reset_index(drop=True)
 
     # Add column for CURATE recommendation
-    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
+    CURATE_dosing = [5.5, 5.5, 5, 5]
     dat['CURATE-recommended dose'] = CURATE_dosing
 
     # Add column for predicted response if CURATE dose was administered instead
@@ -2735,7 +2736,7 @@ def case_series_118_repeated_dosing_response_vs_dose():
              bbox=dict(facecolor='m', ec='black', alpha=0.5, boxstyle='circle'))
 
     plt.tight_layout()
-    plt.savefig('patient_118_repeated_dose_response_vs_dose.png',dpi=500, bbox_inches='tight')
+    plt.savefig('patient_118_repeated_dose_response_vs_dose.png',dpi=1000, bbox_inches='tight')
     
     return dat
 
