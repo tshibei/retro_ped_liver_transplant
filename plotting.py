@@ -1289,6 +1289,71 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False):
 
     return plot_df
 
+def SOC_CURATE_first_day_in_TR(plot=False):
+    """
+    Boxplot for day when TR is first achieved, for
+    both SOC and CURATE
+    """
+
+    # SOC
+    SOC = response_vs_day(plot=False)
+    SOC = SOC[SOC.response.notna()].reset_index(drop=True)
+
+    # Add therapeutic range column
+    for i in range(len(SOC)):
+        if (SOC.response[i] >= therapeutic_range_lower_limit) & (SOC.response[i] <= therapeutic_range_upper_limit):
+            SOC.loc[i, 'therapeutic_range'] = True
+        else:
+            SOC.loc[i, 'therapeutic_range'] = False
+
+    SOC = SOC[SOC['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+    SOC = SOC.groupby('patient')['Day'].first().reset_index(name='SOC')
+
+    # CURATE
+    CURATE = effect_of_CURATE()
+
+    # Drop rows where response is NaN
+    CURATE = CURATE[CURATE.response.notna()].reset_index(drop=True)
+
+    # Create column of final therapeutic range result
+    for i in range(len(CURATE)):
+        if 'non' in CURATE['Effect of CURATE.AI-assisted dosing'][i]:
+            CURATE.loc[i, 'final_response_in_TR'] = False
+        else:
+            CURATE.loc[i, 'final_response_in_TR'] = True
+
+    CURATE = CURATE[CURATE.final_response_in_TR==True].groupby('patient')['day'].first().reset_index(name='CURATE')
+
+    # Merge SOC and CURATE into one dataframe
+    combined_df = SOC.merge(CURATE, how='left', on='patient')
+
+    # Compare medians
+    result = stats.kruskal(combined_df.SOC, combined_df.CURATE).pvalue
+    if result < 0.05:
+        result_string = 'assume unequal medians'
+    else:
+        result_string = 'assume equal medians'
+    print(f'Comparison of medians between SOC and CURATE, Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
+
+    # Rearrange dataframe for seaborn boxplot
+    plot_df = combined_df.set_index('patient')
+    plot_df = plot_df.stack().reset_index()
+    plot_df = plot_df.rename(columns={'level_1':'Dosing', 0:'First day in therapeutic range'})
+
+    if plot == True:
+        # Plot
+        sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+        g = sns.boxplot(x="Dosing", y="First day in therapeutic range", data=plot_df, width=0.5, palette=['#ccb974','#8172b3'])
+        sns.despine()
+        g.set_xlabel(None)
+        # g.set_ylabel('Days in therapeutic range (%)')
+        g.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
+
+        # Save
+        plt.savefig('SOC_CURATE_first_day_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return plot_df
+
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
