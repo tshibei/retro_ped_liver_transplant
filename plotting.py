@@ -201,7 +201,7 @@ def all_data():
     return combined_df
 
 # Most updated code
-def response_vs_day(file_string=all_data_file, plot=True):
+def response_vs_day(file_string=all_data_file, plot=False):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
         
     # Plot individual profiles
