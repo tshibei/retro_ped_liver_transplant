@@ -2538,7 +2538,7 @@ def case_series_118_repeated_dosing_multiple_plots():
     dat_original, combined_df = case_series_118()
 
     # Subset repeated doses
-    combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day < 10)].reset_index(drop=True)
+    combined_df = combined_df[(combined_df.pred_day > 5) & (combined_df.pred_day < 10)].reset_index(drop=True)
 
     sns.set(style='white', font_scale=2,
         rc={"xtick.bottom":True, "ytick.left":True})
@@ -2546,7 +2546,7 @@ def case_series_118_repeated_dosing_multiple_plots():
     fig, ax = plt.subplots(1, 5, figsize=(25,7))
 
     # Loop through number of predictions chosen
-    for i in range(5):
+    for i in range(4):
 
         plt.subplot(1,5,i+1)
 
