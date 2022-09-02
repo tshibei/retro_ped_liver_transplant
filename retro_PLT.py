@@ -49,9 +49,7 @@ import sys
 # %%time
 # ~5mins
 
-# Execute CURATE without pop tau
-execute_CURATE(pop_tau_string='')
-
+execute_CURATE()
 
 # +
 # %%time
