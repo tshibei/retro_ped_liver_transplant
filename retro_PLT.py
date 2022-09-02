@@ -45,6 +45,34 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import levene
 import sys
 
+whole_day_original = pd.read_excel('CURATE_results.xlsx', sheet_name='result')
+evening_original = pd.read_excel('CURATE_results_evening_dose.xlsx', sheet_name='result')
+
+# +
+whole_day = whole_day_original.copy()
+evening = evening_original.copy()
+
+# Check if equal means in deviation: result, p = 0.75, equal
+whole_day_deviation = whole_day[whole_day.method=="L_RW_wo_origin"].deviation.reset_index(name='deviation')[['deviation']]
+evening_deviation = evening[evening.method=="L_RW_wo_origin"].deviation.reset_index(name='deviation')[['deviation']]
+
+print(f'deviation p-value: {stats.ttest_rel(whole_day_deviation.deviation, evening_deviation.deviation).pvalue:.2f}')
+print(f"deviation mean, whole_day = {whole_day_deviation.describe().loc['mean'][0]:.2f}")
+print(f"deviation mean, evening = {evening_deviation.describe().loc['mean'][0]:.2f}\n")
+
+# Check if equal means in abs_deviation: result p = 0.86, equal
+whole_day_abs_deviation = whole_day[whole_day.method=="L_RW_wo_origin"].abs_deviation.reset_index(name='abs_deviation')[['abs_deviation']]
+evening_abs_deviation = evening[evening.method=="L_RW_wo_origin"].abs_deviation.reset_index(name='abs_deviation')[['abs_deviation']]
+
+print(f'abs deviation p-value: {stats.ttest_rel(whole_day_abs_deviation.abs_deviation, evening_abs_deviation.abs_deviation).pvalue:.2f}')
+print(f"abs deviation mean, whole_day = {whole_day_abs_deviation.describe().loc['mean'][0]:.2f}")
+print(f"abs deviation mean, evening = {evening_abs_deviation.describe().loc['mean'][0]:.2f}")
+# print(f'whole_day:\n{whole_day[whole_day.method=="L_RW_wo_origin"].deviation.describe()}')
+# print(f'evening:\n{evening[evening.method=="L_RW_wo_origin"].deviation.describe()}')
+# -
+
+
+
 # +
 # %%time
 # ~5mins
