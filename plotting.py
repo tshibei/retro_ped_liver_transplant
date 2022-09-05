@@ -1361,28 +1361,13 @@ def result_and_distribution(df, metric_string):
     Conduct normality test and print results.
     Based on p-value of normality test, choose mean/median to print.
     """
-    if df.count() > 50:
-        p = shapiro_test_result(df, metric_string)
-    else:
-        p = ks_test_result(df, metric_string)
+    p = shapiro_test_result(df, metric_string)
         
     if p < 0.05:
         median_IQR_range(df)
     else:
         mean_and_SD(df)
         
-def ks_test_result(df, metric_string):
-    ks_test = stats.kstest(df, "norm").pvalue
-    
-    if ks_test < 0.05:
-        result_string = 'reject normality'
-    else:
-        result_string = 'assume normality'
-
-    print(f'{metric_string}:\nKS test p-value = {ks_test:.2f}, {result_string}')
-    
-    return ks_test
-    
 def shapiro_test_result(df, metric_string):
     shapiro_result = stats.shapiro(df).pvalue
     

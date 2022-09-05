@@ -296,3 +296,16 @@ def case_series_120_response_vs_day():
     plt.savefig('patient_120_first_day.png',dpi=500, bbox_inches='tight')
     
     return clean_dat
+
+def ks_test_result(df, metric_string):
+    ks_test = stats.kstest(df, "norm").pvalue
+    
+    if ks_test < 0.05:
+        result_string = 'reject normality'
+    else:
+        result_string = 'assume normality'
+
+    print(f'{metric_string}:\nKS test p-value = {ks_test:.2f}, {result_string}')
+    
+    return ks_test
+    
