@@ -23,7 +23,7 @@ warnings.simplefilter("ignore", OptimizeWarning)
 import timeit
 
 ##### MAIN FUNCTIONS #####
-def execute_CURATE(five_fold_cross_val_results_summary="", pop_tau_string=' (no pop tau)'):
+def execute_CURATE(five_fold_cross_val_results_summary="", pop_tau_string='', dose='total'):
     """ 
     Execute CURATE.
     Output: Excel sheet with cleaned patient dataframe, 
@@ -31,12 +31,12 @@ def execute_CURATE(five_fold_cross_val_results_summary="", pop_tau_string=' (no 
             result of all methods.
     """
     # Generate profiles and join dataframes
-    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary)
+    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary, dose)
     df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
 
     # Print patients to exclude anad ouput dataframes to excel as individual sheets
     print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
-    output_df_to_excel(df, cal_pred, result_df, pop_tau_string)
+    output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose)
 
 # Pop tau
 def find_pop_tau_with_CV():
@@ -370,7 +370,7 @@ def execute_CURATE_and_update_pop_tau_results(CV_string, five_fold_cross_val_res
 
 ##### SUPPORTING FUNCTIONS ######
 # Generate profiles
-def generate_profiles(five_fold_cross_val_results_summary):
+def generate_profiles(five_fold_cross_val_results_summary, dose):
     """
     Generate profiles for patients.
     
@@ -415,8 +415,8 @@ def generate_profiles(five_fold_cross_val_results_summary):
 
         # Create and clean patient dataframe        
         df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
-        df = clean_data(df)
-        df = keep_ideal_data(df, patient, list_of_patient_df)
+        df = clean_data(df, dose)
+        df = keep_ideal_data(df, patient, list_of_patient_df, dose)
 
         # Change to dose by body weight
         df['dose_BW'] = df['dose'] / list_of_body_weight[number_of_patients]
@@ -457,9 +457,14 @@ def join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df):
     
     return df, cal_pred, result_df
 
-def output_df_to_excel(df, cal_pred, result_df, pop_tau_string):
+def output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose):
     """Output dataframes to excel as individual sheets"""
-    with pd.ExcelWriter('CURATE_results.xlsx') as writer:
+    if dose == 'evening':
+        file_name = 'CURATE_results_evening_dose.xlsx'
+    else:
+        file_name = 'CURATE_results.xlsx'
+
+    with pd.ExcelWriter(file_name) as writer:
         df.to_excel(writer, sheet_name='clean', index=False)
         cal_pred.to_excel(writer, sheet_name='calibration_and_efficacy_driven', index=False)
         result_df.to_excel(writer, sheet_name='result', index=False)
@@ -472,7 +477,7 @@ def get_sheet_names(input_file):
     wb.close()
     return patient_list
 
-def clean_data(df):
+def clean_data(df, dose):
     """ 
     Keep target columns from excel, shift tac level one cell up, remove "mg"/"ng" 
     from dose, replace NaN with 0 in dose.
@@ -484,19 +489,25 @@ def clean_data(df):
     Output:
     df - cleaned dataframe        
     """
+    if dose == 'total':
+        dose_string = "Eff 24h Tac Dose"
+    else:
+        dose_string = "2nd Tac dose (pm)"
 
     # Keep target columns
-    df = df[["Day #", "Tac level (prior to am dose)", "Eff 24h Tac Dose"]]
+    df = df[["Day #", "Tac level (prior to am dose)", dose_string]]
 
     # Shift tac level one cell up to match dose-response to one day
-    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].shift(1)
+    df[dose_string] = df[dose_string].shift(1)
 
     # Remove "mg"/"ng" from dose
-    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
-    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(str).str.replace('ng', '')
-    df['Eff 24h Tac Dose'] = df['Eff 24h Tac Dose'].astype(float)
+    df[dose_string] = df[dose_string].astype(str).str.replace('mgq', '')
+    df[dose_string] = df[dose_string].astype(str).str.replace('mg', '')
+    df[dose_string] = df[dose_string].astype(str).str.replace('ng', '')
+    df[dose_string] = df[dose_string].astype(str).str.strip()
+    df[dose_string] = df[dose_string].astype(float)
 
-    first_day_of_dosing = df['Day #'].loc[~df['Eff 24h Tac Dose'].isnull()].iloc[0]
+    first_day_of_dosing = df['Day #'].loc[~df[dose_string].isnull()].iloc[0]
 
     # Keep data from first day of dosing
     df = df[df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
@@ -507,7 +518,7 @@ def clean_data(df):
     
     return df
 
-def keep_ideal_data(df, patient, list_of_patient_df):
+def keep_ideal_data(df, patient, list_of_patient_df, dose):
     """
     Remove rows with non-ideal data, including missing tac level and/or tac dose, 
     <2 tac level, multiple blood draws. Then keep the longest consecutive chunk
@@ -516,51 +527,47 @@ def keep_ideal_data(df, patient, list_of_patient_df):
     Input: Dataframe of individual patient
     Output: Dataframe with the longest chunk of consecutive ideal data.
     """
-    df_temp = df.copy()
-    
+
+    if dose == 'total':
+        dose_string = "Eff 24h Tac Dose"
+    else:
+        dose_string = "2nd Tac dose (pm)"
+
     # Create boolean column of data to remove
     # Including NA, <2 tac level, multiple blood draws
-    df_temp['non_ideal'] = (df_temp.isnull().values.any(axis=1))  | \
-                               (df_temp['Tac level (prior to am dose)'] == '<2') | \
-                               (df_temp["Tac level (prior to am dose)"].astype(str).str.contains("/"))
+    df['non_ideal'] = (df.isnull().values.any(axis=1))  | \
+                               (df['Tac level (prior to am dose)'] == '<2') | \
+                               (df["Tac level (prior to am dose)"].astype(str).str.contains("/"))
 
-    # Set boolean for non_ideal as True if all dose including and above current row is 0
-    for i in range(len(df_temp)):
-        if (df_temp.loc[0:i, 'Eff 24h Tac Dose'] == 0).all():
-            df_temp.loc[i, 'non_ideal'] = True
+    # # Set boolean for non_ideal as True if all dose including and above current row is 0
+    # for i in range(len(df)):
+    #     if (df.loc[0:i, dose_string] == 0).all():
+    #         df.loc[i, 'non_ideal'] = True
 
     # Create index column
-    df_temp.reset_index(inplace=True) 
+    df.reset_index(inplace=True) 
 
-    # Find cumulative sum of data to be removed for each index row
-    df_cum_sum_non_ideal = df_temp['non_ideal'].cumsum()     
+    try:
+        # Cum sum
+        df['cum_sum'] = df.non_ideal.cumsum()
+        df_agg = df[df.non_ideal==False].groupby('cum_sum').agg({'index': ['count', 'min', 'max']})
+        df_agg = df_agg[df_agg['index']['count']==df_agg['index']['count'].max()]
 
-    # Find number of consecutive non-NA
-    df_temp = df_temp.groupby(df_cum_sum_non_ideal).agg({'index': ['count', 'min', 'max']})
+        # Find index of data to keep
+        if len(df_agg) > 1:
+            print('there are multiple sets of consecutively ideal data')
+            df_agg = df_agg.loc[0,:]
+        min_idx = df_agg['index','min'].squeeze()
+        max_idx = df_agg['index','max'].squeeze()
 
-    # Groupby created useless column level for index, drop it
-    df_temp.columns = df_temp.columns.droplevel()
-
-    # Find largest chunk with consec non-NA
-    df_temp = df_temp[df_temp['count']==df_temp['count'].max()] 
-    df_temp.reset_index(inplace=True)
-
-    # Find index of largest chunk to keep in dataframe
-    if len(df_temp) > 1: # If there are >1 large chunks with longest length, an error will be printed
-        df_temp = print("there are >1 chunks of data with the longest length.")
-    else:
-        # Find index of largest chunk to keep in dataframe
-        if (df_temp.loc[0, 'min'] == 0) & (df_cum_sum_non_ideal[0] == 0):
-            min_idx = df_temp.loc[0, 'min']
-        else:
-            min_idx = df_temp.loc[0, 'min'] + 1 
-        max_idx = df_temp.loc[0, 'max'] # Get max index where non-NA chunk ends
-
-        # Keep largest chunk in dataframe
-        df = df.iloc[min_idx:max_idx + 1, :] 
+        # Keep longest consecutive set of ideal data
+        df = df.iloc[min_idx: max_idx+1, :]
+    except:
+        print(f"no ideal data for patient {patient}")
 
     # Format patient dataframe
     df['patient'] = patient
+    df = df[['Day #', 'Tac level (prior to am dose)', dose_string, 'patient']]
     df.columns = ['day', 'response', 'dose', 'patient']
     list_of_patient_df.append(df)
 
