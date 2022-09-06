@@ -1242,12 +1242,11 @@ def SOC_CURATE_perc_in_TR(plot=False, dose='total'):
     perc_days_TR = perc_days_TR_SOC.merge(perc_days_TR_CURATE, how='left', on='patient')
 
     # Compare medians
-    result = stats.kruskal(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue
-    if result < 0.05:
-        result_string = 'assume unequal medians'
+    print('Comparison of medians between SOC and CURATE\n')
+    if (stats.shapiro(perc_days_TR.SOC).pvalue < 0.05) or (stats.shapiro(perc_days_TR.CURATE).pvalue < 0.05):
+        print(f'Non-normal distribution, Wilcoxon p value: {wilcoxon(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue:.2f}')
     else:
-        result_string = 'assume equal medians'
-    print(f'Comparison of medians between SOC and CURATE, Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
+        print(f'Normal distribution, Paired t test p value: {stats.ttest_rel(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue:.2f}')
 
     # Rearrange dataframe for seaborn boxplot
     perc_days_TR_plot = perc_days_TR.set_index('patient')
@@ -1369,12 +1368,11 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
     combined_df = SOC.merge(CURATE, how='left', on='patient')
 
     # Compare medians
-    result = stats.kruskal(combined_df.SOC, combined_df.CURATE).pvalue
-    if result < 0.05:
-        result_string = 'assume unequal medians'
+    print('Comparison of medians between SOC and CURATE\n')
+    if (stats.shapiro(combined_df.SOC).pvalue < 0.05) or (stats.shapiro(combined_df.CURATE).pvalue < 0.05):
+        print(f'Non-normal distribution, Wilcoxon p value: {wilcoxon(combined_df.SOC, combined_df.CURATE).pvalue:.2f}')
     else:
-        result_string = 'assume equal medians'
-    print(f'Comparison of medians between SOC and CURATE, Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
+        print(f'Normal distribution, Paired t test p value: {stats.ttest_rel(combined_df.SOC, combined_df.CURATE).pvalue:.2f}')
 
     # Rearrange dataframe for seaborn boxplot
     plot_df = combined_df.set_index('patient')
