@@ -13,11 +13,14 @@ from Profile_Generation import *
 from openpyxl import load_workbook
 import sys
 from scipy.stats import levene
+from scipy.stats import wilcoxon
 
 # Define file names
-result_file = 'CURATE_results.xlsx'
+result_file_total = 'CURATE_results_total.xlsx'
+result_file_evening = 'CURATE_results_evening.xlsx'
 raw_data_file = 'Retrospective Liver Transplant Data - edited.xlsx'
-all_data_file = 'all_data.xlsx'
+all_data_file_total = 'all_data_total.xlsx'
+all_data_file_evening = 'all_data_evening.xlsx'
 
 # Define clinically relevant parameters
 low_dose_upper_limit = 2
