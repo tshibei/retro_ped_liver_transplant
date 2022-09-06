@@ -38,6 +38,18 @@ dosing_strategy_cutoff = 0.4
 acceptable_tac_upper_limit = 12
 acceptable_tac_lower_limit = 6.5
 
+def test_write_to_file(dose='total'):
+    original_stdout = sys.stdout
+
+    with open('test' + dose + '.txt', 'w') as f:
+        sys.stdout = f
+        a = 'test'
+        b = 'boy'
+        print(a)
+    
+    sys.stdout = original_stdout
+    return b
+
 # Create lists
 def find_list_of_body_weight():
 
@@ -106,7 +118,7 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
         df.to_excel(writer, sheet_name='data', index=False)
 
 # Create excel sheets
-def all_data():
+def all_data(dose='total'):
     """
     Clean raw data and label which are ideal or non-ideal.
     Export all data to excel.
@@ -115,6 +127,10 @@ def all_data():
     - Dataframe of all cleaned raw data with label of ideal/non-ideal.
     - 'all_data.xlsx' with dataframe
     """
+    if dose == 'total':
+        dose_string = "Eff 24h Tac Dose"
+    else:
+        dose_string = "2nd Tac dose (pm)"
 
     # Create dataframe from all sheets
     list_of_patients = find_list_of_patients()
@@ -127,17 +143,19 @@ def all_data():
         patient_df['patient'] = patient
 
         # Subset dataframe
-        patient_df = patient_df[['Day #', 'Tac level (prior to am dose)', 'Eff 24h Tac Dose', 'patient']]
+        patient_df = patient_df[['Day #', 'Tac level (prior to am dose)', dose_string, 'patient']]
 
         # Shift dose column
-        patient_df['Eff 24h Tac Dose'] = patient_df['Eff 24h Tac Dose'].shift(1)
+        patient_df[dose_string] = patient_df[dose_string].shift(1)
 
         # Remove "mg"/"ng" from dose
-        patient_df['Eff 24h Tac Dose'] = patient_df['Eff 24h Tac Dose'].astype(str).str.replace('mg', '')
-        patient_df['Eff 24h Tac Dose'] = patient_df['Eff 24h Tac Dose'].astype(str).str.replace('ng', '')
-        patient_df['Eff 24h Tac Dose'] = patient_df['Eff 24h Tac Dose'].astype(float)
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mgq', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mg', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('ng', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.strip()
+        patient_df[dose_string] = patient_df[dose_string].astype(float)
 
-        first_day_of_dosing = patient_df['Day #'].loc[~patient_df['Eff 24h Tac Dose'].isnull()].iloc[0]
+        first_day_of_dosing = patient_df['Day #'].loc[~patient_df[dose_string].isnull()].iloc[0]
 
         # Keep data from first day of dosing
         patient_df = patient_df[patient_df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
@@ -152,7 +170,7 @@ def all_data():
     df['patient'] = df['patient'].astype(int)
 
     # Rename columns
-    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', 'Eff 24h Tac Dose':'dose'})
+    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', dose_string:'dose'})
 
     # Import output dataframe from 'clean'
     ideal_df = pd.read_excel(result_file, sheet_name='clean')
@@ -199,14 +217,20 @@ def all_data():
             combined_df.loc[i, 'response'] = np.nan
 
     # Export to excel
-    combined_df.to_excel(r'all_data.xlsx', index = False, header=True)
+    combined_df.to_excel(r'all_data_' + dose + '.xlsx', index = False, header=True)
     
     return combined_df
 
 # Most updated code
-def response_vs_day(file_string=all_data_file, plot=False):
+def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
-        
+    
+    if dose == 'total':
+        file_string = all_data_file_total
+    else:
+        file_string = all_data_file_evening
+
+    print(file_string)
     # Plot individual profiles
     dat = pd.read_excel(file_string)
 
@@ -263,14 +287,14 @@ def response_vs_day(file_string=all_data_file, plot=False):
                             label='Region within therapeutic range', alpha=.2)]
         legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.7,-0.26), loc='upper left', frameon=False)
 
-        plt.savefig('response_vs_day.png', dpi=500, facecolor='w', bbox_inches='tight')
+        plt.savefig('response_vs_day_' + dose + '.png', dpi=500, facecolor='w', bbox_inches='tight')
         
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
 
     return new_dat
 
-def ideal_over_under_pred(file_string=result_file, plot=False):
+def ideal_over_under_pred(file_string=result_file_total, plot=False):
     """Bar plot of percentage of ideal/over/under predictions, by method and pop tau"""
     dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
@@ -337,7 +361,7 @@ def ideal_over_under_pred_RW(plot=False):
 
     return dat
 
-def effect_of_CURATE(plot=False):
+def effect_of_CURATE(plot=False, dose='total'):
     """
     Facetgrid scatter plot of effect of CURATE on all data.
 
@@ -345,8 +369,12 @@ def effect_of_CURATE(plot=False):
     - Plot (saved)
     - Dataframe used to create the plot
     """
-    
-    df = create_df_for_CURATE_assessment()
+    if dose == 'total':
+        all_data_file = all_data_file_total
+    else:
+        all_data_file = all_data_file_evening
+
+    df = create_df_for_CURATE_assessment(dose=dose)
 
     # Add column of 'Effect of CURATE.AI-assisted dosing' and 
     # add column for dose range
@@ -442,11 +470,16 @@ def effect_of_CURATE(plot=False):
                             label='Therapeutic range', alpha=.2)]
         legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
 
-        plt.savefig('effect_of_CURATE.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('effect_of_CURATE_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_dat
 
-def create_df_for_CURATE_assessment():
+def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total'):
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+    
     # Import output results
     dat = pd.read_excel(result_file, sheet_name='result')
     dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
@@ -549,7 +582,7 @@ def create_df_for_CURATE_assessment():
         CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
 
         # Actionable
-        actionable = (dat.dose_recommendation[i]) < max_dose_recommendation
+        actionable = (dat.dose_recommendation[i]) <= max_dose_recommendation
         CURATE_assessment.loc[i, 'actionable'] = actionable
 
         # Effect of CURATE
@@ -563,10 +596,10 @@ def create_df_for_CURATE_assessment():
             CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
         else:
             CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
-    
+
     return CURATE_assessment
 
-def values_in_clinically_relevant_flow_chart():
+def values_in_clinically_relevant_flow_chart(dose='total'):
     
     """
     Calculate values for clinically relevant flow chart, in the flow chart boxes, and in additional information
@@ -575,15 +608,19 @@ def values_in_clinically_relevant_flow_chart():
     - Printed values for flow chart boxes and additional information
     - Final dataframe with remaining predictions after all exclusions
     """
-    # Uncomment to write output to txt file
-    # file_path = 'clinically_relevant_flow_chart.txt'
-    # sys.stdout = open(file_path, "w")
-
     original_stdout = sys.stdout
-    with open('clinically_relevant_flow_chart.txt', 'w') as f:
+
+    file_string = 'clinically_relevant_flow_chart_' + dose + '.txt'
+    with open(file_string, 'w') as f:
         sys.stdout = f
 
-        df = create_df_for_CURATE_assessment()
+        if dose == 'total':
+            result_file = 'CURATE_results.xlsx'
+        else:
+            result_file = result_file_evening
+
+        print('after open')
+        df = create_df_for_CURATE_assessment(result_file)
 
         # 1. Calculate values for clinially relevant flow chart (step 1 of 2)
 
@@ -627,24 +664,24 @@ def values_in_clinically_relevant_flow_chart():
         # Add column for difference in doses recommended and administered
         df['diff_dose_recommended_and_administered'] = df['dose_recommendation'] - df['dose']
 
-        median_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['50%']
-        lower_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['25%']
-        upper_quartile_difference = df.diff_dose_recommended_and_administered.astype(float).describe().loc['75%']
-
-        print(f'\nDose recommended minus administered: median {median_difference:.2f} | IQR [{lower_quartile_difference:.2f} - {upper_quartile_difference:.2f}]')
-        
-        # sys.stdout.close() # Uncomment if writing to txt file
+        result_and_distribution(df.diff_dose_recommended_and_administered, 'Dose recommended minus administered')
+        print('done')
 
     sys.stdout = original_stdout
 
     return df
 
-def response_vs_dose(plot=False):
+def response_vs_dose(plot=False, dose='total'):
     """
     Facetgrid scatter plot of response vs dose, colored by number of days. 
 
     Note: To plot color bar, uncomment commented code. 
     """
+    if dose == 'total':
+        all_data_file = all_data_file_total
+    else:
+        all_data_file = all_data_file_evening
+    
     # Plot individual profiles
     dat = pd.read_excel(all_data_file)
 
@@ -692,7 +729,7 @@ def response_vs_dose(plot=False):
         ax.legend.remove()
         ax.fig.legend(handles=ax.legend.legendHandles[7:], bbox_to_anchor=(0.9,0.5), loc='center left', frameon=False)
 
-        plt.savefig('response_vs_dose.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('response_vs_dose'+ dose +'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
         # # Colorbar
         # norm = plt.Normalize(new_dat.Day.min(), new_dat.Day.max())
@@ -730,7 +767,7 @@ def extreme_prediction_errors():
 
     extreme_prediction_errors[['patient','pred_day','abs_deviation']]
 
-def clinically_relevant_performance_metrics():
+def clinically_relevant_performance_metrics(result_file=result_file_total):
     """Clinically relevant performance metrics. 
     Calculate the results, conduct statistical tests, and
     print them out. 
@@ -805,7 +842,7 @@ def clinically_relevant_performance_metrics():
     
     sys.stdout = original_stdout
 
-def technical_performance_metrics():
+def technical_performance_metrics(result_file=result_file_total):
     """
     Print the following technical performance metrics
     1. Prediction erorr
@@ -980,7 +1017,7 @@ def dosing_strategy_values():
 
     sys.stdout = original_stdout
 
-def patient_120_day_4_recommendation(plot=False):
+def patient_120_day_4_recommendation(plot=False, result_file=result_file_total):
     """
     Line plot of response vs dose for patient 120's day recommendation,
     with data points as (dose, response) pairs on day 2 and 3,
@@ -1121,7 +1158,7 @@ def patient_120_response_vs_day(plot=False):
 
     return patient_120
 
-def effect_of_CURATE_values():
+def effect_of_CURATE_values(dose='total'):
     """
     Output: 
     1) Print:
@@ -1131,9 +1168,10 @@ def effect_of_CURATE_values():
     2) Corresponding dataframes
     """
     original_stdout = sys.stdout
-    with open('effect_of_CURATE.txt', 'w') as f:
+    with open('effect_of_CURATE_' + dose + '.txt', 'w') as f:
         sys.stdout = f
-        df = effect_of_CURATE()
+
+        df = effect_of_CURATE(dose=dose)
 
         # Drop rows where response is NaN
         df = df[df.response.notna()].reset_index(drop=True)
@@ -1163,14 +1201,14 @@ def effect_of_CURATE_values():
 
     return perc_days_within_TR, reach_TR_in_first_week
 
-def SOC_CURATE_perc_in_TR(plot=False):
+def SOC_CURATE_perc_in_TR(plot=False, dose='total'):
     """
     Boxplot of % of days in TR, for SOC and CURATE.
     Print out kruskal wallis test for difference in medians.
     """
 
     # SOC
-    perc_days_TR_SOC = response_vs_day(plot=False)
+    perc_days_TR_SOC = response_vs_day(plot=False, dose=dose)
 
     # Drop rows where response is NaN
     perc_days_TR_SOC = perc_days_TR_SOC[perc_days_TR_SOC.response.notna()].reset_index(drop=True)
@@ -1186,7 +1224,7 @@ def SOC_CURATE_perc_in_TR(plot=False):
     perc_days_TR_SOC = perc_days_TR_SOC.reset_index(name='SOC')
 
     # CURATE
-    perc_days_TR_CURATE = effect_of_CURATE()
+    perc_days_TR_CURATE = effect_of_CURATE(dose=dose)
 
     # Drop rows where response is NaN
     perc_days_TR_CURATE = perc_days_TR_CURATE[perc_days_TR_CURATE.response.notna()].reset_index(drop=True)
@@ -1226,17 +1264,17 @@ def SOC_CURATE_perc_in_TR(plot=False):
         g.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
 
         # Save
-        plt.savefig('SOC_CURATE_perc_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('SOC_CURATE_perc_in_TR_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
     
     return perc_days_TR
 
-def SOC_CURATE_perc_pts_TR_in_first_week(plot=False):
+def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
     """
     Barplot of % of patients in TR within first week, of
     SOC and CURATE.
     """
     # SOC
-    data = response_vs_day(plot=False)
+    data = response_vs_day(plot=False, dose=dose)
 
     # Drop rows where response is NaN
     data = data[data.response.notna()].reset_index(drop=True)
@@ -1288,18 +1326,18 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False):
         ax.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
         plt.ylabel('Patients who achieve therapeutic\nrange in first week (%)')
 
-        plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
-def SOC_CURATE_first_day_in_TR(plot=False):
+def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
     """
     Boxplot for day when TR is first achieved, for
     both SOC and CURATE
     """
 
     # SOC
-    SOC = response_vs_day(plot=False)
+    SOC = response_vs_day(plot=False, dose=dose)
     SOC = SOC[SOC.response.notna()].reset_index(drop=True)
 
     # Add therapeutic range column
@@ -1313,7 +1351,7 @@ def SOC_CURATE_first_day_in_TR(plot=False):
     SOC = SOC.groupby('patient')['Day'].first().reset_index(name='SOC')
 
     # CURATE
-    CURATE = effect_of_CURATE()
+    CURATE = effect_of_CURATE(dose=dose)
 
     # Drop rows where response is NaN
     CURATE = CURATE[CURATE.response.notna()].reset_index(drop=True)
@@ -1353,7 +1391,7 @@ def SOC_CURATE_first_day_in_TR(plot=False):
         g.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
 
         # Save
-        plt.savefig('SOC_CURATE_first_day_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
@@ -1541,7 +1579,7 @@ def prediction_error_PPM_RW(plot=False):
         
     return dat
 
-def RMSE_plot(file_string=result_file, plot=False):
+def RMSE_plot(file_string=result_file_total, plot=False):
     """
     Bar plot of RMSE for each method, grouped by pop tau and no pop tau,
     with broken y-axis
@@ -2386,7 +2424,7 @@ def effect_of_CURATE_RW_old(plot=True):
 
     return combined_dat
 
-def read_file_and_remove_unprocessed_pop_tau(file_string=result_file, sheet_string='result'):
+def read_file_and_remove_unprocessed_pop_tau(file_string=result_file_total, sheet_string='result'):
     dat = pd.read_excel(file_string, sheet_name=sheet_string)
 
     # Keep all methods in dataframe except strictly tau methods (contains 'tau' but does not contain 'pop')
@@ -2411,12 +2449,12 @@ def rename_methods_without_pop_tau(dat):
 
     return dat
 
-def case_series_118(plot=False):
+def case_series_118(plot, dose, result_file):
     """
     Plot RW profiles for patient 118, with shaded region representing therapeutic range,
     colors representing prediction days, and number circles for the day from which
     the dose-response pairs were obtained from.
-    """
+    """    
     dat = pd.read_excel(result_file, sheet_name='result')
     # Subset L_RW_wo_origin and patient 118
     dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==118)]
@@ -2484,46 +2522,51 @@ def case_series_118(plot=False):
     combined_df = df_fit_dose.merge(df_fit_response, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
     combined_df = combined_df.merge(df_day, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
     
-    if plot==True:
-        # Plot
-        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True},
-                style='white')
-        g = sns.lmplot(data=combined_df, x='x', y='y', hue='pred_day', ci=None, legend=False)
+    # if plot==True:
+    #     # Plot
+    #     sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True},
+    #             style='white')
+    #     g = sns.lmplot(data=combined_df, x='x', y='y', hue='pred_day', ci=None, legend=False)
 
-        ec = colors.to_rgba('black')
-        ec = ec[:-1] + (0.3,)
+    #     ec = colors.to_rgba('black')
+    #     ec = ec[:-1] + (0.3,)
 
-        for i in range(combined_df.shape[0]):
-            plt.text(x=combined_df.x[i]+0.3,y=combined_df.y[i]+0.3,s=int(combined_df.day[i]), 
-            fontdict=dict(color='black',size=13),
-            bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
+    #     for i in range(combined_df.shape[0]):
+    #         plt.text(x=combined_df.x[i]+0.3,y=combined_df.y[i]+0.3,s=int(combined_df.day[i]), 
+    #         fontdict=dict(color='black',size=13),
+    #         bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
             
-            plt.text(x=0+0.3,y=10.4+0.3,s=12, 
-            fontdict=dict(color='black',size=13),
-            bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+    #         plt.text(x=0+0.3,y=10.4+0.3,s=12, 
+    #         fontdict=dict(color='black',size=13),
+    #         bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
             
-            plt.text(x=0+0.3,y=8.7+0.3,s=14, 
-            fontdict=dict(color='black',size=13),
-            bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+    #         plt.text(x=0+0.3,y=8.7+0.3,s=14, 
+    #         fontdict=dict(color='black',size=13),
+    #         bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
 
-        plt.legend(bbox_to_anchor=(1.06,0.5), loc='center left', title='Day of Prediction', frameon=False)
-        plt.xlabel('Tacrolimus dose (mg)')
-        plt.ylabel('Tacrolimus level (ng/ml)')
-        plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+    #     plt.legend(bbox_to_anchor=(1.06,0.5), loc='center left', title='Day of Prediction', frameon=False)
+    #     plt.xlabel('Tacrolimus dose (mg)')
+    #     plt.ylabel('Tacrolimus level (ng/ml)')
+    #     plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
-        # Add data point of day 12 and day 14
-        plt.plot(0, 10.4, marker="o", markeredgecolor="black", markerfacecolor="white")
-        plt.plot(0, 8.7, marker="o", markeredgecolor="black", markerfacecolor="white")
-        plt.savefig('patient_118_RW_profiles.png', dpi=500, facecolor='w', bbox_inches='tight')
+    #     # Add data point of day 12 and day 14
+    #     plt.plot(0, 10.4, marker="o", markeredgecolor="black", markerfacecolor="white")
+    #     plt.plot(0, 8.7, marker="o", markeredgecolor="black", markerfacecolor="white")
+    #     plt.savefig('patient_118_RW_profiles_' + dose + '.png', dpi=500, facecolor='w', bbox_inches='tight')
 
     return dat_original, combined_df
 
-def case_series_118_repeated_dosing_multiple_plots():
+def case_series_118_repeated_dosing_multiple_plots(plot=False, dose='total'):
     """
     Multiple plots of response vs dose for repeated dosing strategy of 
     patient 118, with each plot representing one day of prediction. 
     """
-    dat_original, combined_df = case_series_118()
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+
+    dat_original, combined_df = case_series_118(plot, dose, result_file)
 
     # Subset repeated doses
     combined_df = combined_df[(combined_df.pred_day > 5) & (combined_df.pred_day < 10)].reset_index(drop=True)
@@ -2572,7 +2615,7 @@ def case_series_118_repeated_dosing_multiple_plots():
             plt.legend(handles=legend_elements, bbox_to_anchor=(-0.2,-.3), loc='upper left', frameon=False)       
 
     plt.tight_layout()
-    plt.savefig('patient_118_case_series_repeated.png',dpi=500)
+    plt.savefig('patient_118_case_series_repeated_' + dose + '.png',dpi=500)
 
     return combined_df
 
@@ -2631,10 +2674,14 @@ def case_series_118_repeated_dosing_single_plot():
     
     return combined_df
 
-def case_series_118_repeated_dosing_dose_vs_day():
+def case_series_118_repeated_dosing_dose_vs_day(plot=False, dose='total'):
     """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
-    
-    dat_original, combined_df = case_series_118()
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+
+    dat_original, combined_df = case_series_118(plot, dose, result_file)
     clean_dat = pd.read_excel(result_file, sheet_name='clean')
     
     # Subset pred_days with repeated dose of 6mg
@@ -2666,12 +2713,13 @@ def case_series_118_repeated_dosing_dose_vs_day():
     plt.xlabel('Day')
     plt.ylabel('Dose (mg)')
     plt.yticks(np.arange(5,8,step=0.5))
-    plt.ylim(4.5, 6.5)
+    plt.ylim(0, 6.5)
+    
 
     plt.tight_layout()
-    plt.savefig('patient_118_repeated_dose_dose_vs_day.png',dpi=1000)
+    plt.savefig('patient_118_repeated_dose_dose_vs_day_'+ dose +'.png',dpi=1000)
 
-    return combined_dat
+    return combined_dat, dat_original
 
 def case_series_118_repeated_dosing_response_vs_dose():
     """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
@@ -2866,7 +2914,7 @@ def barplot_percentage_days_therapeutic_range_per_patient():
 
 # LOOCV for all methods
 
-def LOOCV_all_methods(file_string=result_file):
+def LOOCV_all_methods(file_string=result_file_total):
     """
     Perform LOOCV for all methods
     
@@ -2961,7 +3009,7 @@ def num_patients_and_list(method, linear_patient_list, quad_patient_list):
 
 ##### ANALYSIS
 
-def CURATE_could_be_useful(file_string=result_file):
+def CURATE_could_be_useful(file_string=result_file_total):
     """
     Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
     keep those that are useful.
@@ -3052,7 +3100,7 @@ def CURATE_could_be_useful(file_string=result_file):
 
     return dat
 
-def clinically_relevant_flow_chart_old():
+def clinically_relevant_flow_chart_old(result_file=result_file_total):
 
     dat = CURATE_could_be_useful()
 
