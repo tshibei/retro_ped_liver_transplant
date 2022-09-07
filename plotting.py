@@ -1407,7 +1407,7 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         # Save
         plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
-    return plot_df
+    return plot_df, combined_df
 
 # Statistical test
 def result_and_distribution(df, metric_string):
