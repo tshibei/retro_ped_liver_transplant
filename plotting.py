@@ -1435,7 +1435,7 @@ def median_IQR_range(df):
     maximum = df.describe()['max']
     count = df.describe()['count']
 
-    print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f}| range {minimum:.2f} - {maximum:.2f} | count {count}\n')
+    print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f} | count {count} | range {minimum:.2f} - {maximum:.2f}\n')
 
 ##### New graphs after meeting with NUH ######
 def cross_val():
