@@ -14,6 +14,7 @@ from openpyxl import load_workbook
 import sys
 from scipy.stats import levene
 from scipy.stats import wilcoxon
+import statistics
 
 # Define file names
 result_file_total = 'CURATE_results_total.xlsx'
