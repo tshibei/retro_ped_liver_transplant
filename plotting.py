@@ -1278,6 +1278,334 @@ def patient_120_response_vs_day(plot=False, all_data_file=all_data_file_total):
 
     return patient_120
 
+def case_series_118(plot, dose, result_file):
+    """
+    Plot RW profiles for patient 118, with shaded region representing therapeutic range,
+    colors representing prediction days, and number circles for the day from which
+    the dose-response pairs were obtained from.
+    """    
+    dat = pd.read_excel(result_file, sheet_name='result')
+    # Subset L_RW_wo_origin and patient 118
+    dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==118)]
+
+    dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']].reset_index(drop=True)
+
+    # Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
+    for i in range(len(dat)):
+        # Create function
+        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(dat.dose)+ 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+        dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+        dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+        
+    # Create column to find points that outperform, benefit, or do not affect SOC
+    dat['effect_on_SOC'] = 'none'
+    dat['predict_range'] = 'therapeutic'
+    dat['response_range'] = 'therapeutic'
+    dat['prediction_error'] = 'acceptable'
+    dat['diff_dose'] = '>0.5'
+    for i in range(len(dat)):
+
+        if (dat.prediction[i] > 10) or (dat.prediction[i] < 8):
+            dat.loc[i,'predict_range'] = 'non-therapeutic'
+            if (dat.response[i] > 10) or (dat.response[i] < 8):
+                dat.loc[i,'response_range'] = 'non-therapeutic'
+                if (round(dat.deviation[i],2) > -2) and (round(dat.deviation[i],2) < 1.5):
+                    if (abs(dat.interpolated_dose_8[i] - dat.dose[i]) or abs(dat.interpolated_dose_9[i] - dat.dose[i]) or abs(dat.interpolated_dose_10[i] - dat.dose[i])) > 0.5:
+                        dat.loc[i, 'effect_on_SOC'] = 'outperform'
+            elif (dat.response[i] <= 10) and (dat.response[i] >= 8):
+                    dat.loc[i, 'effect_on_SOC'] = 'worsen'
+
+    dat_original = dat.copy()
+
+    # Subset columns
+    dat = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']]
+
+    # Stack columns to fit dataframe for plotting
+    df_fit_dose = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2']]
+    df_fit_dose = df_fit_dose.set_index(['pred_day', 'effect_on_SOC'])
+    df_fit_dose = df_fit_dose.stack().reset_index()
+    df_fit_dose.columns = ['pred_day', 'effect_on_SOC', 'fit_dose', 'x']
+    df_fit_dose = df_fit_dose.reset_index()
+
+    df_fit_response = dat[['pred_day', 'effect_on_SOC', 'fit_response_1', 'fit_response_2']]
+    df_fit_response = df_fit_response.set_index(['pred_day', 'effect_on_SOC'])
+    df_fit_response = df_fit_response.stack().reset_index()
+    df_fit_response.columns = ['pred_day', 'effect_on_SOC', 'fit_response', 'y']
+    df_fit_response = df_fit_response.reset_index()
+
+    df_day = dat[['pred_day', 'effect_on_SOC', 'day_1', 'day_2']]
+    df_day = df_day.set_index(['pred_day', 'effect_on_SOC'])
+    df_day = df_day.stack().reset_index()
+    df_day.columns = ['pred_day', 'effect_on_SOC', 'day_num', 'day']
+    df_day = df_day.reset_index()
+
+    combined_df = df_fit_dose.merge(df_fit_response, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
+    combined_df = combined_df.merge(df_day, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
+    
+    # if plot==True:
+    #     # Plot
+    #     sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True},
+    #             style='white')
+    #     g = sns.lmplot(data=combined_df, x='x', y='y', hue='pred_day', ci=None, legend=False)
+
+    #     ec = colors.to_rgba('black')
+    #     ec = ec[:-1] + (0.3,)
+
+    #     for i in range(combined_df.shape[0]):
+    #         plt.text(x=combined_df.x[i]+0.3,y=combined_df.y[i]+0.3,s=int(combined_df.day[i]), 
+    #         fontdict=dict(color='black',size=13),
+    #         bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
+            
+    #         plt.text(x=0+0.3,y=10.4+0.3,s=12, 
+    #         fontdict=dict(color='black',size=13),
+    #         bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+            
+    #         plt.text(x=0+0.3,y=8.7+0.3,s=14, 
+    #         fontdict=dict(color='black',size=13),
+    #         bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
+
+    #     plt.legend(bbox_to_anchor=(1.06,0.5), loc='center left', title='Day of Prediction', frameon=False)
+    #     plt.xlabel('Tacrolimus dose (mg)')
+    #     plt.ylabel('Tacrolimus level (ng/ml)')
+    #     plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+    #     # Add data point of day 12 and day 14
+    #     plt.plot(0, 10.4, marker="o", markeredgecolor="black", markerfacecolor="white")
+    #     plt.plot(0, 8.7, marker="o", markeredgecolor="black", markerfacecolor="white")
+    #     plt.savefig('patient_118_RW_profiles_' + dose + '.png', dpi=500, facecolor='w', bbox_inches='tight')
+
+    return dat_original, combined_df
+
+def case_series_118_repeated_dosing_multiple_plots(plot=False, dose='total'):
+    """
+    Multiple plots of response vs dose for repeated dosing strategy of 
+    patient 118, with each plot representing one day of prediction. 
+    """
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+
+    dat_original, combined_df = case_series_118(plot, dose, result_file)
+
+    # Subset repeated doses
+    combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day <= 9)].reset_index(drop=True)
+
+    sns.set(style='white', font_scale=2.2,
+        rc={"xtick.bottom":True, "ytick.left":True})
+
+    fig, ax = plt.subplots(1, 5, figsize=(25,5), gridspec_kw = {'wspace':0.3, 'hspace':0.5})
+    # plt.subplots_adjust(wspace=-0.1)
+
+    # Loop through number of predictions chosen
+    for i in range(5):
+
+        plt.subplot(1,5,i+1)
+
+        # Plot regression lisne
+        x = np.array([combined_df.x[i*2],combined_df.x[i*2+1]])
+        y = np.array([combined_df.y[i*2],combined_df.y[i*2+1]])
+        a, b = np.polyfit(x, y, 1)
+        x_values = np.linspace(0, 9)
+        plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
+
+        # Plot scatter points
+        plt.scatter(x, y, s=100, color='y')
+
+        plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+        sns.despine()
+        plt.ylim(0,max(combined_df.y+2))
+        if i ==0:
+            plt.ylabel('TTL (ng/ml)')
+        plt.yticks(np.arange(0,15,step=2))
+        plt.xlabel('Dose (mg)')
+        plt.xticks(np.arange(0,9,step=2))
+        plt.title('Day ' + str(combined_df.pred_day[i*2+1]) + '\nRecommendation')
+
+        # Label days
+        for j in range(2):
+            plt.text(x=combined_df.x[i*2+j]+0.8,y=combined_df.y[i*2+j]-0.3,s=int(combined_df.day[i*2+j]), 
+                fontdict=dict(color='black',size=18),
+                bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+            
+        # Add legend for grey patch of therapeutic range
+        if i == 0:
+            legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                                    label='Region within therapeutic range', alpha=.2)]
+            plt.legend(handles=legend_elements, bbox_to_anchor=(-0.2,-.3), loc='upper left', frameon=False)       
+
+    plt.tight_layout()
+    plt.savefig('patient_118_case_series_repeated_' + dose + '.png',dpi=1000, bbox_inches='tight', pad_inches=0)
+
+    return combined_df
+
+def case_series_118_repeated_dosing_single_plot():
+    """
+    Single plot plots of response vs dose for repeated dosing strategy of patient 118.
+    """
+    dat_original, combined_df = case_series_118()
+    
+    # Subset repeated doses
+    combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day < 11)].reset_index(drop=True)
+    
+    color = iter(cm.YlOrBr(np.linspace(0.3, 1, 6)))
+
+    sns.set(style='white', font_scale=1.5,
+           rc={"figure.figsize":(8,5), "xtick.bottom":True, "ytick.left":True})
+
+    # Plot grey therapeutic range
+    plt.axhspan(8, 10, facecolor='lightgrey', alpha=0.8, zorder=1)
+
+    for i in range(6):
+
+        # Fit dose and responses on each day of prediction to linear regression model
+        x = np.array([combined_df.x[i*2],combined_df.x[i*2+1]])
+        y = np.array([combined_df.y[i*2],combined_df.y[i*2+1]])
+        a, b = np.polyfit(x, y, 1)
+
+        # Plot linear regression line
+        x_values = np.linspace(0, 9)
+        c = next(color)
+        plt.plot(x_values, a*x_values + b, linestyle='-', color=c, label=('Day '+str(combined_df.pred_day[i*2+1])))
+
+        # Plot data points of each day
+        plt.scatter(x, y, s=100, color=c, zorder=2)
+
+        sns.despine()
+        plt.ylim(0,max(combined_df.y+2))
+        plt.ylabel('Tacrolimus level (ng/ml)')
+        plt.yticks(np.arange(0,15,step=2))
+        plt.xlabel('Dose (mg)')
+        plt.xticks(np.arange(0,9,step=2))
+
+    # Label each data point with corresponding day
+    for i in range(combined_df.shape[0]):
+        plt.text(x=combined_df.x[i]+0.7,y=combined_df.y[i]+0.7,s=int(combined_df.day[i]), 
+        fontdict=dict(color='black',size=14),
+        bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
+
+    legend = plt.legend(title='Dose recommendation for:', bbox_to_anchor=(1.04,.5), loc='center left', 
+                        frameon=False, fontsize=14)
+    legend.get_title().set_fontsize('16') 
+
+    # Save
+    plt.tight_layout()
+    plt.savefig('patient_118_case_series_repeated_one.png',dpi=500)
+    
+    return combined_df
+
+def case_series_118_repeated_dosing_dose_vs_day(plot=False, dose='total'):
+    """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+
+    dat_original, combined_df = case_series_118(plot, dose, result_file)
+    clean_dat = pd.read_excel(result_file, sheet_name='clean')
+    
+    # Subset pred_days with repeated dose of 6mg
+    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)]
+    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
+    dat['CURATE.AI-assisted dosing'] = CURATE_dosing
+
+    # Subset columns
+    dat = dat[['pred_day','CURATE.AI-assisted dosing']]
+    dat = dat.rename(columns={'pred_day':'day'})
+
+    # Subset patient 118 data only
+    clean_dat = clean_dat[(clean_dat.patient == 118) & ((clean_dat.day >= 5) & (clean_dat.day <= 9))].reset_index(drop=True)
+
+    # Subset day and dose
+    clean_dat = clean_dat[['day', 'dose']]
+    clean_dat = clean_dat.rename(columns={'dose':'SOC dosing'})
+
+    # Combine both CURATE.AI-assisted dosing recommendations and actual dose given
+    combined_dat = dat.merge(clean_dat, how='left', on='day')
+
+    # Plot
+    sns.set(font_scale=2.2, rc={"figure.figsize": (9,7), "xtick.bottom":True, "ytick.left":True}, style='white')
+
+    plt.plot(combined_dat['day'], combined_dat['CURATE.AI-assisted dosing'], marker='^', color='m', label='CURATE.AI-assisted dosing', ms=10)
+    plt.plot(combined_dat['day'], combined_dat['SOC dosing'], marker='o', color='y', label='SOC dosing', ms=10)
+    plt.legend(bbox_to_anchor=(0.5,-0.5), loc='center', frameon=False)
+    sns.despine()
+    plt.xlabel('Day')
+    plt.ylabel('Dose (mg)')
+    plt.yticks(np.arange(5,8,step=0.5))
+    plt.ylim(4.5, 8)
+    
+
+    plt.tight_layout()
+    plt.savefig('patient_118_repeated_dose_dose_vs_day_'+ dose +'.png',dpi=1000)
+
+    return combined_dat, dat_original
+
+def case_series_118_repeated_dosing_response_vs_dose(result_file=result_file_total, plot=True, dose='total'):
+    """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
+    dat_original, combined_df = case_series_118(plot=plot, dose=dose, result_file=result_file)
+    clean_dat = pd.read_excel(result_file, sheet_name='clean')
+
+    # Subset pred_days with repeated dose of 6mg
+    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)].reset_index(drop=True)
+
+    # Add column for CURATE recommendation
+    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
+    dat['CURATE-recommended dose'] = CURATE_dosing
+
+    # Add column for predicted response if CURATE dose was administered instead
+    dat['predicted_response_based_on_rec'] = dat['coeff_1x'] * dat['CURATE-recommended dose'] + dat['coeff_0x']
+
+    dat = dat[['pred_day', 'dose', 'response', 'CURATE-recommended dose', 'predicted_response_based_on_rec']]
+
+    # Plot
+    fig, axes = plt.subplots()
+    sns.set(font_scale=2.2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
+
+    plt.scatter(x=dat['CURATE-recommended dose'], y=dat['predicted_response_based_on_rec'], marker='^', color='m', label='CURATE.AI-assisted dosing', s=100)
+    plt.scatter(x=dat['dose'], y=dat['response'], marker='o', color='y', label='SOC dosing', s=100)
+    sns.despine()
+    plt.xlabel('Dose (mg)')
+    plt.ylabel('TTL (ng/ml)')
+    plt.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+    plt.xticks(np.arange(4,8.5,step=0.5))
+    plt.xlim(4,8)
+    plt.yticks(np.arange(8,15,step=1))
+
+    legend1 = plt.legend(bbox_to_anchor=(0.5,-0.3), loc='center', frameon=False)
+
+    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                            label='Region within therapeutic range', alpha=.2)]
+    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-0.07,-0.35), loc='upper left', frameon=False)
+
+    
+    axes.add_artist(legend1)
+    axes.add_artist(legend2)        
+
+    for i in range(dat.shape[0]):
+        plt.text(x=dat.dose[i]+0.2,y=dat.response[i],s=int(dat.pred_day[i]),
+                 fontdict=dict(color='black',size=13),
+                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+
+        plt.text(x=dat.loc[i, 'CURATE-recommended dose']+0.2,y=dat.loc[i, 'predicted_response_based_on_rec'],s=int(dat.pred_day[i]),
+             fontdict=dict(color='black',size=13),
+             bbox=dict(facecolor='m', ec='black', alpha=0.5, boxstyle='circle'))
+
+    plt.tight_layout()
+    plt.savefig('patient_118_repeated_dose_response_vs_dose.png',dpi=1000, bbox_inches='tight')
+    
+    return dat
+
 def effect_of_CURATE_values(dose='total'):
     """
     Output: 
@@ -2580,333 +2908,6 @@ def rename_methods_without_pop_tau(dat):
             dat.loc[i, 'pop_tau'] = 'no pop tau'
             dat.loc[i, 'method'] = dat.method[i]
 
-    return dat
-
-def case_series_118(plot, dose, result_file):
-    """
-    Plot RW profiles for patient 118, with shaded region representing therapeutic range,
-    colors representing prediction days, and number circles for the day from which
-    the dose-response pairs were obtained from.
-    """    
-    dat = pd.read_excel(result_file, sheet_name='result')
-    # Subset L_RW_wo_origin and patient 118
-    dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==118)]
-
-    dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']].reset_index(drop=True)
-
-    # Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
-    for i in range(len(dat)):
-        # Create function
-        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
-        coeff = coeff[~np.isnan(coeff)]
-        p = np.poly1d(coeff)
-        x = np.linspace(0, max(dat.dose)+ 2)
-        y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
-
-        dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
-        dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
-        dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
-        
-    # Create column to find points that outperform, benefit, or do not affect SOC
-    dat['effect_on_SOC'] = 'none'
-    dat['predict_range'] = 'therapeutic'
-    dat['response_range'] = 'therapeutic'
-    dat['prediction_error'] = 'acceptable'
-    dat['diff_dose'] = '>0.5'
-    for i in range(len(dat)):
-
-        if (dat.prediction[i] > 10) or (dat.prediction[i] < 8):
-            dat.loc[i,'predict_range'] = 'non-therapeutic'
-            if (dat.response[i] > 10) or (dat.response[i] < 8):
-                dat.loc[i,'response_range'] = 'non-therapeutic'
-                if (round(dat.deviation[i],2) > -2) and (round(dat.deviation[i],2) < 1.5):
-                    if (abs(dat.interpolated_dose_8[i] - dat.dose[i]) or abs(dat.interpolated_dose_9[i] - dat.dose[i]) or abs(dat.interpolated_dose_10[i] - dat.dose[i])) > 0.5:
-                        dat.loc[i, 'effect_on_SOC'] = 'outperform'
-            elif (dat.response[i] <= 10) and (dat.response[i] >= 8):
-                    dat.loc[i, 'effect_on_SOC'] = 'worsen'
-
-    dat_original = dat.copy()
-
-    # Subset columns
-    dat = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']]
-
-    # Stack columns to fit dataframe for plotting
-    df_fit_dose = dat[['pred_day', 'effect_on_SOC', 'fit_dose_1', 'fit_dose_2']]
-    df_fit_dose = df_fit_dose.set_index(['pred_day', 'effect_on_SOC'])
-    df_fit_dose = df_fit_dose.stack().reset_index()
-    df_fit_dose.columns = ['pred_day', 'effect_on_SOC', 'fit_dose', 'x']
-    df_fit_dose = df_fit_dose.reset_index()
-
-    df_fit_response = dat[['pred_day', 'effect_on_SOC', 'fit_response_1', 'fit_response_2']]
-    df_fit_response = df_fit_response.set_index(['pred_day', 'effect_on_SOC'])
-    df_fit_response = df_fit_response.stack().reset_index()
-    df_fit_response.columns = ['pred_day', 'effect_on_SOC', 'fit_response', 'y']
-    df_fit_response = df_fit_response.reset_index()
-
-    df_day = dat[['pred_day', 'effect_on_SOC', 'day_1', 'day_2']]
-    df_day = df_day.set_index(['pred_day', 'effect_on_SOC'])
-    df_day = df_day.stack().reset_index()
-    df_day.columns = ['pred_day', 'effect_on_SOC', 'day_num', 'day']
-    df_day = df_day.reset_index()
-
-    combined_df = df_fit_dose.merge(df_fit_response, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
-    combined_df = combined_df.merge(df_day, how='left', on=['index', 'pred_day', 'effect_on_SOC'])
-    
-    # if plot==True:
-    #     # Plot
-    #     sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True},
-    #             style='white')
-    #     g = sns.lmplot(data=combined_df, x='x', y='y', hue='pred_day', ci=None, legend=False)
-
-    #     ec = colors.to_rgba('black')
-    #     ec = ec[:-1] + (0.3,)
-
-    #     for i in range(combined_df.shape[0]):
-    #         plt.text(x=combined_df.x[i]+0.3,y=combined_df.y[i]+0.3,s=int(combined_df.day[i]), 
-    #         fontdict=dict(color='black',size=13),
-    #         bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
-            
-    #         plt.text(x=0+0.3,y=10.4+0.3,s=12, 
-    #         fontdict=dict(color='black',size=13),
-    #         bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
-            
-    #         plt.text(x=0+0.3,y=8.7+0.3,s=14, 
-    #         fontdict=dict(color='black',size=13),
-    #         bbox=dict(facecolor='white', ec=ec, boxstyle='circle'))
-
-    #     plt.legend(bbox_to_anchor=(1.06,0.5), loc='center left', title='Day of Prediction', frameon=False)
-    #     plt.xlabel('Tacrolimus dose (mg)')
-    #     plt.ylabel('Tacrolimus level (ng/ml)')
-    #     plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
-
-    #     # Add data point of day 12 and day 14
-    #     plt.plot(0, 10.4, marker="o", markeredgecolor="black", markerfacecolor="white")
-    #     plt.plot(0, 8.7, marker="o", markeredgecolor="black", markerfacecolor="white")
-    #     plt.savefig('patient_118_RW_profiles_' + dose + '.png', dpi=500, facecolor='w', bbox_inches='tight')
-
-    return dat_original, combined_df
-
-def case_series_118_repeated_dosing_multiple_plots(plot=False, dose='total'):
-    """
-    Multiple plots of response vs dose for repeated dosing strategy of 
-    patient 118, with each plot representing one day of prediction. 
-    """
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
-
-    dat_original, combined_df = case_series_118(plot, dose, result_file)
-
-    # Subset repeated doses
-    combined_df = combined_df[(combined_df.pred_day > 5) & (combined_df.pred_day < 10)].reset_index(drop=True)
-
-    sns.set(style='white', font_scale=2,
-        rc={"xtick.bottom":True, "ytick.left":True})
-
-    fig, ax = plt.subplots(1, 5, figsize=(25,7))
-
-    # Loop through number of predictions chosen
-    for i in range(4):
-
-        plt.subplot(1,5,i+1)
-
-        # Plot regression line
-        x = np.array([combined_df.x[i*2],combined_df.x[i*2+1]])
-        y = np.array([combined_df.y[i*2],combined_df.y[i*2+1]])
-        a, b = np.polyfit(x, y, 1)
-        x_values = np.linspace(0, 9)
-        plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
-
-        # Plot scatter points
-        plt.scatter(x, y, s=100, color='y')
-
-        plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
-
-        sns.despine()
-        plt.ylim(0,max(combined_df.y+2))
-        if i ==0:
-            plt.ylabel('Tacrolimus level (ng/ml)')
-        plt.yticks(np.arange(0,15,step=2))
-        plt.xlabel('Dose (mg)')
-        plt.xticks(np.arange(0,9,step=2))
-        plt.title('Day ' + str(combined_df.pred_day[i*2+1]) + ' recommendation', size=22)
-
-        # Label days
-        for j in range(2):
-            plt.text(x=combined_df.x[i*2+j]+0.4,y=combined_df.y[i*2+j]+0.4,s=int(combined_df.day[i*2+j]), 
-                fontdict=dict(color='black',size=16),
-                bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
-            
-        # Add legend for grey patch of therapeutic range
-        if i == 0:
-            legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                                    label='Therapeutic range', alpha=.2)]
-            plt.legend(handles=legend_elements, bbox_to_anchor=(-0.2,-.3), loc='upper left', frameon=False)       
-
-    plt.tight_layout()
-    plt.savefig('patient_118_case_series_repeated_' + dose + '.png',dpi=500)
-
-    return combined_df
-
-def case_series_118_repeated_dosing_single_plot():
-    """
-    Single plot plots of response vs dose for repeated dosing strategy of patient 118.
-    """
-    dat_original, combined_df = case_series_118()
-    
-    # Subset repeated doses
-    combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day < 11)].reset_index(drop=True)
-    
-    color = iter(cm.YlOrBr(np.linspace(0.3, 1, 6)))
-
-    sns.set(style='white', font_scale=1.5,
-           rc={"figure.figsize":(8,5), "xtick.bottom":True, "ytick.left":True})
-
-    # Plot grey therapeutic range
-    plt.axhspan(8, 10, facecolor='lightgrey', alpha=0.8, zorder=1)
-
-    for i in range(6):
-
-        # Fit dose and responses on each day of prediction to linear regression model
-        x = np.array([combined_df.x[i*2],combined_df.x[i*2+1]])
-        y = np.array([combined_df.y[i*2],combined_df.y[i*2+1]])
-        a, b = np.polyfit(x, y, 1)
-
-        # Plot linear regression line
-        x_values = np.linspace(0, 9)
-        c = next(color)
-        plt.plot(x_values, a*x_values + b, linestyle='-', color=c, label=('Day '+str(combined_df.pred_day[i*2+1])))
-
-        # Plot data points of each day
-        plt.scatter(x, y, s=100, color=c, zorder=2)
-
-        sns.despine()
-        plt.ylim(0,max(combined_df.y+2))
-        plt.ylabel('Tacrolimus level (ng/ml)')
-        plt.yticks(np.arange(0,15,step=2))
-        plt.xlabel('Dose (mg)')
-        plt.xticks(np.arange(0,9,step=2))
-
-    # Label each data point with corresponding day
-    for i in range(combined_df.shape[0]):
-        plt.text(x=combined_df.x[i]+0.7,y=combined_df.y[i]+0.7,s=int(combined_df.day[i]), 
-        fontdict=dict(color='black',size=14),
-        bbox=dict(facecolor='white', ec='black', alpha=0.5, boxstyle='circle'))
-
-    legend = plt.legend(title='Dose recommendation for:', bbox_to_anchor=(1.04,.5), loc='center left', 
-                        frameon=False, fontsize=14)
-    legend.get_title().set_fontsize('16') 
-
-    # Save
-    plt.tight_layout()
-    plt.savefig('patient_118_case_series_repeated_one.png',dpi=500)
-    
-    return combined_df
-
-def case_series_118_repeated_dosing_dose_vs_day(plot=False, dose='total'):
-    """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
-
-    dat_original, combined_df = case_series_118(plot, dose, result_file)
-    clean_dat = pd.read_excel(result_file, sheet_name='clean')
-    
-    # Subset pred_days with repeated dose of 6mg
-    dat = dat_original[(dat_original.pred_day >= 6) & (dat_original.pred_day <= 9)]
-    CURATE_dosing = [5.5, 5.5, 5, 5]
-    dat['CURATE.AI-assisted dosing'] = CURATE_dosing
-
-    # Subset columns
-    dat = dat[['pred_day','CURATE.AI-assisted dosing']]
-    dat = dat.rename(columns={'pred_day':'day'})
-
-    # Subset patient 118 data only
-    clean_dat = clean_dat[(clean_dat.patient == 118) & ((clean_dat.day >= 5) & (clean_dat.day <= 9))].reset_index(drop=True)
-
-    # Subset day and dose
-    clean_dat = clean_dat[['day', 'dose']]
-    clean_dat = clean_dat.rename(columns={'dose':'Standard of care dosing'})
-
-    # Combine both CURATE.AI-assisted dosing recommendations and actual dose given
-    combined_dat = dat.merge(clean_dat, how='left', on='day')
-
-    # Plot
-    sns.set(font_scale=2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
-
-    plt.plot(combined_dat['day'], combined_dat['CURATE.AI-assisted dosing'], marker='^', color='m', label='CURATE.AI-assisted dosing', ms=10)
-    plt.plot(combined_dat['day'], combined_dat['Standard of care dosing'], marker='o', color='y', label='Standard of care dosing', ms=10)
-    plt.legend(bbox_to_anchor=(0.5,-0.5), loc='center', frameon=False)
-    sns.despine()
-    plt.xlabel('Day')
-    plt.ylabel('Dose (mg)')
-    plt.yticks(np.arange(5,8,step=0.5))
-    plt.ylim(0, 6.5)
-    
-
-    plt.tight_layout()
-    plt.savefig('patient_118_repeated_dose_dose_vs_day_'+ dose +'.png',dpi=1000)
-
-    return combined_dat, dat_original
-
-def case_series_118_repeated_dosing_response_vs_dose():
-    """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
-    dat_original, combined_df = case_series_118()
-    clean_dat = pd.read_excel(result_file, sheet_name='clean')
-
-    # Subset pred_days with repeated dose of 6mg
-    dat = dat_original[(dat_original.pred_day >= 6) & (dat_original.pred_day <= 9)].reset_index(drop=True)
-
-    # Add column for CURATE recommendation
-    CURATE_dosing = [5.5, 5.5, 5, 5]
-    dat['CURATE-recommended dose'] = CURATE_dosing
-
-    # Add column for predicted response if CURATE dose was administered instead
-    dat['predicted_response_based_on_rec'] = dat['coeff_1x'] * dat['CURATE-recommended dose'] + dat['coeff_0x']
-
-    dat = dat[['pred_day', 'dose', 'response', 'CURATE-recommended dose', 'predicted_response_based_on_rec']]
-
-    # Plot
-    fig, axes = plt.subplots()
-    sns.set(font_scale=2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
-
-    plt.scatter(x=dat['CURATE-recommended dose'], y=dat['predicted_response_based_on_rec'], marker='^', color='m', label='CURATE.AI-assisted dosing', s=100)
-    plt.scatter(x=dat['dose'], y=dat['response'], marker='o', color='y', label='Standard of care dosing', s=100)
-    sns.despine()
-    plt.xlabel('Dose (mg)')
-    plt.ylabel('Tacrolimus level (ng/ml)')
-    plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
-    plt.xticks(np.arange(4,8.5,step=0.5))
-    plt.xlim(4,8)
-    plt.yticks(np.arange(8,15,step=1))
-
-    legend1 = plt.legend(bbox_to_anchor=(0.5,-0.3), loc='center', frameon=False)
-
-    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                            label='Therapeutic range', alpha=.2)]
-    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(0,-0.33), loc='upper left', frameon=False)
-
-    
-    axes.add_artist(legend1)
-    axes.add_artist(legend2)        
-
-    for i in range(dat.shape[0]):
-        plt.text(x=dat.dose[i]+0.1,y=dat.response[i]+0.1,s=int(dat.pred_day[i]),
-                 fontdict=dict(color='black',size=13),
-                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
-
-        plt.text(x=dat.loc[i, 'CURATE-recommended dose']+0.2,y=dat.loc[i, 'predicted_response_based_on_rec']+0.2,s=int(dat.pred_day[i]),
-             fontdict=dict(color='black',size=13),
-             bbox=dict(facecolor='m', ec='black', alpha=0.5, boxstyle='circle'))
-
-    plt.tight_layout()
-    plt.savefig('patient_118_repeated_dose_response_vs_dose.png',dpi=1000, bbox_inches='tight')
-    
     return dat
 
 def boxplot_first_day_to_therapeutic_range():
