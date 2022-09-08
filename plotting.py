@@ -814,16 +814,20 @@ def clinically_relevant_performance_metrics(result_file=result_file_total):
 
         result_and_distribution(acceptable_CURATE.acceptable, '(2) % of predictions within clinically acceptable prediction error:')
 
-        # Check for equal variance between (1) and (2): result p = 0.97, assume equal variance
-        result = stats.kruskal(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue
-        if result < 0.05:
-            result_string = 'assume unequal medians'
+        # Check normality of (1) and (2)
+        SOC_shapiro_p_value = stats.shapiro(acceptable_SOC.acceptable).pvalue
+        CURATE_shapiro_p_value = stats.shapiro(acceptable_CURATE.acceptable).pvalue
+        print(f'SOC shapiro pvalue: {SOC_shapiro_p_value:.2f} | CURATE shapiro pvalue: {CURATE_shapiro_p_value:.2f}')
+        if (SOC_shapiro_p_value > 0.05) and (CURATE_shapiro_p_value > 0.05):
+            print(f'Normal, mann whitney u p-value: {mannwhitneyu(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue} \n')
+            print(f'Bartlett test for equal variance: {stats.bartlett(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue}')
+            if stats.bartlett(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue > 0.05:
+                print(f'Equal variance, Unpaired t-test p: {stats.ttest_ind(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue:.2f}')
+            else: 
+                print("Unequal variance, Welch's corrected unpaired t test!! (find formula)")
+
         else:
-            result_string = 'assume equal medians'
-
-        print(f'Comparison of medians between (1) and (2), Kruskal Wallis p-value = {result:.2f}, {result_string}\n')
-
-        # 3. Clinically unacceptable overprediction
+            print(f'Non-normal\nmann whitney u p-value: {mannwhitneyu(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue}')
 
         # Add unacceptable overprediction
         dat['unacceptable_overprediction'] = (dat['deviation'] < overprediction_limit)
