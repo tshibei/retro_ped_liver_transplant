@@ -1192,7 +1192,7 @@ def patient_120_day_4_recommendation(plot=False, result_file=result_file_total):
 
     if plot == True:
         # Plot
-        sns.set(style='white', font_scale=2,
+        sns.set(style='white', font_scale=2.2,
             rc={"figure.figsize":(7,7), "xtick.bottom":True, "ytick.left":True})
 
         # Plot regression line
@@ -1203,21 +1203,21 @@ def patient_120_day_4_recommendation(plot=False, result_file=result_file_total):
         plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
 
         # Plot scatter points
-        plt.scatter(x, y, s=100, color='y')
+        plt.scatter(x, y, s=120, color='y')
 
         # Plot therapeutic range
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
         # Label days
         for i in range(combined_df.shape[0]):
-            plt.text(x=combined_df.x[i]+0.1,y=combined_df.y[i]+0.1,s=int(combined_df.day[i]),
-                    fontdict=dict(color='black',size=13),
+            plt.text(x=combined_df.x[i]+0.13,y=combined_df.y[i]-0.3,s=int(combined_df.day[i]),
+                    fontdict=dict(color='black',size=18),
                     bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
 
         sns.despine()
         plt.title('Day 4 Recommendation')
         plt.xlabel('Dose (mg)')
-        plt.ylabel('Tacrolimus level (ng/ml)')
+        plt.ylabel('TTL (ng/ml)')
         plt.xticks(np.arange(0,3.5,step=0.5))
         plt.xlim(0,2.5)
         
@@ -1259,7 +1259,7 @@ def patient_120_response_vs_day(plot=False):
         sns.despine()
         plt.xticks(np.arange(2,max(patient_120.day),step=4))
         plt.xlabel('Day')
-        plt.ylabel('Tacrolimus level (ng/ml)')
+        plt.ylabel('TTL (ng/ml)')
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
         handles, labels = plt.gca().get_legend_handles_labels()
