@@ -224,6 +224,103 @@ def all_data(dose='total'):
     return combined_df
 
 # Most updated code
+def percentage_of_pts_that_reached_TR_per_dose_range(all_data_file=all_data_file_total):
+    """Find percentage of patients that reached TR at the same dose range."""
+    # Filter doses that reached TR
+    df = pd.read_excel(all_data_file_total)
+    df = df[df['dose'].notna()].reset_index(drop=True)
+    for i in range(len(df)):
+        if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
+            df.loc[i, 'TR'] = True
+        else:
+            df.loc[i, 'TR'] = False
+
+    df = df[df.TR==True].reset_index(drop=True)
+
+    # Dose range grouped by patients
+    for i in range(len(df)):
+        if df.dose[i] < low_dose_upper_limit:
+            df.loc[i, 'dose_range'] = 'low'
+        elif df.dose[i] < medium_dose_upper_limit:
+            df.loc[i, 'dose_range'] = ' medium'
+        else:
+            df.loc[i, 'dose_range'] = 'high'
+
+    # Dose range that reached TR
+    df = df.groupby('patient')['dose_range'].unique().astype(str).reset_index(name='dose_range_in_TR')
+
+    # Percentage of patients by TR dose range
+    df = df.groupby('dose_range_in_TR')['dose_range_in_TR'].apply(lambda x: x.count()/len(df.patient.unique())*100).reset_index(name='perc_pts')
+
+    # Format percentage
+    df['perc_pts'] = df['perc_pts'].apply(lambda x: "{:.2f}".format(x))
+
+    return df
+    
+def patient_journey_values():
+    """
+    Print out results of 
+    1. Response
+    2. % of days within therapeutic range
+    3. % of participants that reached therapeutic range within first week
+    4. Day where patient first achieved therapeutic range
+    5. Dose administered by mg
+    6. Dose administered by body weight
+    """
+    original_stdout = sys.stdout
+    with open('patient_journey_values.txt', 'w') as f:
+        sys.stdout = f
+        
+        data = response_vs_day(plot=False)
+
+        # 1. Response
+        result_and_distribution(data.response, '1. Response')
+
+        # 2. % of days within therapeutic range
+
+        # Drop rows where response is NaN
+        data = data[data.response.notna()].reset_index(drop=True)
+
+        # Add therapeutic range column
+        for i in range(len(data)):
+            if (data.response[i] >= therapeutic_range_lower_limit) & (data.response[i] <= therapeutic_range_upper_limit):
+                data.loc[i, 'therapeutic_range'] = True
+            else:
+                data.loc[i, 'therapeutic_range'] = False
+
+        perc_therapeutic_range = data.groupby('patient')['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100)
+        perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
+
+        # Result and distribution
+        result_and_distribution(perc_therapeutic_range.therapeutic_range, '2. % of days within therapeutic range')
+
+        # 3. % of participants that reached therapeutic range within first week
+        first_week_df = data.copy()
+        first_week_df = first_week_df[first_week_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+        first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
+        result = first_week_df.Day.sum()/first_week_df.Day.count()*100
+
+        print(f'3. % of participants that reached therapeutic range within first week:\n{result:.2f}%,\
+        {first_week_df.Day.sum()} out of 16 patients\n')
+
+        # 4. Day where patient first achieved therapeutic range
+        first_TR_df = data.copy()
+        first_TR_df = first_TR_df[first_TR_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+        first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
+
+        # Result and distribution
+        result_and_distribution(first_TR_df.Day, '4. Day where patient first achieved therapeutic range')
+
+        # 5. Dose administered by mg
+        dose_df = data.copy()
+        result_and_distribution(dose_df.dose, '5. Dose administered')
+
+        # 6. Dose administered by body weight
+        dose_df = data.copy()
+        result_and_distribution(dose_df.dose_BW, '6. Dose administered by body weight')
+
+    sys.stdout = original_stdout
+
 def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
