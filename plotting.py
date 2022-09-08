@@ -123,9 +123,9 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
     with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
         df.to_excel(writer, sheet_name='data', index=False)
 
-def add_dose_recommendation_to_results():
+def dose_recommendation_results(result_file=result_file_total):
     
-    df = pd.read_excel(result_file_total, sheet_name='result')
+    df = pd.read_excel(result_file, sheet_name='result')
     df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
 
     # Interpolate
