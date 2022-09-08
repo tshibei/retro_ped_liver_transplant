@@ -15,6 +15,7 @@ import sys
 from scipy.stats import levene
 from scipy.stats import wilcoxon
 import statistics
+from scipy.stats import bartlett
 
 # Define file names
 result_file_total = 'CURATE_results_total.xlsx'
