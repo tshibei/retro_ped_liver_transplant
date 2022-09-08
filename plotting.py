@@ -880,70 +880,10 @@ def technical_performance_metrics(result_file=result_file_total):
         experiment = experiment[experiment.method=='L_RW_wo_origin']
         result_and_distribution(experiment.train_median, 'Training set LOOCV')
         result_and_distribution(experiment.test_median, 'Test set LOOCV')
+        median_IQR_range(experiment.test_median)
+        print(f'Mann whitney u: {mannwhitneyu(experiment.test_median, experiment.train_median)}')
 
-    sys.stdout = original_stdout
-
-def patient_journey_values():
-    """
-    Print out results of 
-    1. Response
-    2. % of days within therapeutic range
-    3. % of participants that reached therapeutic range within first week
-    4. Day where patient first achieved therapeutic range
-    5. Dose administered by mg
-    6. Dose administered by body weight
-    """
-    original_stdout = sys.stdout
-    with open('patient_journey_values.txt', 'w') as f:
-        sys.stdout = f
-        
-        data = response_vs_day(plot=False)
-
-        # 1. Response
-        result_and_distribution(data.response, '1. Response')
-
-        # 2. % of days within therapeutic range
-
-        # Drop rows where response is NaN
-        data = data[data.response.notna()].reset_index(drop=True)
-
-        # Add therapeutic range column
-        for i in range(len(data)):
-            if (data.response[i] >= therapeutic_range_lower_limit) & (data.response[i] <= therapeutic_range_upper_limit):
-                data.loc[i, 'therapeutic_range'] = True
-            else:
-                data.loc[i, 'therapeutic_range'] = False
-
-        perc_therapeutic_range = data.groupby('patient')['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100)
-        perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
-
-        # Result and distribution
-        result_and_distribution(perc_therapeutic_range.therapeutic_range, '2. % of days within therapeutic range')
-
-        # 3. % of participants that reached therapeutic range within first week
-        first_week_df = data.copy()
-        first_week_df = first_week_df[first_week_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
-        first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
-        result = first_week_df.Day.sum()/first_week_df.Day.count()*100
-
-        print(f'3. % of participants that reached therapeutic range within first week:\n{result:.2f}%,\
-        {first_week_df.Day.sum()} out of 16 patients\n')
-
-        # 4. Day where patient first achieved therapeutic range
-        first_TR_df = data.copy()
-        first_TR_df = first_TR_df[first_TR_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
-        first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
-
-        # Result and distribution
-        result_and_distribution(first_TR_df.Day, '4. Day where patient first achieved therapeutic range')
-
-        # 5. Dose administered by mg
-        dose_df = data.copy()
-        result_and_distribution(dose_df.dose, '5. Dose administered')
-
-        # 6. Dose administered by body weight
-        dose_df = data.copy()
-        result_and_distribution(dose_df.dose_BW, '6. Dose administered by body weight')
+        ## Compare medians between training and test sets
 
     sys.stdout = original_stdout
 
