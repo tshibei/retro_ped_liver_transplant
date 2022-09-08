@@ -371,14 +371,14 @@ def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
 
         g = sns.relplot(data=new_dat, x='Day', y='response', hue='TTL', col='patient', col_wrap=4, style='Dose range',
                 height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'], 
-                style_order=['Low', 'Medium', 'High', 'Unavailable'])
+                style_order=['Low', 'Medium', 'High', 'Unavailable'], zorder=2)
 
         # g = sns.relplot(data=new_dat[new_dat['Dose range']=='Low'], x='Day', y='response', hue='TTL', col='patient', col_wrap=4, style='o',
         # height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'])
         
         # Add gray region for therapeutic range
         for ax in g.axes:
-            ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+            ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2, zorder=1)
         
         g.set_titles('Patient {col_name}')
         g.set_ylabels('TTL (ng/ml)')
