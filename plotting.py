@@ -764,11 +764,14 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
         reliable_accurate_actionable_diff_dose {reliable_accurate_actionable_diff_dose} out of {reliable_accurate_actionable} |\n\
         reliable_accurate_actionable_diff_dose_non_therapeutic_range {reliable_accurate_actionable_diff_dose_non_therapeutic_range} out of {reliable_accurate_actionable_diff_dose}')
 
-        # Add column for difference in doses recommended and administered
-        df['diff_dose_recommended_and_administered'] = df['dose_recommendation'] - df['dose']
-
-        result_and_distribution(df.diff_dose_recommended_and_administered, 'Dose recommended minus administered')
-        print('done')
+        try:
+            # Add column for difference in doses recommended and administered
+            df['diff_dose_recommended_and_administered'] = df['dose_recommendation'] - df['dose']
+            df['diff_dose_recommended_and_administered'] = df['diff_dose_recommended_and_administered'].astype(float)
+            result_and_distribution(df.diff_dose_recommended_and_administered, 'Dose recommended minus administered')
+        except:
+            print('dose difference calculation failed')
+        
 
     sys.stdout = original_stdout
 
