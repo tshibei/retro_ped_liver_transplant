@@ -816,34 +816,55 @@ def response_vs_dose(plot=False, dose='total'):
     if plot == True:
         # Plot response vs dose
         # Settings
-        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
-
+        fig1 = plt.figure()
+        sns.set(font_scale=1.5, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
+        
         # Plot
+        cmap = mpl.cm.Purples(np.linspace(0,1,20))
+        cmap = mpl.colors.ListedColormap(cmap[5:,:-1])
+
         ax = sns.relplot(data=new_dat, x='dose', y='response', hue='Day', col='patient', col_wrap=4, style='Dose range',
-                height=3, aspect=1,s=80)
+                height=3, aspect=1,s=100, zorder=2, palette=cmap)
 
         # Add gray region for therapeutic range
         for g in ax.axes:
-            g.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+            g.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2, zorder=1)
 
         # Label
-        ax.set_ylabels('Tacrolimus level (ng/ml)')
+        ax.set_ylabels('TTL (ng/ml)')
         ax.set_titles('Patient {col_name}')
         ax.set_xlabels('Dose (mg)')
+        g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),4),
+        xticks=np.arange(0, max(new_dat.dose+1), step=1))
 
         # Legend
         ax.legend.remove()
-        ax.fig.legend(handles=ax.legend.legendHandles[7:], bbox_to_anchor=(0.9,0.5), loc='center left', frameon=False)
+        plt.savefig('response_vs_dose.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
-        plt.savefig('response_vs_dose'+ dose +'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        # Colorbar
+        fig2, ax2 = plt.subplots(figsize=(6, 1))
+        fig2.subplots_adjust(bottom=0.4, top=0.7, hspace=.8)
+        norm = mpl.colors.Normalize(vmin=0, vmax=new_dat.Day.max())
 
-        # # Colorbar
-        # norm = plt.Normalize(new_dat.Day.min(), new_dat.Day.max())
-        # sm = plt.cm.ScalarMappable(cmap=sns.cubehelix_palette(as_cmap=True), norm=norm)
-        # sm.set_array([])
-        # colorbar = ax.figure.colorbar(sm, orientation='vertical')
+        cb = fig2.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
+             cax=ax2, orientation='horizontal', label='Day')
 
-        # plt.savefig('response_vs_dose_colorbar.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        cb.ax.xaxis.set_label_position('top')
+
+        legend_elements = [Line2D([0], [0], marker='o', color='w', label='Low',
+                          markerfacecolor='k', markersize=9),
+                          Line2D([0], [0], marker='X', color='w', label='Medium',
+                          markerfacecolor='k', markersize=9),
+                          Line2D([0], [0], marker='s', color='w', label='High',
+                          markerfacecolor='k', markersize=9),
+                          Patch(facecolor='grey', edgecolor='grey',
+                          label='Region within therapeutic range', alpha=.2)]
+        legend1 = plt.legend(handles=legend_elements[:3], bbox_to_anchor=(1.2,2.3), loc='upper left', frameon=False, title='Dose range')
+        legend2 = plt.legend(handles=legend_elements[3:], bbox_to_anchor=(1.7,2.3), loc='upper left', frameon=False)
+        ax2.add_artist(legend1)
+        ax2.add_artist(legend2) 
+
+        plt.savefig('response_vs_dose_colorbar.png', dpi=1000, facecolor='w', bbox_inches='tight')
         
     return new_dat
 
