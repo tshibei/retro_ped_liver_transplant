@@ -123,6 +123,55 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
     with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
         df.to_excel(writer, sheet_name='data', index=False)
 
+def add_dose_recommendation_to_results():
+    
+    df = pd.read_excel(result_file_total, sheet_name='result')
+    df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Interpolate
+    for i in range(len(df)):
+        # Create function
+        coeff = df.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(df.dose)+ 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        df.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+        df.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+        df.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    # Possible dose
+    df['possible_doses'] = ""
+    for i in range(len(df)):
+        # Find minimum dose recommendation by mg
+        min_dose_mg = math.ceil(min(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
+
+        # Find maximum dose recommendation by mg
+        max_dose_mg = math.floor(max(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
+
+        # Between and inclusive of min_dose_mg and max_dose_mg,
+        # find doses that are multiples of 0.5 mg
+        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
+        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
+
+        if possible_doses.size == 0:
+            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
+
+        # Add to column of possible doses
+        df.at[i, 'possible_doses'] = possible_doses
+
+        # Add to column of dose recommendation with lowest out of possible doses
+        df.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+
+    # df = df[['patient', 'pred_day', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation', 'interpolated_dose_8', 'interpolated_dose_9',
+    #        'interpolated_dose_10', 'possible_doses', 'dose_recommendation']]
+    
+    return df
+
 # Create excel sheets
 def all_data(dose='total'):
     """
