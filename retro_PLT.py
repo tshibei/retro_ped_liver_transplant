@@ -46,6 +46,8 @@ from scipy.stats import levene
 import sys
 from scipy.stats import wilcoxon
 import statistics
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 
 # +
 # %%time
