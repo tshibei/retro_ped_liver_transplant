@@ -867,7 +867,7 @@ def extreme_prediction_errors():
 
     extreme_prediction_errors[['patient','pred_day','abs_deviation']]
 
-def clinically_relevant_performance_metrics(result_file=result_file_total):
+def clinically_relevant_performance_metrics(result_file=result_file_total, all_data_file=all_data_file_total):
     """Clinically relevant performance metrics. 
     Calculate the results, conduct statistical tests, and
     print them out. 
