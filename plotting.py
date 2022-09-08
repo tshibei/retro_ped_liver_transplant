@@ -16,6 +16,10 @@ from scipy.stats import levene
 from scipy.stats import wilcoxon
 import statistics
 from scipy.stats import bartlett
+import matplotlib as mpl
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
+from matplotlib.backends.backend_pdf import PdfPages
 
 # Define file names
 result_file_total = 'CURATE_results_total.xlsx'
