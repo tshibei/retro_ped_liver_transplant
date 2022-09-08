@@ -1239,20 +1239,20 @@ def patient_120_response_vs_day(plot=False, all_data_file=all_data_file_total):
     predicted_response = (df_original.loc[0, 'coeff_1x'] * 2) + (df_original.loc[0, 'coeff_0x'])
 
     # SOC data
-    patient_120 = pd.read_excel('all_data.xlsx')
+    patient_120 = pd.read_excel(all_data_file)
     patient_120 = patient_120[patient_120.patient==120]
     patient_120 = patient_120[['day', 'response']].reset_index(drop=True)
 
     if plot==True:
         # Plot
         fig, axes = plt.subplots(figsize=(7,7))
-        sns.set(style='white', font_scale=2,
+        sns.set(style='white', font_scale=2.2,
             rc={"xtick.bottom":True, "ytick.left":True})
 
         plt.plot(patient_120.day, patient_120.response, 'yo', linestyle='-', ms=10)
-        plt.scatter(x=patient_120.day[0], y=patient_120.response[0], color='y', s=100, label='Standard of care dosing')
+        plt.scatter(x=patient_120.day[0], y=patient_120.response[0], color='y', s=100, label='SOC dosing')
         plt.plot(4, predicted_response, 'm^', ms=10, label='First day of therapeutic range\nwith CURATE.AI-assisted dosing')
-        plt.plot(8, 9.9, 'go', ms=10, label='First day of therapeutic range\nwith standard of care dosing')
+        plt.plot(8, 9.9, 'go', ms=10, label='First day of therapeutic range\nwith SOC dosing')
 
         plt.ylim(0,max(patient_120.response+1))
 
@@ -1268,7 +1268,7 @@ def patient_120_response_vs_day(plot=False, all_data_file=all_data_file_total):
                 bbox_to_anchor=(1.04,0.5), loc='center left', frameon=False) 
 
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                                label='Therapeutic range', alpha=.2)]
+                                label='Region within therapeutic range', alpha=.2)]
         legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(1.04,0.34), loc='upper left', frameon=False)
 
         axes.add_artist(legend1)
