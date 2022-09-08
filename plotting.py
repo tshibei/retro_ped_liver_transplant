@@ -374,6 +374,8 @@ def patient_journey_values():
 
     sys.stdout = original_stdout
 
+    return perc_therapeutic_range
+
 def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
@@ -1631,23 +1633,61 @@ def effect_of_CURATE_values(dose='total'):
             else:
                 df.loc[i, 'final_response_in_TR'] = True
 
-        # 1. % of days within therapeutic range
+        # 1a. % of days within therapeutic range
         perc_days_within_TR = df.groupby('patient')['final_response_in_TR'].apply(lambda x: x.sum()/x.count()*100)
         perc_days_within_TR = perc_days_within_TR.reset_index(name='result')
-        result_and_distribution(perc_days_within_TR.result, '1. % of days within therapeutic range')
+        result_and_distribution(perc_days_within_TR.result, '1a. % of days within therapeutic range (CURATE)')
+
+
+        # 1b. % of days within therapeutic range in SOC
+        # Drop rows where response is NaN
+        data = response_vs_day(plot=False)
+        data = data[data.response.notna()].reset_index(drop=True)
+
+        # Add therapeutic range column
+        for i in range(len(data)):
+            if (data.response[i] >= therapeutic_range_lower_limit) & (data.response[i] <= therapeutic_range_upper_limit):
+                data.loc[i, 'therapeutic_range'] = True
+            else:
+                data.loc[i, 'therapeutic_range'] = False
+
+        perc_therapeutic_range = data.groupby('patient')['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100)
+        perc_therapeutic_range = perc_therapeutic_range.to_frame().reset_index()
+
+        # Result and distribution
+        result_and_distribution(perc_therapeutic_range.therapeutic_range, '1b. % of days within therapeutic range (SOC)')
+
+
+        # 1c. Comparison between 1a and 1b
+        if (stats.shapiro(perc_days_within_TR.result).pvalue > 0.05) & (stats.shapiro(perc_therapeutic_range.therapeutic_range).pvalue > 0.05):
+            print(f'Normal, paired, paired t-test p-value: {stats.ttest_rel(perc_days_within_TR.result, perc_therapeutic_range.therapeutic_range).pvalue:.2f}')
+        else:
+            print(f'Non-normal, paired, wilcoxon signed-rank test p-value: {wilcoxon(perc_days_within_TR.result, perc_therapeutic_range.therapeutic_range).pvalue:.2f}\n')
 
         # 2. % of participants that reach within first week
         reach_TR_in_first_week = df[df.final_response_in_TR==True].groupby('patient')['day'].first().reset_index(name='first_day')
         reach_TR_in_first_week['result'] = reach_TR_in_first_week['first_day'] <= 7
-        result = reach_TR_in_first_week['result'].sum() / len(reach_TR_in_first_week) * 100
-        print(f'2. % of participants that reach within first week: {result:.2f}, {reach_TR_in_first_week["result"].sum()} out of {len(reach_TR_in_first_week)} patients\n')
+        result = reach_TR_in_first_week['result'].sum() / len(df.patient.unique()) * 100
+        print(f'2. % of participants that reach within first week: {result:.2f}, {reach_TR_in_first_week["result"].sum()} out of {len(df.patient.unique())} patients\n')
 
-        # 3. Day where patient first achieved therapeutic range
-        result_and_distribution(reach_TR_in_first_week.first_day, '3. Day where patient first achieved therapeutic range')
+        # 3a. Day where patient first achieved therapeutic range in CURATE
+        result_and_distribution(reach_TR_in_first_week.first_day, '3a. Day where patient first achieved therapeutic range (CURATE)')
+
+        # 3b. Day where patient first achieved therapeutic range in SOC
+        first_TR_df = data.copy()
+        first_TR_df = first_TR_df[first_TR_df['TTL']=='Therapeutic range'].reset_index(drop=True)
+        first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
+
+        # Result and distribution
+        result_and_distribution(first_TR_df.Day, '3b. Day where patient first achieved therapeutic range (SOC)')
+
+        # 3c. Compare between 3a and 3b
+        if (stats.shapiro(reach_TR_in_first_week.first_day).pvalue > 0.05) & (stats.shapiro(first_TR_df.Day).pvalue > 0.05):
+            print(f'Normal, paired, paired t-test p-value: {stats.ttest_rel(reach_TR_in_first_week.first_day, first_TR_df.Day).pvalue:.2f}')
+        else:
+            print(f'Non-normal, paired, wilcoxon signed-rank test p-value: {wilcoxon(reach_TR_in_first_week.first_day, first_TR_df.Day).pvalue:.2f}')
 
     sys.stdout = original_stdout
-
-    return perc_days_within_TR, reach_TR_in_first_week
 
 def SOC_CURATE_perc_in_TR(plot=False, dose='total'):
     """
