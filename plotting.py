@@ -350,8 +350,8 @@ def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
 
     # Rename columns and entries
     new_dat = dat.copy()
-    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus levels'})
-    new_dat['Tacrolimus levels'] = new_dat['Tacrolimus levels'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
+    new_dat = new_dat.rename(columns={'within_range':'TTL'})
+    new_dat['TTL'] = new_dat['TTL'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
     new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
     new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
@@ -364,29 +364,31 @@ def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
         new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, " ", "Low"]
         
         # Plot tac levels by day
-        sns.set(font_scale=1.2, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
+        sns.set(font_scale=1.5, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
 
-        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus levels', col='patient', col_wrap=4, style='Dose range',
-                height=3, aspect=1,s=80, palette=['tab:blue','tab:orange','white','white'], style_order=['Low', 'Medium', 'High', 'Unavailable'])
+        g = sns.relplot(data=new_dat, x='Day', y='response', hue='TTL', col='patient', col_wrap=4, style='Dose range',
+                height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'], 
+                style_order=['Low', 'Medium', 'High', 'Unavailable'])
+
+        # g = sns.relplot(data=new_dat[new_dat['Dose range']=='Low'], x='Day', y='response', hue='TTL', col='patient', col_wrap=4, style='o',
+        # height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'])
         
         # Add gray region for therapeutic range
         for ax in g.axes:
             ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
         
         g.set_titles('Patient {col_name}')
-        g.set_ylabels('Tacrolimus level (ng/ml)')
+        g.set_ylabels('TTL (ng/ml)')
         g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),4),
             xticks=np.arange(0, max(new_dat.Day+2), step=5))
         
         # Move legend below plot
-        sns.move_legend(g, 'center', bbox_to_anchor=(0.18,-0.05), ncol=2)
-        
-        legend1 = plt.legend()
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.18,-0.08), ncol=2)
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
                             label='Region within therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.7,-0.26), loc='upper left', frameon=False)
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.5,-0.42), loc='upper left', frameon=False)
 
-        plt.savefig('response_vs_day_' + dose + '.png', dpi=500, facecolor='w', bbox_inches='tight')
+        plt.savefig('response_vs_day_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
         
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
