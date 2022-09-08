@@ -329,7 +329,6 @@ def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
     else:
         file_string = all_data_file_evening
 
-    print(file_string)
     # Plot individual profiles
     dat = pd.read_excel(file_string)
 
