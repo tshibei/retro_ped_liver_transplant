@@ -1225,7 +1225,7 @@ def patient_120_day_4_recommendation(plot=False, result_file=result_file_total):
 
     return combined_df, df_original
 
-def patient_120_response_vs_day(plot=False):
+def patient_120_response_vs_day(plot=False, all_data_file=all_data_file_total):
     """
     Scatter plot of response vs day for patient 120,
     with green marker for first day in therapeutic range, 
