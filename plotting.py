@@ -586,7 +586,7 @@ def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total
     
     # Import output results
     dat = pd.read_excel(result_file, sheet_name='result')
-    dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
+    # dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
 
     # Subset L_RW_wo_origin
     dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
@@ -613,15 +613,15 @@ def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total
     # Create list of patients
     list_of_patients = find_list_of_patients()
 
-    # Create list of body weight
-    list_of_body_weight = find_list_of_body_weight()
+    # # Create list of body weight
+    # list_of_body_weight = find_list_of_body_weight()
 
-    # Add body weight column
-    dat['body_weight'] = ""
+    # # Add body weight column
+    # dat['body_weight'] = ""
 
-    for j in range(len(dat)):
-        index_patient = list_of_patients.index(str(dat.patient[j]))
-        dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+    # for j in range(len(dat)):
+    #     index_patient = list_of_patients.index(str(dat.patient[j]))
+    #     dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
         
     # Add dose recommendations
     dat['possible_doses'] = ""
@@ -647,7 +647,7 @@ def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total
         # Add to column of dose recommendation with lowest out of possible doses
         dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
 
-    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation', 'body_weight']]
+    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation']]
 
     # Add columns for assessment
     CURATE_assessment['reliable'] = ""
