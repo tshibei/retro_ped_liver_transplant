@@ -723,7 +723,6 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
         else:
             result_file = result_file_evening
 
-        print('after open')
         df = create_df_for_CURATE_assessment(result_file)
 
         # 1. Calculate values for clinially relevant flow chart (step 1 of 2)
