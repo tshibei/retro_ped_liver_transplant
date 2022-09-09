@@ -594,7 +594,7 @@ def effect_of_CURATE(plot=False, dose='total'):
 
     if plot == True:
         # Plot
-        sns.set(font_scale=1.2, rc={"figure.figsize": (20,10), "xtick.bottom":True, "ytick.left":True}, style='white')
+        sns.set(font_scale=1.5, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True}, style='white')
         hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
                     'Improve to therapeutic range', 'Worsen to non-therapeutic range']
         palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
@@ -604,26 +604,26 @@ def effect_of_CURATE(plot=False, dose='total'):
         # Scatter point
         g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
                         hue_order=hue_order, col='patient', palette=palette,\
-                        col_wrap=4, style='Dose range', height=3, aspect=1, s=80, style_order=style_order)
+                        col_wrap=4, style='Dose range', height=3, aspect=1, s=100, style_order=style_order, zorder=2)
 
         # Move legend below plot
-        sns.move_legend(g, 'center', bbox_to_anchor=(0.2,-0.1), title=None, ncol=2)
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.25,-0.1), title=None, ncol=2)
 
         # Titles and labels
         g.set_titles('Patient {col_name}')
         g.set(yticks=np.arange(0,math.ceil(max(combined_dat['response'])),4),
             xticks=np.arange(0,max(combined_dat.day),step=5))
-        g.set_ylabels('Tacrolimus level (ng/ml)')
+        g.set_ylabels('TTL (ng/ml)')
         g.set_xlabels('Day')
 
         # Add gray region for therapeutic range
         for ax in g.axes:
-            ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+            ax.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2, zorder=1)
 
         legend1 = plt.legend()
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                            label='Therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1,-0.5), loc='upper left', frameon=False)
+                            label='Region within\ntherapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-0.45,-0.53), loc='upper left', frameon=False)
 
         plt.savefig('effect_of_CURATE_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
