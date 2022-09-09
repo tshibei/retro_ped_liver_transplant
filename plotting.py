@@ -1896,6 +1896,67 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
 
     return plot_df, combined_df
 
+def CURATE_vs_SOC_values():
+    """ 
+    Compare CURATE vs SOC in terms of first day to achieve TR and % of days in TR,
+    and print out the results.
+    """
+    original_stdout = sys.stdout
+
+    with open('CURATE_vs_SOC.txt', 'w') as f:
+        sys.stdout = f
+        df = effect_of_CURATE()
+        df = df[~((df.response.isna()))].reset_index(drop=True)
+
+        # Whether final TTL in TR
+        for i in range(len(df)):
+            if 'non' in df.loc[i, 'Effect of CURATE.AI-assisted dosing']:
+                df.loc[i, 'final_TTL_in_TR'] = False
+            else:
+                df.loc[i, 'final_TTL_in_TR'] = True
+
+            if 'non' in df.therapeutic_range[i]:
+                df.loc[i, 'TR'] = False
+            else:
+                df.loc[i, 'TR'] = True
+
+        # First achieve TR
+        first_achieve_TR_CURATE = df[df.final_TTL_in_TR==True].groupby('patient')['day'].first().reset_index(name='CURATE')
+        first_achieve_TR_SOC = df[df.TR==True].groupby('patient')['day'].first().reset_index(name='SOC')
+        first_achieve_TR_combined = first_achieve_TR_CURATE.merge(first_achieve_TR_SOC, how='left', on='patient')
+        for i in range(len(first_achieve_TR_combined)):
+            if first_achieve_TR_combined.CURATE[i] < first_achieve_TR_combined.SOC[i]:
+                first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'earlier'
+            elif first_achieve_TR_combined.CURATE[i] > first_achieve_TR_combined.SOC[i]:
+                first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'later'
+            else:
+                first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'same'
+
+        # Add patient 15 within
+        first_achieve_TR_combined = pd.concat([first_achieve_TR_combined, pd.DataFrame({'patient':[15], 'CURATE': [np.nan], 'SOC': [np.nan], 'CURATE_vs_SOC': ['same']})])
+
+        # Time in TR
+        TTR_CURATE = df.groupby('patient')['final_TTL_in_TR'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='CURATE')
+        TTR_SOC = df.groupby('patient')['TR'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='SOC')
+        TTR_combined = TTR_CURATE.merge(TTR_SOC, how='left', on='patient')
+        for i in range(len(TTR_combined)):
+            if TTR_combined.CURATE[i] < TTR_combined.SOC[i]:
+                TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'less'
+            elif TTR_combined.CURATE[i] > TTR_combined.SOC[i]:
+                TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'more'
+            else:
+                TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'same'
+
+        first_achieve_TR_combined_result = first_achieve_TR_combined.groupby('CURATE_vs_SOC')['patient'].apply(lambda x: x.count()/(len(first_achieve_TR_combined))*100)
+        TTR_combined_result = TTR_combined.groupby('CURATE_vs_SOC')['patient'].apply(lambda x: x.count()/(len(first_achieve_TR_combined))*100)
+
+        print(f'First day to achieve TR: {first_achieve_TR_combined_result}\n')
+        print(f'Days in TR (%): {TTR_combined_result}' )
+
+    sys.stdout = original_stdout
+    
+    return first_achieve_TR_combined_result, TTR_combined_result
+
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
