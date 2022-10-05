@@ -9,7 +9,7 @@ import math
 from matplotlib import colors
 from matplotlib.pyplot import cm
 from matplotlib.patches import Patch
-from Profile_Generation import *
+from profile_generation import *
 from openpyxl import load_workbook
 import sys
 from scipy.stats import levene
@@ -44,239 +44,7 @@ dosing_strategy_cutoff = 0.4
 acceptable_tac_upper_limit = 12
 acceptable_tac_lower_limit = 6.5
 
-def test_write_to_file(dose='total'):
-    original_stdout = sys.stdout
-
-    with open('test' + dose + '.txt', 'w') as f:
-        sys.stdout = f
-        a = 'test'
-        b = 'boy'
-        print(a)
-    
-    sys.stdout = original_stdout
-    return b
-
-# Create lists
-def find_list_of_body_weight():
-
-    xl = pd.ExcelFile(raw_data_file)
-    excel_sheet_names = xl.sheet_names
-
-    list_of_body_weight = []
-
-    # Create list of body_weight
-    for sheet in excel_sheet_names:    
-        data = pd.read_excel(raw_data_file, sheet_name=sheet, index_col=None, usecols = "C", nrows=15)
-        data = data.reset_index(drop=True)
-        list_of_body_weight.append(data['Unnamed: 2'][13])
-
-    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
-
-    return list_of_body_weight
-
-def find_list_of_patients():
-    # Declare list
-    list_of_patients = []
-
-    # Create list of patients
-    wb = load_workbook(raw_data_file, read_only=True)
-    list_of_patients = wb.sheetnames
-
-    return list_of_patients
-
-# Import data
-def import_raw_data_including_non_ideal():
-    df = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
-
-    return df
-
-def import_CURATE_results():
-    df = pd.read_excel(result_file, sheet_name='result')
-    return df
-
-# Edit excel sheets
-def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
-    
-    df = pd.read_excel('all_data_including_non_ideal.xlsx')
-
-    # Declare lists
-    list_of_body_weight = find_list_of_body_weight()
-    list_of_patients = find_list_of_patients()
-
-    # Add body weight column
-    df['body_weight'] = ""
-
-    for i in range(len(df)):
-        # Find index of patient in list_of_patients
-        index = list_of_patients.index(str(df.patient[i]))
-        body_weight = list_of_body_weight[index]    
-
-        # Add body weight to column
-        df.loc[i, 'body_weight'] = body_weight
-
-    # Change current dose column to dose_mg
-    df = df.rename(columns={'dose':'dose_mg'})
-
-    # Add column 'dose' by dividing dose_mg by body weight
-    df['dose'] = df['dose_mg'] / df['body_weight']
-
-    with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
-        df.to_excel(writer, sheet_name='data', index=False)
-
-def dose_recommendation_results(result_file=result_file_total):
-    
-    df = pd.read_excel(result_file, sheet_name='result')
-    df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
-
-    # Interpolate
-    for i in range(len(df)):
-        # Create function
-        coeff = df.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
-        coeff = coeff[~np.isnan(coeff)]
-        p = np.poly1d(coeff)
-        x = np.linspace(0, max(df.dose)+ 2)
-        y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
-
-        df.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
-        df.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
-        df.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
-
-    # Possible dose
-    df['possible_doses'] = ""
-    for i in range(len(df)):
-        # Find minimum dose recommendation by mg
-        min_dose_mg = math.ceil(min(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
-
-        # Find maximum dose recommendation by mg
-        max_dose_mg = math.floor(max(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
-
-        # Between and inclusive of min_dose_mg and max_dose_mg,
-        # find doses that are multiples of 0.5 mg
-        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
-        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
-
-        if possible_doses.size == 0:
-            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
-
-        # Add to column of possible doses
-        df.at[i, 'possible_doses'] = possible_doses
-
-        # Add to column of dose recommendation with lowest out of possible doses
-        df.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
-
-    # df = df[['patient', 'pred_day', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation', 'interpolated_dose_8', 'interpolated_dose_9',
-    #        'interpolated_dose_10', 'possible_doses', 'dose_recommendation']]
-    
-    return df
-
-# Create excel sheets
-def all_data(dose='total'):
-    """
-    Clean raw data and label which are ideal or non-ideal.
-    Export all data to excel.
-    
-    Output: 
-    - Dataframe of all cleaned raw data with label of ideal/non-ideal.
-    - 'all_data.xlsx' with dataframe
-    """
-    if dose == 'total':
-        dose_string = "Eff 24h Tac Dose"
-    else:
-        dose_string = "2nd Tac dose (pm)"
-
-    # Create dataframe from all sheets
-    list_of_patients = find_list_of_patients()
-    list_of_body_weight = find_list_of_body_weight()
-
-    df = pd.DataFrame()
-
-    for patient in list_of_patients:
-        patient_df = pd.read_excel('Retrospective Liver Transplant Data - edited.xlsx', sheet_name=patient, skiprows=17)
-        patient_df['patient'] = patient
-
-        # Subset dataframe
-        patient_df = patient_df[['Day #', 'Tac level (prior to am dose)', dose_string, 'patient']]
-
-        # Shift dose column
-        patient_df[dose_string] = patient_df[dose_string].shift(1)
-
-        # Remove "mg"/"ng" from dose
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mgq', '')
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mg', '')
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('ng', '')
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.strip()
-        patient_df[dose_string] = patient_df[dose_string].astype(float)
-
-        first_day_of_dosing = patient_df['Day #'].loc[~patient_df[dose_string].isnull()].iloc[0]
-
-        # Keep data from first day of dosing
-        patient_df = patient_df[patient_df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
-
-        # Set the first day of dosing as day 2 (because first dose received on day 1)
-        for i in range(len(patient_df)):
-            patient_df.loc[i, 'Day #'] = i + 2
-
-        df = pd.concat([df, patient_df])
-
-    df.reset_index(drop=True)
-    df['patient'] = df['patient'].astype(int)
-
-    # Rename columns
-    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', dose_string:'dose'})
-
-    # Import output dataframe from 'clean'
-    ideal_df = pd.read_excel(result_file, sheet_name='clean')
-
-    # Add ideal column == TRUE
-    ideal_df['ideal'] = True
-
-    # Subset columns
-    ideal_df = ideal_df[['day', 'patient', 'ideal']]
-
-    # Merge dataframes
-    combined_df = df.merge(ideal_df, how='left', on=['day', 'patient'])
-
-    # Fill in ideal column with False if NaN
-    combined_df['ideal'] = combined_df['ideal'].fillna(False)
-
-    # Fill in body weight
-    combined_df['body_weight'] = ""
-
-    for i in range(len(combined_df)):
-        # Find index of patient in list_of_patients
-        index = list_of_patients.index(str(combined_df.patient[i]))
-        body_weight = list_of_body_weight[index]    
-
-        # Add body weight to column
-        combined_df.loc[i, 'body_weight'] = body_weight
-
-    # Add column 'dose' by dividing dose_mg by body weight
-    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
-    combined_df['dose'] = combined_df['dose'].astype(float)
-    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
-
-    # Clean up response column
-    for i in range(len(combined_df)):
-
-        # For response column, if there is a '/', take first value
-        if '/' in str(combined_df.response[i]):
-            combined_df.loc[i, 'response'] = combined_df.response[i].split('/')[0]
-        else: 
-            combined_df.loc[i, 'response'] = combined_df.response[i]
-
-        # If response is <2, which means contain '<', label as NaN
-        if '<' in str(combined_df.response[i]):
-            combined_df.loc[i, 'response'] = np.nan
-
-    # Export to excel
-    combined_df.to_excel(r'all_data_' + dose + '.xlsx', index = False, header=True)
-    
-    return combined_df
-
-# Most updated code
+# Analysis and plots
 def percentage_of_pts_that_reached_TR_per_dose_range(all_data_file=all_data_file_total):
     """Find percentage of patients that reached TR at the same dose range."""
     # Filter doses that reached TR
@@ -349,7 +117,7 @@ def patient_journey_values():
 
         # 3. % of participants that reached therapeutic range within first week
         first_week_df = data.copy()
-        first_week_df = first_week_df[first_week_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+        first_week_df = first_week_df[first_week_df['TTL']=='Therapeutic range'].reset_index(drop=True)
         first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
         result = first_week_df.Day.sum()/first_week_df.Day.count()*100
 
@@ -358,7 +126,7 @@ def patient_journey_values():
 
         # 4. Day where patient first achieved therapeutic range
         first_TR_df = data.copy()
-        first_TR_df = first_TR_df[first_TR_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+        first_TR_df = first_TR_df[first_TR_df['TTL']=='Therapeutic range'].reset_index(drop=True)
         first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
 
         # Result and distribution
@@ -945,7 +713,7 @@ def extreme_prediction_errors():
 
     extreme_prediction_errors[['patient','pred_day','abs_deviation']]
 
-def clinically_relevant_performance_metrics(result_file=result_file_total, all_data_file=all_data_file_total):
+def clinically_relevant_performance_metrics(result_file=result_file_total, all_data_file=all_data_file_total, dose='total'):
     """Clinically relevant performance metrics. 
     Calculate the results, conduct statistical tests, and
     print them out. 
@@ -955,9 +723,15 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, all_d
     # Uncomment to write output to txt file
     # file_path = 'Clinically relevant performance metrics.txt'
     # sys.stdout = open(file_path, "w")
+    if dose == 'total':
+        result_file = result_file_total
+        all_data_file = all_data_file_total
+    else:
+        result_file = result_file_evening
+        all_data_file = all_data_file_evening
 
     original_stdout = sys.stdout
-    with open('clinically_relevant_perf_metrics.txt', 'w') as f:
+    with open('clinically_relevant_perf_metrics'+ dose +'.txt', 'w') as f:
         sys.stdout = f
 
         # 1. Find percentage of days within clinically acceptable 
@@ -1024,7 +798,9 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, all_d
     
     sys.stdout = original_stdout
 
-def technical_performance_metrics(result_file=result_file_total):
+    return acceptable_CURATE, acceptable_SOC, unacceptable_overprediction, unacceptable_underprediction
+
+def technical_performance_metrics(result_file=result_file_total, dose='total'):
     """
     Print the following technical performance metrics
     1. Prediction erorr
@@ -1032,8 +808,13 @@ def technical_performance_metrics(result_file=result_file_total):
     3. RMSE
     4. LOOCV
     """
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+
     original_stdout = sys.stdout
-    with open('technical_perf_metrics.txt', 'w') as f:
+    with open('technical_perf_metrics'+ dose +'.txt', 'w') as f:
         sys.stdout = f
 
         df = pd.read_excel(result_file, sheet_name='result')
@@ -1067,6 +848,8 @@ def technical_performance_metrics(result_file=result_file_total):
         ## Compare medians between training and test sets
 
     sys.stdout = original_stdout
+
+    return df
 
 def dosing_strategy_values():
     """
@@ -1901,61 +1684,283 @@ def CURATE_vs_SOC_values():
     Compare CURATE vs SOC in terms of first day to achieve TR and % of days in TR,
     and print out the results.
     """
-    original_stdout = sys.stdout
 
-    with open('CURATE_vs_SOC.txt', 'w') as f:
-        sys.stdout = f
-        df = effect_of_CURATE()
-        df = df[~((df.response.isna()))].reset_index(drop=True)
+    df = effect_of_CURATE()
+    df = df[~((df.response.isna()))].reset_index(drop=True)
 
-        # Whether final TTL in TR
-        for i in range(len(df)):
-            if 'non' in df.loc[i, 'Effect of CURATE.AI-assisted dosing']:
-                df.loc[i, 'final_TTL_in_TR'] = False
-            else:
-                df.loc[i, 'final_TTL_in_TR'] = True
+    # Whether final TTL in TR
+    for i in range(len(df)):
+        if 'non' in df.loc[i, 'Effect of CURATE.AI-assisted dosing']:
+            df.loc[i, 'final_TTL_in_TR'] = False
+        else:
+            df.loc[i, 'final_TTL_in_TR'] = True
 
-            if 'non' in df.therapeutic_range[i]:
-                df.loc[i, 'TR'] = False
-            else:
-                df.loc[i, 'TR'] = True
+        if 'non' in df.therapeutic_range[i]:
+            df.loc[i, 'TR'] = False
+        else:
+            df.loc[i, 'TR'] = True
 
-        # First achieve TR
-        first_achieve_TR_CURATE = df[df.final_TTL_in_TR==True].groupby('patient')['day'].first().reset_index(name='CURATE')
-        first_achieve_TR_SOC = df[df.TR==True].groupby('patient')['day'].first().reset_index(name='SOC')
-        first_achieve_TR_combined = first_achieve_TR_CURATE.merge(first_achieve_TR_SOC, how='left', on='patient')
-        for i in range(len(first_achieve_TR_combined)):
-            if first_achieve_TR_combined.CURATE[i] < first_achieve_TR_combined.SOC[i]:
-                first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'earlier'
-            elif first_achieve_TR_combined.CURATE[i] > first_achieve_TR_combined.SOC[i]:
-                first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'later'
-            else:
-                first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'same'
+    # First achieve TR
+    first_achieve_TR_CURATE = df[df.final_TTL_in_TR==True].groupby('patient')['day'].first().reset_index(name='CURATE')
+    first_achieve_TR_SOC = df[df.TR==True].groupby('patient')['day'].first().reset_index(name='SOC')
+    first_achieve_TR_combined = first_achieve_TR_CURATE.merge(first_achieve_TR_SOC, how='left', on='patient')
+    for i in range(len(first_achieve_TR_combined)):
+        if first_achieve_TR_combined.CURATE[i] < first_achieve_TR_combined.SOC[i]:
+            first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'earlier'
+        elif first_achieve_TR_combined.CURATE[i] > first_achieve_TR_combined.SOC[i]:
+            first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'later'
+        else:
+            first_achieve_TR_combined.loc[i, 'CURATE_vs_SOC'] = 'same'
 
-        # Add patient 15 within
-        first_achieve_TR_combined = pd.concat([first_achieve_TR_combined, pd.DataFrame({'patient':[15], 'CURATE': [np.nan], 'SOC': [np.nan], 'CURATE_vs_SOC': ['same']})])
+    # Add patient 15 within
+    first_achieve_TR_combined = pd.concat([first_achieve_TR_combined, pd.DataFrame({'patient':[15], 'CURATE': [np.nan], 'SOC': [np.nan], 'CURATE_vs_SOC': ['same']})])
 
-        # Time in TR
-        TTR_CURATE = df.groupby('patient')['final_TTL_in_TR'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='CURATE')
-        TTR_SOC = df.groupby('patient')['TR'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='SOC')
-        TTR_combined = TTR_CURATE.merge(TTR_SOC, how='left', on='patient')
-        for i in range(len(TTR_combined)):
-            if TTR_combined.CURATE[i] < TTR_combined.SOC[i]:
-                TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'less'
-            elif TTR_combined.CURATE[i] > TTR_combined.SOC[i]:
-                TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'more'
-            else:
-                TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'same'
+    # Time in TR
+    TTR_CURATE = df.groupby('patient')['final_TTL_in_TR'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='CURATE')
+    TTR_SOC = df.groupby('patient')['TR'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='SOC')
+    TTR_combined = TTR_CURATE.merge(TTR_SOC, how='left', on='patient')
+    for i in range(len(TTR_combined)):
+        if TTR_combined.CURATE[i] < TTR_combined.SOC[i]:
+            TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'less'
+        elif TTR_combined.CURATE[i] > TTR_combined.SOC[i]:
+            TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'more'
+        else:
+            TTR_combined.loc[i, 'CURATE_vs_SOC'] = 'same'
 
-        first_achieve_TR_combined_result = first_achieve_TR_combined.groupby('CURATE_vs_SOC')['patient'].apply(lambda x: x.count()/(len(first_achieve_TR_combined))*100)
-        TTR_combined_result = TTR_combined.groupby('CURATE_vs_SOC')['patient'].apply(lambda x: x.count()/(len(first_achieve_TR_combined))*100)
+    first_achieve_TR_combined_result = first_achieve_TR_combined.groupby('CURATE_vs_SOC')['patient'].apply(lambda x: x.count()/(len(first_achieve_TR_combined))*100)
+    TTR_combined_result = TTR_combined.groupby('CURATE_vs_SOC')['patient'].apply(lambda x: x.count()/(len(first_achieve_TR_combined))*100)
 
-        print(f'First day to achieve TR: {first_achieve_TR_combined_result}\n')
-        print(f'Days in TR (%): {TTR_combined_result}' )
-
-    sys.stdout = original_stdout
+    print(f'First day to achieve TR: {first_achieve_TR_combined_result}\n')
+    print(f'Days in TR (%): {TTR_combined_result}' )
     
-    return first_achieve_TR_combined_result, TTR_combined_result
+    return first_achieve_TR_combined, TTR_combined
+
+##### SUPPORTING FUNCTIONS #####
+
+# Create lists
+def find_list_of_body_weight():
+
+    xl = pd.ExcelFile(raw_data_file)
+    excel_sheet_names = xl.sheet_names
+
+    list_of_body_weight = []
+
+    # Create list of body_weight
+    for sheet in excel_sheet_names:    
+        data = pd.read_excel(raw_data_file, sheet_name=sheet, index_col=None, usecols = "C", nrows=15)
+        data = data.reset_index(drop=True)
+        list_of_body_weight.append(data['Unnamed: 2'][13])
+
+    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
+
+    return list_of_body_weight
+
+def find_list_of_patients():
+    # Declare list
+    list_of_patients = []
+
+    # Create list of patients
+    wb = load_workbook(raw_data_file, read_only=True)
+    list_of_patients = wb.sheetnames
+
+    return list_of_patients
+
+# Import data
+def import_raw_data_including_non_ideal():
+    df = pd.read_excel('all_data_including_non_ideal.xlsx', sheet_name='data')
+
+    return df
+
+def import_CURATE_results():
+    df = pd.read_excel(result_file, sheet_name='result')
+    return df
+
+# Edit excel sheets
+def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
+    
+    df = pd.read_excel('all_data_including_non_ideal.xlsx')
+
+    # Declare lists
+    list_of_body_weight = find_list_of_body_weight()
+    list_of_patients = find_list_of_patients()
+
+    # Add body weight column
+    df['body_weight'] = ""
+
+    for i in range(len(df)):
+        # Find index of patient in list_of_patients
+        index = list_of_patients.index(str(df.patient[i]))
+        body_weight = list_of_body_weight[index]    
+
+        # Add body weight to column
+        df.loc[i, 'body_weight'] = body_weight
+
+    # Change current dose column to dose_mg
+    df = df.rename(columns={'dose':'dose_mg'})
+
+    # Add column 'dose' by dividing dose_mg by body weight
+    df['dose'] = df['dose_mg'] / df['body_weight']
+
+    with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
+        df.to_excel(writer, sheet_name='data', index=False)
+
+def dose_recommendation_results(result_file=result_file_total):
+    
+    df = pd.read_excel(result_file, sheet_name='result')
+    df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Interpolate
+    for i in range(len(df)):
+        # Create function
+        coeff = df.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(df.dose)+ 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        df.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+        df.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+        df.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    # Possible dose
+    df['possible_doses'] = ""
+    for i in range(len(df)):
+        # Find minimum dose recommendation by mg
+        min_dose_mg = math.ceil(min(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
+
+        # Find maximum dose recommendation by mg
+        max_dose_mg = math.floor(max(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
+
+        # Between and inclusive of min_dose_mg and max_dose_mg,
+        # find doses that are multiples of 0.5 mg
+        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
+        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
+
+        if possible_doses.size == 0:
+            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
+
+        # Add to column of possible doses
+        df.at[i, 'possible_doses'] = possible_doses
+
+        # Add to column of dose recommendation with lowest out of possible doses
+        df.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+
+    # df = df[['patient', 'pred_day', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation', 'interpolated_dose_8', 'interpolated_dose_9',
+    #        'interpolated_dose_10', 'possible_doses', 'dose_recommendation']]
+    
+    return df
+
+# Create excel sheets
+def all_data(dose='total'):
+    """
+    Clean raw data and label which are ideal or non-ideal.
+    Export all data to excel.
+    
+    Output: 
+    - Dataframe of all cleaned raw data with label of ideal/non-ideal.
+    - 'all_data.xlsx' with dataframe
+    """
+    if dose == 'total':
+        dose_string = "Eff 24h Tac Dose"
+    else:
+        dose_string = "2nd Tac dose (pm)"
+
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+        
+    # Create dataframe from all sheets
+    list_of_patients = find_list_of_patients()
+    list_of_body_weight = find_list_of_body_weight()
+
+    df = pd.DataFrame()
+
+    for patient in list_of_patients:
+        patient_df = pd.read_excel('Retrospective Liver Transplant Data - edited.xlsx', sheet_name=patient, skiprows=17)
+        patient_df['patient'] = patient
+
+        # Subset dataframe
+        patient_df = patient_df[['Day #', 'Tac level (prior to am dose)', dose_string, 'patient']]
+
+        # Shift dose column
+        patient_df[dose_string] = patient_df[dose_string].shift(1)
+
+        # Remove "mg"/"ng" from dose
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mgq', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mg', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('ng', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.strip()
+        patient_df[dose_string] = patient_df[dose_string].astype(float)
+
+        first_day_of_dosing = patient_df['Day #'].loc[~patient_df[dose_string].isnull()].iloc[0]
+
+        # Keep data from first day of dosing
+        patient_df = patient_df[patient_df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
+
+        # Set the first day of dosing as day 2 (because first dose received on day 1)
+        for i in range(len(patient_df)):
+            patient_df.loc[i, 'Day #'] = i + 2
+
+        df = pd.concat([df, patient_df])
+
+    df.reset_index(drop=True)
+    df['patient'] = df['patient'].astype(int)
+
+    # Rename columns
+    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', dose_string:'dose'})
+
+    # Import output dataframe from 'clean'
+    ideal_df = pd.read_excel(result_file, sheet_name='clean')
+
+    # Add ideal column == TRUE
+    ideal_df['ideal'] = True
+
+    # Subset columns
+    ideal_df = ideal_df[['day', 'patient', 'ideal']]
+
+    # Merge dataframes
+    combined_df = df.merge(ideal_df, how='left', on=['day', 'patient'])
+
+    # Fill in ideal column with False if NaN
+    combined_df['ideal'] = combined_df['ideal'].fillna(False)
+
+    # Fill in body weight
+    combined_df['body_weight'] = ""
+
+    for i in range(len(combined_df)):
+        # Find index of patient in list_of_patients
+        index = list_of_patients.index(str(combined_df.patient[i]))
+        body_weight = list_of_body_weight[index]    
+
+        # Add body weight to column
+        combined_df.loc[i, 'body_weight'] = body_weight
+
+    # Add column 'dose' by dividing dose_mg by body weight
+    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
+    combined_df['dose'] = combined_df['dose'].astype(float)
+    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
+
+    # Clean up response column
+    for i in range(len(combined_df)):
+
+        # For response column, if there is a '/', take first value
+        if '/' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = combined_df.response[i].split('/')[0]
+        else: 
+            combined_df.loc[i, 'response'] = combined_df.response[i]
+
+        # If response is <2, which means contain '<', label as NaN
+        if '<' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = np.nan
+
+    # Export to excel
+    combined_df.to_excel(r'all_data_' + dose + '.xlsx', index = False, header=True)
+    
+    return combined_df
 
 # Statistical test
 def result_and_distribution(df, metric_string):
@@ -2001,7 +2006,773 @@ def median_IQR_range(df):
 
     print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f} | count {count} | range {minimum:.2f} - {maximum:.2f}\n')
 
-##### New graphs after meeting with NUH ######
+# LOOCV for all methods
+
+def LOOCV_all_methods(file_string=result_file_total):
+    """
+    Perform LOOCV for all methods
+    
+    Output: Excel sheet 'all_methods_LOOCV.xlsx' with results of LOOCV for all methods
+    """
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
+
+    # Define lists
+    linear_patient_list = dat[dat.method.str.contains('L_')].patient.unique().tolist()
+    quad_patient_list = dat[dat.method.str.contains('Q_')].patient.unique().tolist()
+    method_list = dat.method.unique().tolist()
+
+    # Keep only useful columns in dataframe
+    dat = dat[['method', 'patient', 'abs_deviation']]
+
+    # Create output dataframes
+    experiment_results_df = pd.DataFrame(columns=['method', 'experiment', 'train_median', 'test_median'])
+    overall_results_df = pd.DataFrame(columns=['method', 'train (median)', 'test (median)'])
+
+    exp_res_counter = 0
+    overall_res_counter = 0
+
+    for method in method_list:
+
+        #  Define num of patients according to whether method is linear or quadratic
+        num_of_patients, patient_list = num_patients_and_list(method, linear_patient_list, quad_patient_list)
+
+        for i in range(num_of_patients):
+
+            train_median = find_train_median_LOOCV(dat, method, patient_list, i)
+            test_median = find_test_median_LOOCV(dat, method, patient_list, i)
+
+            # Update experiment results dataframe
+            experiment_results_df.loc[exp_res_counter, 'experiment'] = i + 1
+            experiment_results_df.loc[exp_res_counter, 'method'] = method
+            experiment_results_df.loc[exp_res_counter, 'train_median'] = train_median
+            experiment_results_df.loc[exp_res_counter, 'test_median'] = test_median
+
+            exp_res_counter = exp_res_counter + 1
+
+    # Find median of the train_median and test_median of each method
+    train_median_df = experiment_results_df.groupby('method')['train_median'].median().reset_index()
+    test_median_df = experiment_results_df.groupby('method')['test_median'].median().reset_index()
+
+    # Create dataframe for overall results by method
+    overall_results_df = train_median_df.merge(test_median_df, how='inner', on='method')
+
+    # # Shapiro test by method, on train_median and test_median (result: some normal)
+    # train_median_shapiro = experiment_results_df.groupby('method')['train_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
+    # test_median_shapiro = experiment_results_df.groupby('method')['test_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
+
+    # Output dataframes to excel as individual sheets
+    with pd.ExcelWriter('LOOCV_results.xlsx') as writer:
+        experiment_results_df.to_excel(writer, sheet_name='Experiments', index=False)
+        overall_results_df.to_excel(writer, sheet_name='Overall', index=False)
+
+def find_test_median_LOOCV(dat, method, patient_list, i):
+    """Find median of test set"""
+    
+    # Define test df
+    test_df = dat[(dat.method == method) & (dat.patient == patient_list[i])]
+    
+    # Find test_median
+    test_median = test_df.abs_deviation.median()
+    
+    return test_median
+
+def find_train_median_LOOCV(dat, method, patient_list, i):
+    """Find median of training set"""
+        
+    # Define train df
+    train_patient_list = patient_list.copy()
+    train_patient_list.pop(i)
+    train_df = dat[(dat.method == method) & (dat.patient.isin(train_patient_list))]
+
+    # Find train_median
+    train_median = train_df.abs_deviation.median()
+    
+    return train_median
+
+def num_patients_and_list(method, linear_patient_list, quad_patient_list):
+    """Define num of patients according to whether method is linear or quadratic"""
+    
+    if 'L_' in method:
+        num_of_patients = len(linear_patient_list)
+        patient_list = linear_patient_list
+    else:
+        num_of_patients = len(quad_patient_list)
+        patient_list = quad_patient_list
+        
+    return num_of_patients, patient_list
+
+##### OLDER ANALYSIS AND PLOTS #####
+
+def CURATE_could_be_useful(file_string=result_file_total):
+    """
+    Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
+    keep those that are useful.
+    
+    Output: Dataframe describing results
+    """
+    dat = read_file_and_remove_unprocessed_pop_tau()
+    dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
+
+    # Subset CURATE models
+    dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')]
+
+    dat = dat.reset_index(drop=True)
+
+    # Interpolate
+    for i in range(len(dat)):
+        # Create function
+        coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(dat.dose)+ 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+        dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+        dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    interpolation = dat[['interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe() # Minimum 0mg, all are possible dosing events
+
+    # Create boolean, true when model predict wrong range
+    for i in range(len(dat)):
+        # All False
+        dat.loc[i, 'wrong_range'] = False
+        # Unless condition 1: prediction within range, response outside range
+        if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
+            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+                dat.loc[i, 'wrong_range'] = True
+        # Unless condition 2: prediction outside range, response within range
+        elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
+                dat.loc[i, 'wrong_range'] = True
+
+    dat['acceptable_deviation'] = (round(dat['deviation'],2) >= -1.5) & (round(dat['deviation'],2) <= 2)
+
+    # dat = dat.reset_index(drop=True)
+
+    # Find number of predictions in wrong range by group
+    wrong_range = dat.groupby('method')['wrong_range'].sum()
+
+    # Find number of predictions with unacceptable deviations by group
+    unacceptable_dev = dat.groupby('method')['acceptable_deviation'].apply(lambda x: x.count()-x.sum())
+
+    # Find difference between interpolated dose for 9ng/ml and dose prescribed
+    dat['diff_dose'] = dat['interpolated_dose_9'] - dat['dose']
+    dat['abs_diff_dose'] = abs(dat['diff_dose'])
+
+    # Create reasonable dose column
+    dat['reasonable_dose'] = dat['abs_diff_dose'] >= 0.5
+
+    unreasonable_dose = dat.groupby('method')['reasonable_dose'].apply(lambda x: x.count()-x.sum())
+
+    # Create column for within range
+    dat['within_range'] = (dat['response'] <= 10) & (dat['response'] >= 8)
+
+    within_range = dat.groupby('method')['within_range'].sum()
+
+    dat['CURATE_could_be_useful'] = (dat.acceptable_deviation==True) & \
+        (dat.wrong_range==False) & \
+            (dat.reasonable_dose==True) & \
+                (dat.within_range==False)
+
+    # # Keep only predictions with acceptable deviations
+    # dat = dat[dat.acceptable_deviation==True]
+
+    # # Keep only predictions with right range
+    # dat = dat[dat.wrong_range==False]
+
+    # # Keep reasonable doses only
+    # dat = dat[dat.reasonable_dose==True]
+
+    # # Keep those outside range
+    # dat = dat[dat.within_range==False]
+
+    # dat.groupby('method')['diff_dose'].describe().T.applymap('{:,.2f}'.format)
+
+    return dat
+
+def clinically_relevant_flow_chart_old(result_file=result_file_total):
+
+    dat = CURATE_could_be_useful()
+
+    # Subset RW
+    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Find number of wrong range predictions
+    number_of_unreliable_predictions = dat['wrong_range'].sum()
+
+    # # Keep reliable predictions
+    # dat = dat[dat.wrong_range==False].reset_index(drop=True)
+
+    # Find number of inaccurate predictions with clinically acceptable prediction error
+    number_of_inaccurate_predictions = len(dat) - dat.acceptable_deviation.sum()
+
+    # # Keep accurate predictions
+    # dat = dat[dat.acceptable_deviation==True].reset_index(drop=True)
+
+    # Check if recommended doses are less than 0.55mg/kg/day
+    dat['reasonable_dose'] = True
+    for i in range(len(dat)):
+        dat.loc[i, 'reasonable_dose'] = min(dat.interpolated_dose_8[i], dat.interpolated_dose_9[i], dat.interpolated_dose_10[i]) < 0.55
+
+    number_of_unreasonable_doses = len(dat) - dat.reasonable_dose.sum()
+
+    # # Keep reasonable doses
+    # dat = dat[dat.reasonable_dose==True].reset_index(drop=True)
+
+    ## Change pred_day to day 
+    dat = dat.rename(columns={'pred_day':'day'})
+
+    # Add original dose column
+    clean_data = pd.read_excel(result_file, sheet_name='clean')
+    combined_data = dat.merge(clean_data[['day', 'patient', 'dose_mg']], how='left', on=['patient', 'day'])
+
+    # Declare lists
+    list_of_patients = []
+    list_of_body_weight = []
+
+    # Create list of patients
+    wb = load_workbook('Retrospective Liver Transplant Data.xlsx', read_only=True)
+    list_of_patients = wb.sheetnames
+    wb.close()
+
+    # Create list of body_weight
+    for i in range(len(list_of_patients)):    
+        data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', list_of_patients[i], index_col=None, usecols = "C", nrows=15)
+        data = data.reset_index(drop=True)
+        list_of_body_weight.append(data['Unnamed: 2'][13])
+
+    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
+
+    # Add body weight column
+    combined_data['body_weight'] = ""
+    for j in range(len(combined_data)):
+        index_patient = list_of_patients.index(str(combined_data.patient[j]))
+        combined_data.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+        
+    combined_data['interpolated_dose_8_mg'] = combined_data['interpolated_dose_8'] * combined_data['body_weight']
+    combined_data['interpolated_dose_9_mg'] = combined_data['interpolated_dose_9'] * combined_data['body_weight']
+    combined_data['interpolated_dose_10_mg'] = combined_data['interpolated_dose_10'] * combined_data['body_weight']
+
+    combined_data[['interpolated_dose_8_mg', 'interpolated_dose_9_mg', 'interpolated_dose_10_mg']]
+
+    # recommended_dose_mg = [2.5, 2.5, 4.5, 5.5, 5, 5, 2, 2.5, 4.5, 4.5, np.nan, np.nan, 0, 6, 1.5, 2, 2.5, 3.5, 3.5, 2, 0,
+    #                     1.5, 1.5, np.nan, np.nan, np.nan, np.nan, 2.5, 2.5, 0, np.nan, 3, np.nan, 0.5, 0, 0, 2.5, 2.5, 3]
+
+    # combined_data['recommended_dose_mg'] = recommended_dose_mg
+
+    # combined_data['diff_dose_mg'] = combined_data['dose_mg'] - combined_data['recommended_dose_mg']
+    # combined_data['abs_diff_dose_mg'] = abs(combined_data['dose_mg'] - combined_data['recommended_dose_mg'])
+    # combined_data['diff_dose_mg_boolean'] = combined_data['abs_diff_dose_mg'] >= 0.5
+    # combined_data['recommended_dose'] = combined_data['recommended_dose_mg'] / combined_data['body_weight']
+
+    # number_of_similar_dose = len(combined_data) - combined_data.diff_dose_mg_boolean.sum()
+
+    # # Keep those with diff dose
+    # combined_data = combined_data[combined_data.diff_dose_mg_boolean==True].reset_index(drop=True)
+
+    # Count number of non-therapeutic range
+    number_of_non_therapeutic_range = len(combined_data) - combined_data.within_range.sum()
+
+    # # Keep non-therapeutic range only
+    # combined_data = combined_data[combined_data.within_range == False].reset_index(drop=True)
+
+    # combined_data['diff_dose'] = combined_data['dose'] - combined_data['recommended_dose']
+    # combined_data['abs_diff_dose'] = abs(combined_data['dose'] - combined_data['recommended_dose'])
+
+    combined_data['CURATE_could_be_useful'] = (combined_data.acceptable_deviation==True) & \
+    (combined_data.wrong_range==False) & \
+        (combined_data.reasonable_dose==True) & \
+            (combined_data.within_range==False)
+
+    return combined_data
+
+def group_comparison(file_string):
+    """ 
+    Use Mann Whitney U test and Spearman's rank correlation coefficient
+    to compare between top 2 RW and PPM methods.
+    
+    Output: printed results of the 2 tests
+    """
+
+    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
+
+    # Add type column
+    dat['type'] = ""
+    for i in range(len(dat)):
+        if 'L_' in dat.method[i]:
+            dat.loc[i, 'type'] = 'linear'
+        else:
+            dat.loc[i, 'type'] = 'quadratic'
+
+    dat['approach'] = ""
+    dat['origin_inclusion'] = ""
+    dat['pop_tau'] = ""
+    for i in range(len(dat)):
+        if 'Cum' in dat.method[i]:
+            dat.loc[i, 'approach']  = 'Cum'
+        elif 'PPM' in dat.method[i]:
+            dat.loc[i, 'approach'] = 'PPM'
+        else: dat.loc[i, 'approach'] = 'RW'
+
+        if 'wo_origin' in dat.method[i]:
+            dat.loc[i, 'origin_inclusion'] = 'wo_origin'
+        elif 'origin_dp' in dat.method[i]:
+            dat.loc[i, 'origin_inclusion'] = 'origin_dp'
+        else: dat.loc[i, 'origin_inclusion'] = 'origin_int'
+
+        if 'pop_tau' in dat.method[i]:
+            dat.loc[i, 'pop_tau'] = True
+        else: dat.loc[i, 'pop_tau'] = False
+
+    PPM_origin_dp = dat[dat.method=='L_PPM_origin_dp']['deviation'].to_numpy()
+    PPM_wo_origin = dat[dat.method=='L_PPM_wo_origin']['deviation'].to_numpy()
+
+    res = mannwhitneyu(PPM_origin_dp, PPM_wo_origin)
+    print(f'PPM spearman | {stats.spearmanr(PPM_origin_dp, PPM_wo_origin)}')
+    print(f'PPM mann-whitney| {mannwhitneyu(PPM_origin_dp, PPM_wo_origin)}')
+
+    RW_origin_int = dat[dat.method=='L_RW_origin_int']['deviation'].to_numpy()
+    RW_wo_origin = dat[dat.method=='L_RW_wo_origin']['deviation'].to_numpy()
+
+    res = mannwhitneyu(RW_origin_int, RW_wo_origin)
+
+    print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
+    print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
+
+    dat = df.copy()
+    PPM_origin_dp = dat[dat.method=='L_PPM_origin_dp']['abs_deviation'].to_numpy()
+    PPM_wo_origin = dat[dat.method=='L_PPM_wo_origin']['abs_deviation'].to_numpy()
+
+    res = mannwhitneyu(PPM_origin_dp, PPM_wo_origin)
+    print(f'PPM spearman | {stats.spearmanr(PPM_origin_dp, PPM_wo_origin)}')
+    print(f'PPM mann-whitney| {mannwhitneyu(PPM_origin_dp, PPM_wo_origin)}')
+
+    RW_origin_int = dat[dat.method=='L_RW_origin_int']['abs_deviation'].to_numpy()
+    RW_wo_origin = dat[dat.method=='L_RW_wo_origin']['abs_deviation'].to_numpy()
+
+    res = mannwhitneyu(RW_origin_int, RW_wo_origin)
+
+    print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
+    print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
+
+def perc_days_within_target_tac(result_df):
+    """
+    Barplot of percentage of days within target tac range against each patient.
+    
+    Input: cal_pred - calibration and efficacy-driven dosing data for each prediction day
+    
+    Output: dat - dataframe for plotting
+    """
+    # Plot percentage of days within target tac range
+    sns.set(font_scale=2, rc={'figure.figsize':(10,10)})
+    sns.set_style('whitegrid')
+
+    dat = result_df.copy()
+
+    for i in range(len(dat)):
+        if 'L' in dat.loc[i, 'method']:
+            dat.loc[i, 'type'] = 'linear'
+        else: 
+            dat.loc[i, 'type'] = 'quadratic'
+    dat = dat[['pred_day', 'patient', 'method', 'type', 'response']]
+    dat = dat.reset_index(drop=True)
+
+    dat['within_tac_range'] = (dat['response'] >= 8) & (dat['response'] <= 10)
+    dat = (dat.groupby('patient')['within_tac_range'].sum())/ (dat.groupby('patient')['pred_day'].count()) * 100
+    dat = dat.to_frame()
+    dat.columns = ['perc']
+    dat.reset_index(inplace=True)
+
+    p = sns.barplot(data=dat, x='patient', y='perc', palette='Paired')
+    p.set_xlabel('Patient')
+    p.set_ylabel('Days (%)')
+    p.set_title('Days outside target tacrolimus range (%)')
+    p.set_ylim([0,100])
+
+    # Shapiro test for percentages
+    shapiro_test = stats.shapiro(dat.perc)
+    if shapiro_test.pvalue < 0.05:
+        print('reject null hypothesis, assume not normal')
+    else:
+        print('fail to reject null hypothesis, assume normal')
+
+    # Descriptive stats
+    print(dat.perc.describe())
+
+def perc_days_outside_target_tac(result_df):
+    """
+    Barplot of percentage of days outside target tac range against each patient.
+    
+    Input: cal_pred - calibration and efficacy-driven dosing data for each prediction day
+    
+    Output: dat - dataframe for plotting
+    """
+    # Plot percentage of days within target tac range
+    sns.set(font_scale=2, rc={'figure.figsize':(10,10)})
+    sns.set_style('whitegrid')
+
+    dat = result_df.copy()
+
+    for i in range(len(dat)):
+        if 'L' in dat.loc[i, 'method']:
+            dat.loc[i, 'type'] = 'linear'
+        else: 
+            dat.loc[i, 'type'] = 'quadratic'
+    dat = dat[['pred_day', 'patient', 'method', 'type', 'response']]
+    dat = dat.reset_index(drop=True)
+
+    dat['outside_tac_range'] = (dat['response'] < 8) | (dat['response'] > 10)
+    dat = (dat.groupby('patient')['outside_tac_range'].sum())/ (dat.groupby('patient')['pred_day'].count()) * 100
+    dat = dat.to_frame()
+    dat.columns = ['perc']
+    dat.reset_index(inplace=True)
+
+    p = sns.barplot(data=dat, x='patient', y='perc', palette='Paired')
+    p.set_xlabel('Patient')
+    p.set_ylabel('Days (%)')
+    p.set_title('Days outside target tacrolimus range (%)')
+    p.set_ylim([0,100])
+
+    # Shapiro test for percentages
+    shapiro_test = stats.shapiro(dat.perc)
+    if shapiro_test.pvalue < 0.05:
+        print('reject null hypothesis, assume not normal')
+    else:
+        print('fail to reject null hypothesis, assume normal')
+
+    # Descriptive stats
+    print(dat.perc.describe())
+    
+def median_perc_within_acc_dev(result_df):
+    """
+    Boxplot of median percentage of predictions within acceptable deviation. Conduct Kruskal Wallis and Levene's test.
+    
+    Input: result_df - results after all methods are applied
+    Output: boxplot
+    """
+
+    # Find percentage of predictions within acceptable deviation
+    dat = result_df[['patient', 'method', 'deviation']]
+    dat['acceptable'] = (dat['deviation'] > -3) & (dat['deviation'] < 1)
+    dat = (dat.groupby(['method','patient'])['acceptable'].sum())/(dat.groupby(['method','patient'])['acceptable'].count()) * 100
+    dat = dat.to_frame()
+    dat = dat.reset_index()
+
+    # Run normality test on each method
+    method_arr = dat.method.unique()
+    for i in method_arr:
+        method_dat = dat[dat['method']==i].acceptable
+
+        # Shapiro test
+        shapiro_test = stats.shapiro(method_dat)
+        # if shapiro_test.pvalue < 0.05:
+        #     print('reject null hypothesis, assume not normal')
+        # else:
+        #     print('fail to reject null hypothesis, assume normal')
+
+    # Add 'approach' column
+    for i in range(len(dat)):
+        if 'Cum' in dat.loc[i, 'method']:
+            dat.loc[i, 'approach'] = 'Cumulative'
+        elif 'PPM' in dat.loc[i, 'method']:
+            dat.loc[i, 'approach'] = 'PPM'
+        else:
+            dat.loc[i, 'approach'] = 'RW'
+
+    # Add 'type' column
+    for i in range(len(dat)):
+        if 'L' in dat.loc[i, 'method']:
+            dat.loc[i, 'type'] = 'linear'
+        else:
+            dat.loc[i, 'type'] = 'quadratic'
+
+    # Add 'origin_inclusion' column
+    for i in range(len(dat)):
+        if 'wo_origin' in dat.loc[i, 'method']:
+            dat.loc[i, 'origin_inclusion'] = 'wo_origin'
+        elif 'origin_dp' in dat.loc[i, 'method']:
+            dat.loc[i, 'origin_inclusion'] = 'origin_dp'
+        else:
+            dat.loc[i, 'origin_inclusion'] = 'origin_int'
+
+    fig, ax = plt.subplots(nrows=1, ncols=3)
+
+    # Boxplot by approach
+    sns.set_theme(style="whitegrid",font_scale=1.2)
+    ax = sns.catplot(data=dat, x='origin_inclusion', y='acceptable', col='approach', hue='type', kind='box')
+    ax.set_xlabels('Approach')
+    ax.set_ylabels('Within acceptable deviation range (%)')
+    ax.fig.subplots_adjust(top=0.8)
+    ax.fig.suptitle('Percentage of predictions where deviation is within acceptable range (%)')
+    
+    print(dat.groupby(['type','approach','origin_inclusion'])['patient'].count())
+    
+
+    # # Boxplot by type
+    # sns.set_theme(style="whitegrid",font_scale=1.2)
+    # ax = sns.catplot(data=dat, x='approach', y='acceptable', col='type', hue='origin_inclusion', kind='box')
+    # ax.set_xlabels('Approach')
+    # ax.set_ylabels('Within acceptable deviation range (%)')
+    # ax.fig.subplots_adjust(top=0.8)
+    # ax.fig.suptitle('Percentage of predictions where deviation is within acceptable range (%)')
+    
+    # # Boxplot for Top 3 highest medians
+    # top_3 = dat.groupby('method')['acceptable'].median().sort_values(ascending=False).iloc[0:6].to_frame()
+    # top_3 = top_3.reset_index().method.unique()
+    # list_of_top_3 = top_3.tolist()
+    # top_3 = dat[dat['method'].isin(list_of_top_3)]
+    # top_3.method = top_3.method.astype("category")
+    # top_3.method.cat.set_categories(list_of_top_3, inplace=True)
+    # top_3 = top_3.sort_values(['method'])
+
+    # sns.set_theme(font_scale=2)
+    # sns.set_style('whitegrid')
+    # ax = sns.boxplot(x='method', y='acceptable', data=top_3)
+    # ax.set_xticklabels(ax.get_xticklabels(),rotation = 30)
+    # ax.set_xlabel('Method')
+    # ax.set_ylabel('Within acceptable deviation range (%)')
+    # ax.set_title('Top 3 Medians of Percentage of Predictions within Acceptable Deviation Range')
+    
+    # Run kruskal wallis test on each method
+    method_arr = dat.method.unique()
+    j = 0
+    for i in method_arr:
+        method_dat[j] = dat[dat['method']==i].acceptable
+        j = j + 1
+
+    # Kruskal wallis test for equal medians
+    stats.kruskal(method_dat[0], method_dat[1], method_dat[2], method_dat[3], method_dat[4], method_dat[5],
+                  method_dat[6], method_dat[7], method_dat[8], method_dat[9], method_dat[10], method_dat[11],
+                  method_dat[12], method_dat[13], method_dat[14], method_dat[15], method_dat[16], method_dat[17])
+
+    # Levene test for equal variances
+    from scipy.stats import levene
+    stat, p = levene(method_dat[0], method_dat[1], method_dat[2], method_dat[3], method_dat[4], method_dat[5],
+                  method_dat[6], method_dat[7], method_dat[8], method_dat[9], method_dat[10], method_dat[11],
+                  method_dat[12], method_dat[13], method_dat[14], method_dat[15], method_dat[16], method_dat[17])
+
+def can_benefit(result_df):
+    """
+    Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range.
+    Find percentage of dosing events that our model can potentially outperform SOC (when both observed and predicted values are outside range, with
+    prediction within acceptable deviation). 
+    Create boxplot of dosing events (%) against method.
+    
+    Input:
+    result_df
+    """
+    # Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
+    dat = result_df[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
+
+    # for i in range(len(dat)):
+    #     # Create function
+    #     coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+    #     coeff = coeff[~np.isnan(coeff)]
+    #     p = np.poly1d(coeff)
+    #     x = np.linspace(0, max(dat.dose)+ 2)
+    #     y = p(x)
+    #     order = y.argsort()
+    #     y = y[order]
+    #     x = x[order]
+
+    #     dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+    #     dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+    #     dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    # dat[['interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe() # Minimum 0mg, all are possible dosing events
+
+    # Find percentage of predictions where both observed and prediction response are outside range
+    for i in range(len(dat)):
+        dat.loc[i, 'both_outside'] = False
+        if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+                dat.loc[i, 'both_outside'] = True
+
+    dat['acceptable_deviation'] = (dat['deviation'] > -3) & (dat['deviation'] < 1)
+
+    dat['can_benefit'] = dat['acceptable_deviation'] & dat['both_outside']
+
+    # If can correctly identify out of range, with acceptable deviation, can benefit
+    dat = (dat.groupby(['method', 'patient'])['can_benefit'].sum()) / (dat.groupby(['method', 'patient'])['can_benefit'].count()) * 100
+    dat = dat.to_frame().reset_index()
+
+    # Shapiro test
+    # Normality test (result: assume non-normal)
+    method_arr = dat.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr: 
+        method_dat[j] = dat[dat['method']==i].can_benefit
+        shapiro_test = stats.shapiro(method_dat[j])
+        print(shapiro_test.pvalue < 0.05)
+        j = j + 1
+
+    ax = sns.boxplot(data=dat, x='method', y='can_benefit', dodge=False)
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
+    ax.set_xlabel(None)
+    ax.set_ylabel('Dosing events (%)')
+    ax.set_title('Dosing events that can potentially outperform SOC with CURATE (%)')
+    plt.legend(loc='upper right', bbox_to_anchor=(1,1))
+
+    dat.can_benefit.describe() # Shapiro test reject null hypo, assume non-normal
+
+def modified_TTR(result_df):
+    """
+    Calculate CURATE modified TTR and physician modified TTR.
+    Create barplot of modified TTR vs method grouped under 'physician' and 'CURATE'
+    
+    Input: 
+    result_df - dataframe of results of applied methods.
+    """
+    sns.set(font_scale=2, rc={'figure.figsize':(15,10)})
+    sns.set_style('whitegrid')
+
+    # Find percentage of success instances
+    dat = result_df[['patient', 'method', 'response', 'prediction']]
+
+    # CURATE success
+    for i in range(len(dat)):
+        dat.loc[i, 'success'] = False
+        if (dat.loc[i, 'response'] < 10) and (dat.loc[i, 'response'] > 8): # if both within range
+            if (dat.loc[i, 'prediction'] < 10) and (dat.loc[i, 'prediction'] > 8):
+                dat.loc[i, 'success'] = True
+        elif (dat.loc[i, 'response'] >= 10) or (dat.loc[i, 'response'] <= 8): # if both outside range
+            if (dat.loc[i, 'prediction'] >= 10) or (dat.loc[i, 'prediction'] <= 8):
+                dat.loc[i, 'success'] = True
+
+    CURATE_TTR = (dat.groupby(['method','patient'])['success'].sum())/(dat.groupby(['method','patient'])['success'].count()) * 100
+
+    # Normality test (result: assume normal)
+    CURATE_TTR = CURATE_TTR.to_frame().reset_index()
+    method_arr = CURATE_TTR.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr:
+        method_dat[j] = CURATE_TTR[CURATE_TTR['method']==i].success
+        shapiro_test = stats.shapiro(method_dat[j])
+        # print(shapiro_test.pvalue)
+        j = j + 1
+    CURATE_TTR['source'] = 'CURATE'
+
+    # Physician success
+    phys_TTR = dat[(dat['method']=='L_Cum_wo_origin') | (dat['method']=='Q_Cum_wo_origin')]
+    phys_TTR['success'] = (phys_TTR['response'] < 10) & (phys_TTR['response'] > 8)
+    phys_TTR = (phys_TTR.groupby(['method', 'patient'])['success'].sum())/(phys_TTR.groupby(['method', 'patient'])['success'].count()) * 100
+    phys_TTR = phys_TTR.to_frame().reset_index()
+    for i in range(len(phys_TTR)):
+        if 'L' in phys_TTR.loc[i, 'method']:
+            phys_TTR.loc[i, 'method'] = 'linear'
+        else:
+            phys_TTR.loc[i, 'method'] = 'quadratic'
+    phys_TTR['source'] = 'Physician'
+
+    # Normality test (result: assume normal)
+    method_arr = phys_TTR.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr: 
+        method_dat[j] = phys_TTR[phys_TTR['method']==i].success
+        # shapiro_test = stats.shapiro(method_dat[j])
+        print(shapiro_test.pvalue < 0.05)
+        j = j + 1
+
+    dat = pd.concat([CURATE_TTR, phys_TTR])
+
+    ax = sns.barplot(data=dat, x='method', y='success', hue='source', ci='sd', capsize=.2, dodge=False)
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
+    ax.set_xlabel(None)
+    ax.set_ylabel('Modified TTR (%)')
+    ax.set_title('Modified TTR for Physician vs CURATE (%)')
+    plt.legend(loc='upper right', bbox_to_anchor=(1,1))
+
+    return dat
+
+def wrong_range(result_df):
+    """
+    Find percentage of dosing events when model predicted wrong range. 
+    Find percentage of dosing events when SOC is outside target range.
+    Conduct Shapiro test.
+    Boxplot of percentage of wrong range against each method. 
+    
+    Input: result_df - results after all methods are applied
+    Output: boxplot
+    """
+    
+    # Find dosing events when model predicted the wrong range
+    dat = result_df[['patient', 'method', 'prediction', 'response']]
+
+    # Create boolean, true when model predict wrong range
+    for i in range(len(dat)):
+        # All False
+        dat.loc[i, 'wrong_range'] = False
+        # Unless condition 1: prediction within range, response outside range
+        if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
+            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
+                dat.loc[i, 'wrong_range'] = True
+        # Unless condition 2: prediction outside range, response within range
+        elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
+            if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
+                dat.loc[i, 'wrong_range'] = True
+
+    dat = (dat.groupby(['method', 'patient'])['wrong_range'].sum()) / (dat.groupby(['method', 'patient'])['wrong_range'].count()) * 100
+    dat = dat.to_frame().reset_index()
+    dat['source'] = 'CURATE'
+
+    # Create another dataframe
+    dat_physician = result_df[['patient', 'method', 'prediction', 'response']]
+    dat_physician = dat_physician[(dat_physician['method']=='L_Cum_wo_origin') | (dat_physician['method']=='Q_Cum_wo_origin')]
+    dat_physician = dat_physician.reset_index(drop=True)
+
+    # Create boolean, true if response is outside range
+    for i in range(len(dat_physician)):
+        # Set boolean default as false
+        dat_physician.loc[i, 'wrong_range'] = False
+        # Create boolean as True if outside range
+        if (dat_physician.loc[i, 'response'] > 10) or (dat_physician.loc[i, 'response'] < 8):
+            dat_physician.loc[i, 'wrong_range'] = True
+
+    dat_physician.groupby(['method', 'patient'])['wrong_range'].count()
+    dat_physician = (dat_physician.groupby(['method', 'patient'])['wrong_range'].sum()) / (dat_physician.groupby(['method', 'patient'])['wrong_range'].count()) * 100
+    dat_physician = dat_physician.to_frame().reset_index()
+    dat_physician['source'] = 'Physician'
+
+    # Rename methods to linear and quadratic only
+    for i in range(len(dat_physician)):
+        if 'L' in dat_physician.loc[i, 'method']:
+            dat_physician.loc[i, 'method'] = 'linear'
+        else:
+            dat_physician.loc[i, 'method'] = 'quadratic'
+
+    dat = pd.concat([dat, dat_physician])
+
+    # Shapiro test
+    # Normality test (result: reject, assume non-normal)
+    method_arr = dat.method.unique()
+    method_dat = {}
+    j = 0
+    for i in method_arr: 
+        method_dat[j] = dat[dat['method']==i].wrong_range
+        shapiro_test = stats.shapiro(method_dat[j])
+        # print(shapiro_test.pvalue < 0.05)
+        j = j + 1
+
+    # Boxplot
+    # sns.set(font_scale=2, rc={'figure.figsize':(15,10)})
+    sns.set_theme(font_scale=2)
+    sns.set_style('whitegrid')
+    ax = sns.boxplot(data=dat, x='method', y='wrong_range', hue='source', dodge=False)
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
+    ax.set_xlabel(None)
+    ax.set_ylabel('Wrong Range Predicted (%)')
+    ax.set_title('Wrong Range Predicted  (%)')
+    plt.legend(loc='upper right', bbox_to_anchor=(1.25,1))
+
+    return dat
+
 def cross_val():
     """ Line plot of train and test results of both K-Fold and Leave-One-Out Cross Validation for Pop Tau """
     CV_dat = pd.read_excel('GOOD OUTPUT DATA\pop_tau (by CV).xlsx', sheet_name='Overall')
@@ -3146,772 +3917,3 @@ def barplot_percentage_days_therapeutic_range_per_patient():
     plt.savefig('effect_of_CURATE_per_patient.png', dpi=500, facecolor='w', bbox_inches='tight')
     
     return new_dat
-
-# LOOCV for all methods
-
-def LOOCV_all_methods(file_string=result_file_total):
-    """
-    Perform LOOCV for all methods
-    
-    Output: Excel sheet 'all_methods_LOOCV.xlsx' with results of LOOCV for all methods
-    """
-    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
-
-    # Define lists
-    linear_patient_list = dat[dat.method.str.contains('L_')].patient.unique().tolist()
-    quad_patient_list = dat[dat.method.str.contains('Q_')].patient.unique().tolist()
-    method_list = dat.method.unique().tolist()
-
-    # Keep only useful columns in dataframe
-    dat = dat[['method', 'patient', 'abs_deviation']]
-
-    # Create output dataframes
-    experiment_results_df = pd.DataFrame(columns=['method', 'experiment', 'train_median', 'test_median'])
-    overall_results_df = pd.DataFrame(columns=['method', 'train (median)', 'test (median)'])
-
-    exp_res_counter = 0
-    overall_res_counter = 0
-
-    for method in method_list:
-
-        #  Define num of patients according to whether method is linear or quadratic
-        num_of_patients, patient_list = num_patients_and_list(method, linear_patient_list, quad_patient_list)
-
-        for i in range(num_of_patients):
-
-            train_median = find_train_median_LOOCV(dat, method, patient_list, i)
-            test_median = find_test_median_LOOCV(dat, method, patient_list, i)
-
-            # Update experiment results dataframe
-            experiment_results_df.loc[exp_res_counter, 'experiment'] = i + 1
-            experiment_results_df.loc[exp_res_counter, 'method'] = method
-            experiment_results_df.loc[exp_res_counter, 'train_median'] = train_median
-            experiment_results_df.loc[exp_res_counter, 'test_median'] = test_median
-
-            exp_res_counter = exp_res_counter + 1
-
-    # Find median of the train_median and test_median of each method
-    train_median_df = experiment_results_df.groupby('method')['train_median'].median().reset_index()
-    test_median_df = experiment_results_df.groupby('method')['test_median'].median().reset_index()
-
-    # Create dataframe for overall results by method
-    overall_results_df = train_median_df.merge(test_median_df, how='inner', on='method')
-
-    # # Shapiro test by method, on train_median and test_median (result: some normal)
-    # train_median_shapiro = experiment_results_df.groupby('method')['train_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
-    # test_median_shapiro = experiment_results_df.groupby('method')['test_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
-
-    # Output dataframes to excel as individual sheets
-    with pd.ExcelWriter('LOOCV_results.xlsx') as writer:
-        experiment_results_df.to_excel(writer, sheet_name='Experiments', index=False)
-        overall_results_df.to_excel(writer, sheet_name='Overall', index=False)
-
-def find_test_median_LOOCV(dat, method, patient_list, i):
-    """Find median of test set"""
-    
-    # Define test df
-    test_df = dat[(dat.method == method) & (dat.patient == patient_list[i])]
-    
-    # Find test_median
-    test_median = test_df.abs_deviation.median()
-    
-    return test_median
-
-def find_train_median_LOOCV(dat, method, patient_list, i):
-    """Find median of training set"""
-        
-    # Define train df
-    train_patient_list = patient_list.copy()
-    train_patient_list.pop(i)
-    train_df = dat[(dat.method == method) & (dat.patient.isin(train_patient_list))]
-
-    # Find train_median
-    train_median = train_df.abs_deviation.median()
-    
-    return train_median
-
-def num_patients_and_list(method, linear_patient_list, quad_patient_list):
-    """Define num of patients according to whether method is linear or quadratic"""
-    
-    if 'L_' in method:
-        num_of_patients = len(linear_patient_list)
-        patient_list = linear_patient_list
-    else:
-        num_of_patients = len(quad_patient_list)
-        patient_list = quad_patient_list
-        
-    return num_of_patients, patient_list
-
-##### ANALYSIS
-
-def CURATE_could_be_useful(file_string=result_file_total):
-    """
-    Exclude cases where CURATE cannot be u  seful for top 2 methods (PPM and RW), and
-    keep those that are useful.
-    
-    Output: Dataframe describing results
-    """
-    dat = read_file_and_remove_unprocessed_pop_tau()
-    dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
-
-    # Subset CURATE models
-    dat = dat[(dat.method=='L_PPM_wo_origin') | (dat.method=='L_RW_wo_origin')]
-
-    dat = dat.reset_index(drop=True)
-
-    # Interpolate
-    for i in range(len(dat)):
-        # Create function
-        coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
-        coeff = coeff[~np.isnan(coeff)]
-        p = np.poly1d(coeff)
-        x = np.linspace(0, max(dat.dose)+ 2)
-        y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
-
-        dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
-        dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
-        dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
-
-    interpolation = dat[['interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe() # Minimum 0mg, all are possible dosing events
-
-    # Create boolean, true when model predict wrong range
-    for i in range(len(dat)):
-        # All False
-        dat.loc[i, 'wrong_range'] = False
-        # Unless condition 1: prediction within range, response outside range
-        if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
-            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
-                dat.loc[i, 'wrong_range'] = True
-        # Unless condition 2: prediction outside range, response within range
-        elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
-            if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
-                dat.loc[i, 'wrong_range'] = True
-
-    dat['acceptable_deviation'] = (round(dat['deviation'],2) >= -1.5) & (round(dat['deviation'],2) <= 2)
-
-    # dat = dat.reset_index(drop=True)
-
-    # Find number of predictions in wrong range by group
-    wrong_range = dat.groupby('method')['wrong_range'].sum()
-
-    # Find number of predictions with unacceptable deviations by group
-    unacceptable_dev = dat.groupby('method')['acceptable_deviation'].apply(lambda x: x.count()-x.sum())
-
-    # Find difference between interpolated dose for 9ng/ml and dose prescribed
-    dat['diff_dose'] = dat['interpolated_dose_9'] - dat['dose']
-    dat['abs_diff_dose'] = abs(dat['diff_dose'])
-
-    # Create reasonable dose column
-    dat['reasonable_dose'] = dat['abs_diff_dose'] >= 0.5
-
-    unreasonable_dose = dat.groupby('method')['reasonable_dose'].apply(lambda x: x.count()-x.sum())
-
-    # Create column for within range
-    dat['within_range'] = (dat['response'] <= 10) & (dat['response'] >= 8)
-
-    within_range = dat.groupby('method')['within_range'].sum()
-
-    dat['CURATE_could_be_useful'] = (dat.acceptable_deviation==True) & \
-        (dat.wrong_range==False) & \
-            (dat.reasonable_dose==True) & \
-                (dat.within_range==False)
-
-    # # Keep only predictions with acceptable deviations
-    # dat = dat[dat.acceptable_deviation==True]
-
-    # # Keep only predictions with right range
-    # dat = dat[dat.wrong_range==False]
-
-    # # Keep reasonable doses only
-    # dat = dat[dat.reasonable_dose==True]
-
-    # # Keep those outside range
-    # dat = dat[dat.within_range==False]
-
-    # dat.groupby('method')['diff_dose'].describe().T.applymap('{:,.2f}'.format)
-
-    return dat
-
-def clinically_relevant_flow_chart_old(result_file=result_file_total):
-
-    dat = CURATE_could_be_useful()
-
-    # Subset RW
-    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
-
-    # Find number of wrong range predictions
-    number_of_unreliable_predictions = dat['wrong_range'].sum()
-
-    # # Keep reliable predictions
-    # dat = dat[dat.wrong_range==False].reset_index(drop=True)
-
-    # Find number of inaccurate predictions with clinically acceptable prediction error
-    number_of_inaccurate_predictions = len(dat) - dat.acceptable_deviation.sum()
-
-    # # Keep accurate predictions
-    # dat = dat[dat.acceptable_deviation==True].reset_index(drop=True)
-
-    # Check if recommended doses are less than 0.55mg/kg/day
-    dat['reasonable_dose'] = True
-    for i in range(len(dat)):
-        dat.loc[i, 'reasonable_dose'] = min(dat.interpolated_dose_8[i], dat.interpolated_dose_9[i], dat.interpolated_dose_10[i]) < 0.55
-
-    number_of_unreasonable_doses = len(dat) - dat.reasonable_dose.sum()
-
-    # # Keep reasonable doses
-    # dat = dat[dat.reasonable_dose==True].reset_index(drop=True)
-
-    ## Change pred_day to day 
-    dat = dat.rename(columns={'pred_day':'day'})
-
-    # Add original dose column
-    clean_data = pd.read_excel(result_file, sheet_name='clean')
-    combined_data = dat.merge(clean_data[['day', 'patient', 'dose_mg']], how='left', on=['patient', 'day'])
-
-    # Declare lists
-    list_of_patients = []
-    list_of_body_weight = []
-
-    # Create list of patients
-    wb = load_workbook('Retrospective Liver Transplant Data.xlsx', read_only=True)
-    list_of_patients = wb.sheetnames
-    wb.close()
-
-    # Create list of body_weight
-    for i in range(len(list_of_patients)):    
-        data = pd.read_excel('Retrospective Liver Transplant Data.xlsx', list_of_patients[i], index_col=None, usecols = "C", nrows=15)
-        data = data.reset_index(drop=True)
-        list_of_body_weight.append(data['Unnamed: 2'][13])
-
-    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
-
-    # Add body weight column
-    combined_data['body_weight'] = ""
-    for j in range(len(combined_data)):
-        index_patient = list_of_patients.index(str(combined_data.patient[j]))
-        combined_data.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
-        
-    combined_data['interpolated_dose_8_mg'] = combined_data['interpolated_dose_8'] * combined_data['body_weight']
-    combined_data['interpolated_dose_9_mg'] = combined_data['interpolated_dose_9'] * combined_data['body_weight']
-    combined_data['interpolated_dose_10_mg'] = combined_data['interpolated_dose_10'] * combined_data['body_weight']
-
-    combined_data[['interpolated_dose_8_mg', 'interpolated_dose_9_mg', 'interpolated_dose_10_mg']]
-
-    # recommended_dose_mg = [2.5, 2.5, 4.5, 5.5, 5, 5, 2, 2.5, 4.5, 4.5, np.nan, np.nan, 0, 6, 1.5, 2, 2.5, 3.5, 3.5, 2, 0,
-    #                     1.5, 1.5, np.nan, np.nan, np.nan, np.nan, 2.5, 2.5, 0, np.nan, 3, np.nan, 0.5, 0, 0, 2.5, 2.5, 3]
-
-    # combined_data['recommended_dose_mg'] = recommended_dose_mg
-
-    # combined_data['diff_dose_mg'] = combined_data['dose_mg'] - combined_data['recommended_dose_mg']
-    # combined_data['abs_diff_dose_mg'] = abs(combined_data['dose_mg'] - combined_data['recommended_dose_mg'])
-    # combined_data['diff_dose_mg_boolean'] = combined_data['abs_diff_dose_mg'] >= 0.5
-    # combined_data['recommended_dose'] = combined_data['recommended_dose_mg'] / combined_data['body_weight']
-
-    # number_of_similar_dose = len(combined_data) - combined_data.diff_dose_mg_boolean.sum()
-
-    # # Keep those with diff dose
-    # combined_data = combined_data[combined_data.diff_dose_mg_boolean==True].reset_index(drop=True)
-
-    # Count number of non-therapeutic range
-    number_of_non_therapeutic_range = len(combined_data) - combined_data.within_range.sum()
-
-    # # Keep non-therapeutic range only
-    # combined_data = combined_data[combined_data.within_range == False].reset_index(drop=True)
-
-    # combined_data['diff_dose'] = combined_data['dose'] - combined_data['recommended_dose']
-    # combined_data['abs_diff_dose'] = abs(combined_data['dose'] - combined_data['recommended_dose'])
-
-    combined_data['CURATE_could_be_useful'] = (combined_data.acceptable_deviation==True) & \
-    (combined_data.wrong_range==False) & \
-        (combined_data.reasonable_dose==True) & \
-            (combined_data.within_range==False)
-
-    return combined_data
-
-def group_comparison(file_string):
-    """ 
-    Use Mann Whitney U test and Spearman's rank correlation coefficient
-    to compare between top 2 RW and PPM methods.
-    
-    Output: printed results of the 2 tests
-    """
-
-    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
-
-    # Add type column
-    dat['type'] = ""
-    for i in range(len(dat)):
-        if 'L_' in dat.method[i]:
-            dat.loc[i, 'type'] = 'linear'
-        else:
-            dat.loc[i, 'type'] = 'quadratic'
-
-    dat['approach'] = ""
-    dat['origin_inclusion'] = ""
-    dat['pop_tau'] = ""
-    for i in range(len(dat)):
-        if 'Cum' in dat.method[i]:
-            dat.loc[i, 'approach']  = 'Cum'
-        elif 'PPM' in dat.method[i]:
-            dat.loc[i, 'approach'] = 'PPM'
-        else: dat.loc[i, 'approach'] = 'RW'
-
-        if 'wo_origin' in dat.method[i]:
-            dat.loc[i, 'origin_inclusion'] = 'wo_origin'
-        elif 'origin_dp' in dat.method[i]:
-            dat.loc[i, 'origin_inclusion'] = 'origin_dp'
-        else: dat.loc[i, 'origin_inclusion'] = 'origin_int'
-
-        if 'pop_tau' in dat.method[i]:
-            dat.loc[i, 'pop_tau'] = True
-        else: dat.loc[i, 'pop_tau'] = False
-
-    PPM_origin_dp = dat[dat.method=='L_PPM_origin_dp']['deviation'].to_numpy()
-    PPM_wo_origin = dat[dat.method=='L_PPM_wo_origin']['deviation'].to_numpy()
-
-    res = mannwhitneyu(PPM_origin_dp, PPM_wo_origin)
-    print(f'PPM spearman | {stats.spearmanr(PPM_origin_dp, PPM_wo_origin)}')
-    print(f'PPM mann-whitney| {mannwhitneyu(PPM_origin_dp, PPM_wo_origin)}')
-
-    RW_origin_int = dat[dat.method=='L_RW_origin_int']['deviation'].to_numpy()
-    RW_wo_origin = dat[dat.method=='L_RW_wo_origin']['deviation'].to_numpy()
-
-    res = mannwhitneyu(RW_origin_int, RW_wo_origin)
-
-    print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
-    print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
-
-    dat = df.copy()
-    PPM_origin_dp = dat[dat.method=='L_PPM_origin_dp']['abs_deviation'].to_numpy()
-    PPM_wo_origin = dat[dat.method=='L_PPM_wo_origin']['abs_deviation'].to_numpy()
-
-    res = mannwhitneyu(PPM_origin_dp, PPM_wo_origin)
-    print(f'PPM spearman | {stats.spearmanr(PPM_origin_dp, PPM_wo_origin)}')
-    print(f'PPM mann-whitney| {mannwhitneyu(PPM_origin_dp, PPM_wo_origin)}')
-
-    RW_origin_int = dat[dat.method=='L_RW_origin_int']['abs_deviation'].to_numpy()
-    RW_wo_origin = dat[dat.method=='L_RW_wo_origin']['abs_deviation'].to_numpy()
-
-    res = mannwhitneyu(RW_origin_int, RW_wo_origin)
-
-    print(f'RW spearman | {stats.spearmanr(RW_origin_int, RW_wo_origin)}')
-    print(f'RW mann-whitney| {mannwhitneyu(RW_origin_int, RW_wo_origin)}')
-
-##### Meeting with NUH ######
-
-def perc_days_within_target_tac(result_df):
-    """
-    Barplot of percentage of days within target tac range against each patient.
-    
-    Input: cal_pred - calibration and efficacy-driven dosing data for each prediction day
-    
-    Output: dat - dataframe for plotting
-    """
-    # Plot percentage of days within target tac range
-    sns.set(font_scale=2, rc={'figure.figsize':(10,10)})
-    sns.set_style('whitegrid')
-
-    dat = result_df.copy()
-
-    for i in range(len(dat)):
-        if 'L' in dat.loc[i, 'method']:
-            dat.loc[i, 'type'] = 'linear'
-        else: 
-            dat.loc[i, 'type'] = 'quadratic'
-    dat = dat[['pred_day', 'patient', 'method', 'type', 'response']]
-    dat = dat.reset_index(drop=True)
-
-    dat['within_tac_range'] = (dat['response'] >= 8) & (dat['response'] <= 10)
-    dat = (dat.groupby('patient')['within_tac_range'].sum())/ (dat.groupby('patient')['pred_day'].count()) * 100
-    dat = dat.to_frame()
-    dat.columns = ['perc']
-    dat.reset_index(inplace=True)
-
-    p = sns.barplot(data=dat, x='patient', y='perc', palette='Paired')
-    p.set_xlabel('Patient')
-    p.set_ylabel('Days (%)')
-    p.set_title('Days outside target tacrolimus range (%)')
-    p.set_ylim([0,100])
-
-    # Shapiro test for percentages
-    shapiro_test = stats.shapiro(dat.perc)
-    if shapiro_test.pvalue < 0.05:
-        print('reject null hypothesis, assume not normal')
-    else:
-        print('fail to reject null hypothesis, assume normal')
-
-    # Descriptive stats
-    print(dat.perc.describe())
-
-def perc_days_outside_target_tac(result_df):
-    """
-    Barplot of percentage of days outside target tac range against each patient.
-    
-    Input: cal_pred - calibration and efficacy-driven dosing data for each prediction day
-    
-    Output: dat - dataframe for plotting
-    """
-    # Plot percentage of days within target tac range
-    sns.set(font_scale=2, rc={'figure.figsize':(10,10)})
-    sns.set_style('whitegrid')
-
-    dat = result_df.copy()
-
-    for i in range(len(dat)):
-        if 'L' in dat.loc[i, 'method']:
-            dat.loc[i, 'type'] = 'linear'
-        else: 
-            dat.loc[i, 'type'] = 'quadratic'
-    dat = dat[['pred_day', 'patient', 'method', 'type', 'response']]
-    dat = dat.reset_index(drop=True)
-
-    dat['outside_tac_range'] = (dat['response'] < 8) | (dat['response'] > 10)
-    dat = (dat.groupby('patient')['outside_tac_range'].sum())/ (dat.groupby('patient')['pred_day'].count()) * 100
-    dat = dat.to_frame()
-    dat.columns = ['perc']
-    dat.reset_index(inplace=True)
-
-    p = sns.barplot(data=dat, x='patient', y='perc', palette='Paired')
-    p.set_xlabel('Patient')
-    p.set_ylabel('Days (%)')
-    p.set_title('Days outside target tacrolimus range (%)')
-    p.set_ylim([0,100])
-
-    # Shapiro test for percentages
-    shapiro_test = stats.shapiro(dat.perc)
-    if shapiro_test.pvalue < 0.05:
-        print('reject null hypothesis, assume not normal')
-    else:
-        print('fail to reject null hypothesis, assume normal')
-
-    # Descriptive stats
-    print(dat.perc.describe())
-    
-def median_perc_within_acc_dev(result_df):
-    """
-    Boxplot of median percentage of predictions within acceptable deviation. Conduct Kruskal Wallis and Levene's test.
-    
-    Input: result_df - results after all methods are applied
-    Output: boxplot
-    """
-
-    # Find percentage of predictions within acceptable deviation
-    dat = result_df[['patient', 'method', 'deviation']]
-    dat['acceptable'] = (dat['deviation'] > -3) & (dat['deviation'] < 1)
-    dat = (dat.groupby(['method','patient'])['acceptable'].sum())/(dat.groupby(['method','patient'])['acceptable'].count()) * 100
-    dat = dat.to_frame()
-    dat = dat.reset_index()
-
-    # Run normality test on each method
-    method_arr = dat.method.unique()
-    for i in method_arr:
-        method_dat = dat[dat['method']==i].acceptable
-
-        # Shapiro test
-        shapiro_test = stats.shapiro(method_dat)
-        # if shapiro_test.pvalue < 0.05:
-        #     print('reject null hypothesis, assume not normal')
-        # else:
-        #     print('fail to reject null hypothesis, assume normal')
-
-    # Add 'approach' column
-    for i in range(len(dat)):
-        if 'Cum' in dat.loc[i, 'method']:
-            dat.loc[i, 'approach'] = 'Cumulative'
-        elif 'PPM' in dat.loc[i, 'method']:
-            dat.loc[i, 'approach'] = 'PPM'
-        else:
-            dat.loc[i, 'approach'] = 'RW'
-
-    # Add 'type' column
-    for i in range(len(dat)):
-        if 'L' in dat.loc[i, 'method']:
-            dat.loc[i, 'type'] = 'linear'
-        else:
-            dat.loc[i, 'type'] = 'quadratic'
-
-    # Add 'origin_inclusion' column
-    for i in range(len(dat)):
-        if 'wo_origin' in dat.loc[i, 'method']:
-            dat.loc[i, 'origin_inclusion'] = 'wo_origin'
-        elif 'origin_dp' in dat.loc[i, 'method']:
-            dat.loc[i, 'origin_inclusion'] = 'origin_dp'
-        else:
-            dat.loc[i, 'origin_inclusion'] = 'origin_int'
-
-    fig, ax = plt.subplots(nrows=1, ncols=3)
-
-    # Boxplot by approach
-    sns.set_theme(style="whitegrid",font_scale=1.2)
-    ax = sns.catplot(data=dat, x='origin_inclusion', y='acceptable', col='approach', hue='type', kind='box')
-    ax.set_xlabels('Approach')
-    ax.set_ylabels('Within acceptable deviation range (%)')
-    ax.fig.subplots_adjust(top=0.8)
-    ax.fig.suptitle('Percentage of predictions where deviation is within acceptable range (%)')
-    
-    print(dat.groupby(['type','approach','origin_inclusion'])['patient'].count())
-    
-
-    # # Boxplot by type
-    # sns.set_theme(style="whitegrid",font_scale=1.2)
-    # ax = sns.catplot(data=dat, x='approach', y='acceptable', col='type', hue='origin_inclusion', kind='box')
-    # ax.set_xlabels('Approach')
-    # ax.set_ylabels('Within acceptable deviation range (%)')
-    # ax.fig.subplots_adjust(top=0.8)
-    # ax.fig.suptitle('Percentage of predictions where deviation is within acceptable range (%)')
-    
-    # # Boxplot for Top 3 highest medians
-    # top_3 = dat.groupby('method')['acceptable'].median().sort_values(ascending=False).iloc[0:6].to_frame()
-    # top_3 = top_3.reset_index().method.unique()
-    # list_of_top_3 = top_3.tolist()
-    # top_3 = dat[dat['method'].isin(list_of_top_3)]
-    # top_3.method = top_3.method.astype("category")
-    # top_3.method.cat.set_categories(list_of_top_3, inplace=True)
-    # top_3 = top_3.sort_values(['method'])
-
-    # sns.set_theme(font_scale=2)
-    # sns.set_style('whitegrid')
-    # ax = sns.boxplot(x='method', y='acceptable', data=top_3)
-    # ax.set_xticklabels(ax.get_xticklabels(),rotation = 30)
-    # ax.set_xlabel('Method')
-    # ax.set_ylabel('Within acceptable deviation range (%)')
-    # ax.set_title('Top 3 Medians of Percentage of Predictions within Acceptable Deviation Range')
-    
-    # Run kruskal wallis test on each method
-    method_arr = dat.method.unique()
-    j = 0
-    for i in method_arr:
-        method_dat[j] = dat[dat['method']==i].acceptable
-        j = j + 1
-
-    # Kruskal wallis test for equal medians
-    stats.kruskal(method_dat[0], method_dat[1], method_dat[2], method_dat[3], method_dat[4], method_dat[5],
-                  method_dat[6], method_dat[7], method_dat[8], method_dat[9], method_dat[10], method_dat[11],
-                  method_dat[12], method_dat[13], method_dat[14], method_dat[15], method_dat[16], method_dat[17])
-
-    # Levene test for equal variances
-    from scipy.stats import levene
-    stat, p = levene(method_dat[0], method_dat[1], method_dat[2], method_dat[3], method_dat[4], method_dat[5],
-                  method_dat[6], method_dat[7], method_dat[8], method_dat[9], method_dat[10], method_dat[11],
-                  method_dat[12], method_dat[13], method_dat[14], method_dat[15], method_dat[16], method_dat[17])
-
-def can_benefit(result_df):
-    """
-    Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range.
-    Find percentage of dosing events that our model can potentially outperform SOC (when both observed and predicted values are outside range, with
-    prediction within acceptable deviation). 
-    Create boxplot of dosing events (%) against method.
-    
-    Input:
-    result_df
-    """
-    # Interpolate to find percentage of possible dosing events for when prediction and observed response are outside range
-    dat = result_df[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_2x', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation']]
-
-    # for i in range(len(dat)):
-    #     # Create function
-    #     coeff = dat.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
-    #     coeff = coeff[~np.isnan(coeff)]
-    #     p = np.poly1d(coeff)
-    #     x = np.linspace(0, max(dat.dose)+ 2)
-    #     y = p(x)
-    #     order = y.argsort()
-    #     y = y[order]
-    #     x = x[order]
-
-    #     dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
-    #     dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
-    #     dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
-
-    # dat[['interpolated_dose_8','interpolated_dose_9','interpolated_dose_10']].describe() # Minimum 0mg, all are possible dosing events
-
-    # Find percentage of predictions where both observed and prediction response are outside range
-    for i in range(len(dat)):
-        dat.loc[i, 'both_outside'] = False
-        if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
-            if (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
-                dat.loc[i, 'both_outside'] = True
-
-    dat['acceptable_deviation'] = (dat['deviation'] > -3) & (dat['deviation'] < 1)
-
-    dat['can_benefit'] = dat['acceptable_deviation'] & dat['both_outside']
-
-    # If can correctly identify out of range, with acceptable deviation, can benefit
-    dat = (dat.groupby(['method', 'patient'])['can_benefit'].sum()) / (dat.groupby(['method', 'patient'])['can_benefit'].count()) * 100
-    dat = dat.to_frame().reset_index()
-
-    # Shapiro test
-    # Normality test (result: assume non-normal)
-    method_arr = dat.method.unique()
-    method_dat = {}
-    j = 0
-    for i in method_arr: 
-        method_dat[j] = dat[dat['method']==i].can_benefit
-        shapiro_test = stats.shapiro(method_dat[j])
-        print(shapiro_test.pvalue < 0.05)
-        j = j + 1
-
-    ax = sns.boxplot(data=dat, x='method', y='can_benefit', dodge=False)
-    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
-    ax.set_xlabel(None)
-    ax.set_ylabel('Dosing events (%)')
-    ax.set_title('Dosing events that can potentially outperform SOC with CURATE (%)')
-    plt.legend(loc='upper right', bbox_to_anchor=(1,1))
-
-    dat.can_benefit.describe() # Shapiro test reject null hypo, assume non-normal
-
-def modified_TTR(result_df):
-    """
-    Calculate CURATE modified TTR and physician modified TTR.
-    Create barplot of modified TTR vs method grouped under 'physician' and 'CURATE'
-    
-    Input: 
-    result_df - dataframe of results of applied methods.
-    """
-    sns.set(font_scale=2, rc={'figure.figsize':(15,10)})
-    sns.set_style('whitegrid')
-
-    # Find percentage of success instances
-    dat = result_df[['patient', 'method', 'response', 'prediction']]
-
-    # CURATE success
-    for i in range(len(dat)):
-        dat.loc[i, 'success'] = False
-        if (dat.loc[i, 'response'] < 10) and (dat.loc[i, 'response'] > 8): # if both within range
-            if (dat.loc[i, 'prediction'] < 10) and (dat.loc[i, 'prediction'] > 8):
-                dat.loc[i, 'success'] = True
-        elif (dat.loc[i, 'response'] >= 10) or (dat.loc[i, 'response'] <= 8): # if both outside range
-            if (dat.loc[i, 'prediction'] >= 10) or (dat.loc[i, 'prediction'] <= 8):
-                dat.loc[i, 'success'] = True
-
-    CURATE_TTR = (dat.groupby(['method','patient'])['success'].sum())/(dat.groupby(['method','patient'])['success'].count()) * 100
-
-    # Normality test (result: assume normal)
-    CURATE_TTR = CURATE_TTR.to_frame().reset_index()
-    method_arr = CURATE_TTR.method.unique()
-    method_dat = {}
-    j = 0
-    for i in method_arr:
-        method_dat[j] = CURATE_TTR[CURATE_TTR['method']==i].success
-        shapiro_test = stats.shapiro(method_dat[j])
-        # print(shapiro_test.pvalue)
-        j = j + 1
-    CURATE_TTR['source'] = 'CURATE'
-
-    # Physician success
-    phys_TTR = dat[(dat['method']=='L_Cum_wo_origin') | (dat['method']=='Q_Cum_wo_origin')]
-    phys_TTR['success'] = (phys_TTR['response'] < 10) & (phys_TTR['response'] > 8)
-    phys_TTR = (phys_TTR.groupby(['method', 'patient'])['success'].sum())/(phys_TTR.groupby(['method', 'patient'])['success'].count()) * 100
-    phys_TTR = phys_TTR.to_frame().reset_index()
-    for i in range(len(phys_TTR)):
-        if 'L' in phys_TTR.loc[i, 'method']:
-            phys_TTR.loc[i, 'method'] = 'linear'
-        else:
-            phys_TTR.loc[i, 'method'] = 'quadratic'
-    phys_TTR['source'] = 'Physician'
-
-    # Normality test (result: assume normal)
-    method_arr = phys_TTR.method.unique()
-    method_dat = {}
-    j = 0
-    for i in method_arr: 
-        method_dat[j] = phys_TTR[phys_TTR['method']==i].success
-        # shapiro_test = stats.shapiro(method_dat[j])
-        print(shapiro_test.pvalue < 0.05)
-        j = j + 1
-
-    dat = pd.concat([CURATE_TTR, phys_TTR])
-
-    ax = sns.barplot(data=dat, x='method', y='success', hue='source', ci='sd', capsize=.2, dodge=False)
-    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
-    ax.set_xlabel(None)
-    ax.set_ylabel('Modified TTR (%)')
-    ax.set_title('Modified TTR for Physician vs CURATE (%)')
-    plt.legend(loc='upper right', bbox_to_anchor=(1,1))
-
-    return dat
-
-def wrong_range(result_df):
-    """
-    Find percentage of dosing events when model predicted wrong range. 
-    Find percentage of dosing events when SOC is outside target range.
-    Conduct Shapiro test.
-    Boxplot of percentage of wrong range against each method. 
-    
-    Input: result_df - results after all methods are applied
-    Output: boxplot
-    """
-    
-    # Find dosing events when model predicted the wrong range
-    dat = result_df[['patient', 'method', 'prediction', 'response']]
-
-    # Create boolean, true when model predict wrong range
-    for i in range(len(dat)):
-        # All False
-        dat.loc[i, 'wrong_range'] = False
-        # Unless condition 1: prediction within range, response outside range
-        if (dat.loc[i, 'prediction'] >= 8) and (dat.loc[i, 'prediction'] <= 10):
-            if (dat.loc[i, 'response'] > 10) or (dat.loc[i, 'response'] < 8):
-                dat.loc[i, 'wrong_range'] = True
-        # Unless condition 2: prediction outside range, response within range
-        elif (dat.loc[i, 'prediction'] > 10) or (dat.loc[i, 'prediction'] < 8):
-            if (dat.loc[i, 'response'] >= 8) and (dat.loc[i, 'response'] <= 10):
-                dat.loc[i, 'wrong_range'] = True
-
-    dat = (dat.groupby(['method', 'patient'])['wrong_range'].sum()) / (dat.groupby(['method', 'patient'])['wrong_range'].count()) * 100
-    dat = dat.to_frame().reset_index()
-    dat['source'] = 'CURATE'
-
-    # Create another dataframe
-    dat_physician = result_df[['patient', 'method', 'prediction', 'response']]
-    dat_physician = dat_physician[(dat_physician['method']=='L_Cum_wo_origin') | (dat_physician['method']=='Q_Cum_wo_origin')]
-    dat_physician = dat_physician.reset_index(drop=True)
-
-    # Create boolean, true if response is outside range
-    for i in range(len(dat_physician)):
-        # Set boolean default as false
-        dat_physician.loc[i, 'wrong_range'] = False
-        # Create boolean as True if outside range
-        if (dat_physician.loc[i, 'response'] > 10) or (dat_physician.loc[i, 'response'] < 8):
-            dat_physician.loc[i, 'wrong_range'] = True
-
-    dat_physician.groupby(['method', 'patient'])['wrong_range'].count()
-    dat_physician = (dat_physician.groupby(['method', 'patient'])['wrong_range'].sum()) / (dat_physician.groupby(['method', 'patient'])['wrong_range'].count()) * 100
-    dat_physician = dat_physician.to_frame().reset_index()
-    dat_physician['source'] = 'Physician'
-
-    # Rename methods to linear and quadratic only
-    for i in range(len(dat_physician)):
-        if 'L' in dat_physician.loc[i, 'method']:
-            dat_physician.loc[i, 'method'] = 'linear'
-        else:
-            dat_physician.loc[i, 'method'] = 'quadratic'
-
-    dat = pd.concat([dat, dat_physician])
-
-    # Shapiro test
-    # Normality test (result: reject, assume non-normal)
-    method_arr = dat.method.unique()
-    method_dat = {}
-    j = 0
-    for i in method_arr: 
-        method_dat[j] = dat[dat['method']==i].wrong_range
-        shapiro_test = stats.shapiro(method_dat[j])
-        # print(shapiro_test.pvalue < 0.05)
-        j = j + 1
-
-    # Boxplot
-    # sns.set(font_scale=2, rc={'figure.figsize':(15,10)})
-    sns.set_theme(font_scale=2)
-    sns.set_style('whitegrid')
-    ax = sns.boxplot(data=dat, x='method', y='wrong_range', hue='source', dodge=False)
-    ax.set_xticklabels(ax.get_xticklabels(),rotation = 90)
-    ax.set_xlabel(None)
-    ax.set_ylabel('Wrong Range Predicted (%)')
-    ax.set_title('Wrong Range Predicted  (%)')
-    plt.legend(loc='upper right', bbox_to_anchor=(1.25,1))
-
-    return dat

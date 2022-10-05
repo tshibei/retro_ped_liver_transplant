@@ -22,11 +22,14 @@ from scipy.optimize import OptimizeWarning
 warnings.simplefilter("ignore", OptimizeWarning)
 import timeit
 
-##### MAIN FUNCTIONS #####
+# CURATE
 def execute_CURATE(five_fold_cross_val_results_summary="", pop_tau_string='', dose='total'):
     """ 
     Execute CURATE.
-    Output: Excel sheet with cleaned patient dataframe, 
+    
+    Output: 
+    'CURATE_results.xlsx' if dose is 'total', and 'CURATE_results_evening_dose.xlsx' if dose is 'evening'
+            Excel sheet with cleaned patient dataframe, 
             dataframe for calibration and efficacy-driven dosing, 
             result of all methods.
     """
@@ -368,7 +371,6 @@ def execute_CURATE_and_update_pop_tau_results(CV_string, five_fold_cross_val_res
         five_fold_cross_val_results.to_excel(writer, sheet_name='Experiments', index=False)
         summary_df.to_excel(writer, sheet_name='Overall', index=False)
 
-##### SUPPORTING FUNCTIONS ######
 # Generate profiles
 def generate_profiles(five_fold_cross_val_results_summary, dose):
     """
@@ -1719,3 +1721,4 @@ def format_result_df(cal_pred, result_df):
     result_df = result_df.reset_index(drop=True)
     
     return result_df
+
