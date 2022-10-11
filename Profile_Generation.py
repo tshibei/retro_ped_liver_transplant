@@ -6,27 +6,18 @@ from sklearn.preprocessing import PolynomialFeatures
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
+import matplotlib.patches as patches
 import numpy as np
 from scipy import stats
 import seaborn as sns
-from functools import reduce
-pd.options.mode.chained_assignment = None 
 from statistics import mean
-from Profile_Generation import *
 from plotting import *
-import warnings
-warnings.simplefilter('ignore', np.RankWarning)
-import matplotlib.patches as patches
-import math
-from scipy.optimize import OptimizeWarning
-warnings.simplefilter("ignore", OptimizeWarning)
-import timeit
 
 # CURATE
-def execute_CURATE(five_fold_cross_val_results_summary="", pop_tau_string='', dose='total'):
+def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', dose='total'):
     """ 
     Execute CURATE.
-    
+
     Output: 
     'CURATE_results.xlsx' if dose is 'total', and 'CURATE_results_evening_dose.xlsx' if dose is 'evening'
             Excel sheet with cleaned patient dataframe, 

@@ -13,6 +13,22 @@
 #     name: python3
 # ---
 
+# +
+# %%time
+from profile_generation import *
+
+execute_CURATE()
+
+# Uncomment to run pop tau
+# # Perform CV
+# five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_CV()
+# execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
+
+# # Perform LOOCV
+# five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
+# execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
+# -
+
 # %load_ext autoreload
 # %autoreload 2
 import pandas as pd
@@ -49,15 +65,3 @@ import statistics
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 from statistics import stdev
-
-# +
-execute_CURATE()
-
-# Uncomment to run pop tau
-# # Perform CV
-# five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_CV()
-# execute_CURATE_and_update_pop_tau_results('CV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
-
-# # Perform LOOCV
-# five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
-# execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)

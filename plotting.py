@@ -1,25 +1,26 @@
 import seaborn as sns
-from scipy import stats
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from scipy.stats import mannwhitneyu
 from sklearn.metrics import mean_squared_error
 import math
+import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.pyplot import cm
 from matplotlib.patches import Patch
-from profile_generation import *
-from openpyxl import load_workbook
-import sys
-from scipy.stats import levene
-from scipy.stats import wilcoxon
-import statistics
-from scipy.stats import bartlett
 import matplotlib as mpl
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 from matplotlib.backends.backend_pdf import PdfPages
+from openpyxl import load_workbook
+import sys
+from scipy import stats
+from scipy.stats import mannwhitneyu
+from scipy.stats import levene
+from scipy.stats import wilcoxon
+from scipy.stats import bartlett
+import statistics
+
+from profile_generation import *
 
 # Define file names
 result_file_total = 'CURATE_results_total.xlsx'
@@ -1872,7 +1873,7 @@ def all_data(dose='total'):
         result_file = result_file_total
     else:
         result_file = result_file_evening
-        
+
     # Create dataframe from all sheets
     list_of_patients = find_list_of_patients()
     list_of_body_weight = find_list_of_body_weight()
