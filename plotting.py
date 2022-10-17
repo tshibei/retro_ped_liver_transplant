@@ -23,7 +23,7 @@ import statistics
 from profile_generation import *
 
 # Define file names
-result_file_total = 'CURATE_results_total.xlsx'
+result_file_total = 'CURATE_results.xlsx'
 result_file_evening = 'CURATE_results_evening.xlsx'
 raw_data_file = 'Retrospective Liver Transplant Data - edited.xlsx'
 all_data_file_total = 'all_data_total.xlsx'
@@ -869,7 +869,6 @@ def dosing_strategy_values():
         df = response_vs_dose()
         df = df.dropna().reset_index(drop=True)
 
-        # 1. % of patients with repeated doses
         # Create therapeutic_range column
         for i in range(len(df)):
             if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
@@ -1736,8 +1735,6 @@ def CURATE_vs_SOC_values():
     
     return first_achieve_TR_combined, TTR_combined
 
-##### SUPPORTING FUNCTIONS #####
-
 # Create lists
 def find_list_of_body_weight():
 
@@ -1806,7 +1803,11 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
         df.to_excel(writer, sheet_name='data', index=False)
 
 def dose_recommendation_results(result_file=result_file_total):
-    
+    """
+    Compute dose recommendations after fitting the training data with L_RW_wo_origin.
+
+    Output: dose_recommendations.xlsx containing dose recommendation results
+    """
     df = pd.read_excel(result_file, sheet_name='result')
     df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
 
@@ -1852,13 +1853,15 @@ def dose_recommendation_results(result_file=result_file_total):
     # df = df[['patient', 'pred_day', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation', 'interpolated_dose_8', 'interpolated_dose_9',
     #        'interpolated_dose_10', 'possible_doses', 'dose_recommendation']]
     
+        with pd.ExcelWriter('dose_recommendations.xlsx') as writer:
+            df.to_excel(writer, index=False)
+
     return df
 
 # Create excel sheets
 def all_data(dose='total'):
     """
     Clean raw data and label which are ideal or non-ideal.
-    Export all data to excel.
     
     Output: 
     - Dataframe of all cleaned raw data with label of ideal/non-ideal.

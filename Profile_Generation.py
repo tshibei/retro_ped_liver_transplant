@@ -11,7 +11,7 @@ import numpy as np
 from scipy import stats
 import seaborn as sns
 from statistics import mean
-from plotting import *
+import sys
 
 # CURATE
 def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', dose='total'):
@@ -1713,3 +1713,19 @@ def format_result_df(cal_pred, result_df):
     
     return result_df
 
+if __name__ == '__main__':
+    # Get arguments
+    import argparse
+    parser = argparse.ArgumentParser(description='Implement CURATE models and retrieve results')
+    parser.add_argument("-p", "--pop_tau", type=str, default=False)
+    args = parser.parse_args()
+    
+    original_stdout = sys.stdout
+    with open('patients_to_exclude.txt', 'w') as f:
+        sys.stdout = f
+        execute_CURATE()
+    sys.stdout = original_stdout
+    
+    if args.pop_tau == True:
+        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
+        execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)

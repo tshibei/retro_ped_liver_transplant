@@ -13,6 +13,16 @@
 #     name: python3
 # ---
 
+# %load_ext autoreload
+# %autoreload 2
+from plotting import *
+
+
+df
+
+# Find updated values for repeated doses
+
+
 # +
 # %%time
 from profile_generation import *
