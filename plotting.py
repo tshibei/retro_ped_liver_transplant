@@ -373,10 +373,10 @@ def effect_of_CURATE(plot=False, dose='total'):
         # Scatter point
         g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
                         hue_order=hue_order, col='patient', palette=palette,\
-                        col_wrap=4, style='Dose range', height=3, aspect=1, s=100, style_order=style_order, zorder=2)
+                        col_wrap=4, height=3, aspect=1, s=100, style_order=style_order, zorder=2)
 
         # Move legend below plot
-        sns.move_legend(g, 'center', bbox_to_anchor=(0.25,-0.1), title=None, ncol=2)
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.20,-0.1), title='Effect of CURATE.AI-assisted dosing', ncol=1)
 
         # Titles and labels
         g.set_titles('Patient {col_name}')
@@ -392,8 +392,9 @@ def effect_of_CURATE(plot=False, dose='total'):
         legend1 = plt.legend()
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
                             label='Region within\ntherapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-0.45,-0.53), loc='upper left', frameon=False)
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.1,-0.5), loc='upper left', frameon=False)
 
+        # plt.show()
         plt.savefig('effect_of_CURATE_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_dat
