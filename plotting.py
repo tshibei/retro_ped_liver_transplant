@@ -876,29 +876,49 @@ def dosing_strategy_values():
             else:
                 df.loc[i, 'therapeutic_range'] = False
 
-        # Count number of repeats
+        # Find suitable lower limit of dose repeats to consider the dose strategy as repeated dosing.
         repeated_count = df.groupby('patient')['dose'].value_counts().reset_index(name='count')
         repeated_dose_threshold = repeated_count['count'].describe().loc['75%']
+        print(f"Repeated dose threshold is based on {repeated_dose_threshold} which is the 75th percentile of number of repeats.\n\
+            Repeated dose: > 4 dose repeats")
+        
 
-        print(f'Repeated dose: > {repeated_dose_threshold} repeats\n')
-
-        # Count number of times in therapeutic range among repeats
-        repeated_therapeutic_range = df.groupby(['patient', 'dose'])['therapeutic_range'].apply(lambda x: x.sum() if x.sum() != 0 else np.nan).reset_index(name='TR')
-
-        combined_df = repeated_count.merge(repeated_therapeutic_range, how='left', on=['patient','dose']).reset_index(drop=True)
-
-        # Keep those with > 4 repeats
-        combined_df = combined_df[combined_df['count'] > repeated_dose_threshold].reset_index(drop=True)
-        combined_df = combined_df.fillna(0)
-
-        print(f'1. % of patients with repeated dose (> {repeated_dose_threshold} repeats): \
-        {(len(combined_df.patient.unique())/len(df.patient.unique())*100)}%, {len(combined_df.patient.unique())} patients')
-        print(f'Patients with repeated doses (> {repeated_dose_threshold} repeats): {combined_df.patient.unique()}')
-
+        # 1. % of patients with repeated doses
         # 2. % of days in TR when there are repeated doses
-        combined_df['perc_TR_with_repeated_dose'] = combined_df['TR'] / combined_df['count'] * 100
-        result_and_distribution(combined_df.perc_TR_with_repeated_dose, '\n2. % of days in TR when there are repeated doses')
 
+        # For each patient, identify groups of consecutive days and label a group number.
+        # To do that, label the first row of each patient as group 1. 
+        # For each subsequent row, if the previous row is more than 1 day apart, label it as a new group.
+        df['group_num_by_repeats'] = ""
+        for i in range(len(df)):
+            if i==0:
+                group_num = 1
+            else:
+                if df.patient[i] != df.patient[i-1]:
+                    group_num = 1 
+            
+                if df.Day[i] - df.Day[i-1] > 1:
+                    group_num += 1
+            df.loc[i, 'group_num_by_consecutive_days'] = group_num
+
+        # Remove unnecessary columns
+        df = df[['patient', 'Day', 'dose', 'therapeutic_range','group_num_by_consecutive_days']]
+
+        # Find number of dose repeats across consecutive days
+        num_of_dose_repeats = df.groupby(['patient', 'group_num_by_consecutive_days', 'dose'])['dose'].count().reset_index(name='num_of_dose_repeats')
+
+        # Find percentage of days in therapeutic range, for each dose in each group of consecutive days
+        perc_in_therapeutic_range =  df.groupby(['patient', 'group_num_by_consecutive_days', 'dose'])['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='perc_in_therapeutic_range')
+
+        # Combine both dataframes
+        combined_df = num_of_dose_repeats.merge(perc_in_therapeutic_range, on=['patient', 'group_num_by_consecutive_days', 'dose'])
+        combined_df = combined_df[combined_df.num_of_dose_repeats > 4].reset_index(drop=True)
+
+        # Print results
+        perc_of_patients_with_repeated_doses = len(combined_df.patient.unique())/len(df.patient.unique())*100
+        print(f"1. % of patients with repeated dose: {perc_of_patients_with_repeated_doses}% (N={len(df.patient.unique())})\n")
+        result_and_distribution(combined_df.perc_in_therapeutic_range, '2. % of days in therapeutic range when there are repeated doses')
+        
         # 3. % of patients with distributed dose
 
         # Find dose range
