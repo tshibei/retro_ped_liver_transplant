@@ -1662,7 +1662,7 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         else:
             SOC.loc[i, 'therapeutic_range'] = False
 
-    SOC = SOC[SOC['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+    SOC = SOC[SOC['TTL']=='Therapeutic range'].reset_index(drop=True)
     SOC = SOC.groupby('patient')['Day'].first().reset_index(name='SOC')
 
     # CURATE
@@ -1696,18 +1696,34 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
     plot_df = plot_df.rename(columns={'level_1':'Dosing', 0:'First day in therapeutic range'})
 
     if plot == True:
-        # Plot
+        
         sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
-        g = sns.boxplot(x="Dosing", y="First day in therapeutic range", data=plot_df, width=0.5, palette=['#ccb974','#8172b3'])
+        
+        # Boxplot
+        g = sns.boxplot(x="Dosing", y="First day in therapeutic range", 
+                        data=plot_df, width=0.5, palette=['#ccb974','#8172b3'],
+                        zorder=1)
+        
+        # Scatter points
+        SOC_df = plot_df[plot_df.Dosing=='SOC'].reset_index(drop=True)['First day in therapeutic range']
+        CURATE_df = plot_df[plot_df.Dosing=='CURATE'].reset_index(drop=True)['First day in therapeutic range']
+        
+        plt.scatter(np.zeros(len(SOC_df)), SOC_df, c='k', zorder=2)
+        plt.scatter(np.ones(len(CURATE_df)), CURATE_df, c='k', zorder=3)
+        for i in range(len(SOC_df)):
+            plt.plot([0,1], [SOC_df[i], CURATE_df[i]], c='k', alpha=.5)
+
+        # Aesthetics
         sns.despine()
         g.set_xlabel(None)
         # g.set_ylabel('Days in therapeutic range (%)')
         g.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
 
+        plt.show()
         # Save
-        plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        # plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
-    return plot_df, combined_df
+    return plot_df, SOC_df, CURATE_df
 
 def CURATE_vs_SOC_values():
     """ 
