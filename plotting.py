@@ -1547,7 +1547,7 @@ def SOC_CURATE_perc_in_TR(dose='total'):
     
     return perc_days_TR
 
-def barplot_SOC_CURATE_perc_in_TR():
+def plot_SOC_CURATE_perc_in_TR():
     df = SOC_CURATE_perc_in_TR()
     sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
     plt.bar(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
