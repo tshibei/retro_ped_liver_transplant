@@ -1555,7 +1555,7 @@ def plot_SOC_CURATE_perc_in_TR():
 
     # Bar plot
     p = ax.bar(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
-        ecolor='black', capsize=10, color=[sns.color_palette("Paired",8)[0],sns.color_palette("Paired",8)[1]], zorder=1, width=.4)
+        edgecolor='black', capsize=10, color=[sns.color_palette("Paired",8)[0],sns.color_palette("Paired",8)[1]], zorder=1, width=.4)
 
     # Scatter points
     plt.scatter(np.zeros(len(df.SOC)), df.SOC, c='k', zorder=2)
