@@ -1549,16 +1549,39 @@ def SOC_CURATE_perc_in_TR(dose='total'):
 
 def plot_SOC_CURATE_perc_in_TR():
     df = SOC_CURATE_perc_in_TR()
+
+    fig, ax = plt.subplots()
     sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
-    plt.bar(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
+
+    # Bar plot
+    p = ax.bar(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
         ecolor='black', capsize=10, color=[sns.color_palette("Paired",8)[0],sns.color_palette("Paired",8)[1]], zorder=1, width=.4)
+
+    # Scatter points
     plt.scatter(np.zeros(len(df.SOC)), df.SOC, c='k', zorder=2)
     plt.scatter(np.ones(len(df.CURATE)), df.CURATE, c='k', zorder=3)
     for i in range(len(df.CURATE)):
         plt.plot([0,1], [df.SOC[i], df.CURATE[i]], c='k', alpha=.5)
+
+    # Aesthetics
     plt.ylabel('Days in therapeutic range (%)')
     sns.despine()
+
+    # Bar labels
+    rects = ax.patches
+    averages = [mean(df.SOC), mean(df.CURATE)]
+    SD = [stdev(df.SOC), stdev(df.CURATE)]
+    labels = [f"{i:.2f} ± {j:.2f}" for i,j in zip(averages, SD)]
+    for rect, label in zip(rects, labels):
+        height = rect.get_height()
+        ax.text(
+            rect.get_x() + rect.get_width() / 2, height + 35, label, 
+            ha="center", va="bottom", fontsize=13
+        )
+
     plt.savefig('perc_days_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return df
 
 def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
     """
