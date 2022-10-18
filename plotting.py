@@ -1563,15 +1563,13 @@ def barplot_SOC_CURATE_perc_in_TR():
     df = SOC_CURATE_perc_in_TR()
     sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
     plt.bar(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
-        ecolor='black', capsize=10, color=['#ccb974','#8172b3'], zorder=1, width=.4)
+        ecolor='black', capsize=10, color=[sns.color_palette("Paired",8)[0],sns.color_palette("Paired",8)[1]], zorder=1, width=.4)
     plt.scatter(np.zeros(len(df.SOC)), df.SOC, c='k', zorder=2)
     plt.scatter(np.ones(len(df.CURATE)), df.CURATE, c='k', zorder=3)
     for i in range(len(df.CURATE)):
         plt.plot([0,1], [df.SOC[i], df.CURATE[i]], c='k', alpha=.5)
-    # plt.xticks(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
     plt.ylabel('Days in therapeutic range (%)')
     sns.despine()
-
     plt.savefig('perc_days_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
 def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
