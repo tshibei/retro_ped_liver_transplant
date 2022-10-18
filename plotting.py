@@ -1722,14 +1722,22 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
 
         # Bracket and star
         x1, x2 = 0, 1
-        y, h = SOC_df.max() + 3, 1
+        y, h = SOC_df.max() + 3.5, 1
         plt.plot([0, 0, 1, 1], [y, y+h, y+h, y], lw=1.5, c='k')
         plt.text((x1+x2)*.5, y+h, "*", ha='center', va='bottom', color='k')    
 
-        # ax.annotate('*', xy=(0.5, 0.99), xytext=(0.5, 1.00), xycoords='axes fraction', 
-        #             ha='center', va='bottom',
-        #             arrowprops=dict(arrowstyle='-[, widthB=7.0, lengthB=1.5', lw=2.0))
-
+        # Box labels
+        rects = ax.patches
+        medians = [median(SOC_df), median(CURATE_df)]
+        lower_quartile = [SOC_df.quantile(0.25), CURATE_df.quantile(0.25)]
+        upper_quartile = [SOC_df.quantile(0.75), CURATE_df.quantile(0.75)]
+        labels = [f"{i:.2f}\n({j:.2f} - {k:.2f})" for i,j,k in zip(medians, lower_quartile, upper_quartile)]
+        
+        ax.text(0, SOC_df.max()+0.9, labels[0], ha='center', va='bottom', 
+                color='k', fontsize=13)
+        ax.text(1, CURATE_df.max()+1.5, labels[1], ha='center', va='bottom', 
+                color='k', fontsize=13)
+                
         plt.show()
         # Save
         # plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
