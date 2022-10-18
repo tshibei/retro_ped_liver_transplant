@@ -1697,6 +1697,7 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
 
     if plot == True:
         
+        fig, ax = plt.subplots()
         sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
         
         # Boxplot
@@ -1718,6 +1719,16 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         g.set_xlabel(None)
         # g.set_ylabel('Days in therapeutic range (%)')
         g.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
+
+        # Bracket and star
+        x1, x2 = 0, 1
+        y, h = SOC_df.max() + 3, 1
+        plt.plot([0, 0, 1, 1], [y, y+h, y+h, y], lw=1.5, c='k')
+        plt.text((x1+x2)*.5, y+h, "*", ha='center', va='bottom', color='k')    
+
+        # ax.annotate('*', xy=(0.5, 0.99), xytext=(0.5, 1.00), xycoords='axes fraction', 
+        #             ha='center', va='bottom',
+        #             arrowprops=dict(arrowstyle='-[, widthB=7.0, lengthB=1.5', lw=2.0))
 
         plt.show()
         # Save
