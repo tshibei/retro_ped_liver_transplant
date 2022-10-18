@@ -18,7 +18,7 @@ from scipy.stats import mannwhitneyu
 from scipy.stats import levene
 from scipy.stats import wilcoxon
 from scipy.stats import bartlett
-import statistics
+from statistics import *
 
 from profile_generation import *
 
