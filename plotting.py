@@ -1702,7 +1702,7 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         
         # Boxplot
         g = sns.boxplot(x="Dosing", y="First day in therapeutic range", 
-                        data=plot_df, width=0.5, palette=['#ccb974','#8172b3'],
+                        data=plot_df, width=0.5, palette=[sns.color_palette("Paired",8)[2],sns.color_palette("Paired",8)[3]],
                         zorder=1)
         
         # Scatter points
@@ -1737,10 +1737,9 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
                 color='k', fontsize=13)
         ax.text(1, CURATE_df.max()+1.5, labels[1], ha='center', va='bottom', 
                 color='k', fontsize=13)
-                
-        plt.show()
+
         # Save
-        # plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df, SOC_df, CURATE_df
 
