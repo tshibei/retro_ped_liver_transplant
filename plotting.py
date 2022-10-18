@@ -1602,7 +1602,7 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
             data.loc[i, 'therapeutic_range'] = False
 
     first_week_df = data.copy()
-    first_week_df = first_week_df[first_week_df['Tacrolimus levels']=='Therapeutic range'].reset_index(drop=True)
+    first_week_df = first_week_df[first_week_df['TTL']=='Therapeutic range'].reset_index(drop=True)
     first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
     result = first_week_df.Day.sum()/first_week_df.Day.count()*100
 
@@ -1636,12 +1636,13 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
     if plot == True:
         sns.set(font_scale=1.2, rc={"figure.figsize": (4,5), "xtick.bottom":True, "ytick.left":True}, style='white')
         fig, ax = plt.subplots()
-        ax.bar(plot_df.Dosing, plot_df.perc_reach_TR_in_first_week, width=.5, color=['#ccb974','#8172b3'])
+        ax.bar(plot_df.Dosing, plot_df.perc_reach_TR_in_first_week, width=.5, 
+        color=[sns.color_palette("Paired",8)[6],sns.color_palette("Paired",8)[7]], edgecolor='k')
         sns.despine()
         ax.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
         plt.ylabel('Patients who achieve therapeutic\nrange in first week (%)')
-
-        plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.show()
+        # plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
@@ -1738,8 +1739,9 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         ax.text(1, CURATE_df.max()+1.5, labels[1], ha='center', va='bottom', 
                 color='k', fontsize=13)
 
+        plt.show()
         # Save
-        plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        # plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df, SOC_df, CURATE_df
 
