@@ -1566,6 +1566,7 @@ def plot_SOC_CURATE_perc_in_TR():
     # Aesthetics
     plt.ylabel('Days in therapeutic range (%)')
     sns.despine()
+    plt.ylim(0, 65)
 
     # Bar labels
     rects = ax.patches
