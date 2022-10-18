@@ -1634,15 +1634,20 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
 
     # Plot
     if plot == True:
-        sns.set(font_scale=1.2, rc={"figure.figsize": (4,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+        sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
         fig, ax = plt.subplots()
-        ax.bar(plot_df.Dosing, plot_df.perc_reach_TR_in_first_week, width=.5, 
-        color=[sns.color_palette("Paired",8)[6],sns.color_palette("Paired",8)[7]], edgecolor='k')
+        p = ax.bar(plot_df.Dosing, plot_df.perc_reach_TR_in_first_week, width=.5, 
+        color=[sns.color_palette("Paired",10)[8],sns.color_palette("Paired",10)[9]], edgecolor='k')
+        
+        # Aesthetics
         sns.despine()
         ax.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
         plt.ylabel('Patients who achieve therapeutic\nrange in first week (%)')
-        plt.show()
-        # plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        
+        # Bar labels
+        ax.bar_label(p, fmt='%.2f', fontsize=13)
+
+        plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
