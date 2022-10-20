@@ -1708,6 +1708,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Implement CURATE models and retrieve results')
     parser.add_argument("-p", "--pop_tau", type=str, default=False)
     parser.add_argument("-d", "--dose", type=str, default='total')
+    parser.add_argument("-C", "--cross_val_method", type=str, default='LOOCV')
     args = parser.parse_args()
     
     original_stdout = sys.stdout
