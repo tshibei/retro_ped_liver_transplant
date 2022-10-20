@@ -24,7 +24,7 @@ from profile_generation import *
 
 # Define file names
 result_file_total = 'CURATE_results.xlsx'
-result_file_evening = 'CURATE_results_evening.xlsx'
+result_file_evening = 'CURATE_results_evening_dose.xlsx'
 raw_data_file = 'Retrospective Liver Transplant Data - edited.xlsx'
 all_data_file_total = 'all_data_total.xlsx'
 all_data_file_evening = 'all_data_evening.xlsx'
