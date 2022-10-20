@@ -841,7 +841,7 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, all_d
         all_data_file = all_data_file_evening
 
     original_stdout = sys.stdout
-    with open('clinically_relevant_perf_metrics'+ dose +'.txt', 'w') as f:
+    with open('clinically_relevant_perf_metrics_'+ dose +'.txt', 'w') as f:
         sys.stdout = f
 
         # 1. Find percentage of days within clinically acceptable 
