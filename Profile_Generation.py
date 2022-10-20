@@ -34,7 +34,15 @@ def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', do
     output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose)
 
 # Pop tau
-def find_pop_tau_with_CV():
+def find_pop_tau(dose='total', method='LOOCV'):
+    if method == 'LOOCV':
+        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV(dose)
+    else:
+        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_CV(dose)
+
+    return five_fold_cross_val_results, five_fold_cross_val_results_summary
+
+def find_pop_tau_with_CV(dose='total'):
     """
     Calculate pop tau with five fold cross validation.
 
