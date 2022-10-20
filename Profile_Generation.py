@@ -875,18 +875,6 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
 
     return list_of_result_df
 
-def linear_func(x, a, b):
-    return a * x + b
-
-def linear_func_origin_int(x, a, b):
-    return a * x + 0
-
-def quad_func(x, a, b, c):
-    return a * (x ** 2) + b * x + c
-
-def quad_func_origin_int(x, a, b, c):
-    return a * (x ** 2) + b * x + 0
-
 def Cum(deg, cal_pred, result, method_string, list_of_result_df, origin_inclusion='wo_origin', tau="", half_life=np.arange(3.5, 41.5, 1)):
     """
     Execute cumulative approach for each variation of origin inclusion, type, and tau inclusion. 
