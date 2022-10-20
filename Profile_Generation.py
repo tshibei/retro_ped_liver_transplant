@@ -454,9 +454,9 @@ def join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df):
 def output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose):
     """Output dataframes to excel as individual sheets"""
     if dose == 'evening':
-        file_name = 'CURATE_results_evening_dose.xlsx'
+        file_name = 'CURATE_results_evening_dose'+ pop_tau_string + '.xlsx'
     else:
-        file_name = 'CURATE_results.xlsx'
+        file_name = 'CURATE_results' + pop_tau_string + '.xlsx'
 
     with pd.ExcelWriter(file_name) as writer:
         df.to_excel(writer, sheet_name='clean', index=False)
