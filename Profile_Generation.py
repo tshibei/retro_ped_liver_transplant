@@ -737,27 +737,28 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
         if patient not in patients_to_exclude_linear:
             deg = 1
 
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int', list_of_result_df, 'origin_int', tau="")
-            list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin', list_of_result_df, 'wo_origin', tau="")
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_dp', list_of_result_df, 'origin_dp', tau="")
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_int', list_of_result_df, 'origin_int', tau="")
-            list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_wo_origin', list_of_result_df, 'wo_origin', tau="")
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_dp', list_of_result_df, 'origin_dp', tau="")
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_int', list_of_result_df, 'origin_int', tau="")
-            list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
+            if not isinstance(five_fold_cross_val_results_summary, pd.DataFrame):
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int', list_of_result_df, 'origin_int', tau="")
+                list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
+                list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin', list_of_result_df, 'wo_origin', tau="")
+                list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
+                list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_dp', list_of_result_df, 'origin_dp', tau="")
+                list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
+                list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_int', list_of_result_df, 'origin_int', tau="")
+                list_of_result_df = PPM(deg, cal_pred_linear, result, 'L_PPM_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
+                list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_wo_origin', list_of_result_df, 'wo_origin', tau="")
+                list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
+                list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_dp', list_of_result_df, 'origin_dp', tau="")
+                list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
+                list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_int', list_of_result_df, 'origin_int', tau="")
+                list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
 
             # Pop tau
-            if isinstance(five_fold_cross_val_results_summary, pd.DataFrame):
+            else:
                 pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
                     [five_fold_cross_val_results_summary.method == 'L_Cum_wo_origin_tau'], 'pop_half_life'])
                 list_of_result_df = Cum(deg, cal_pred_linear, result, 'L_Cum_wo_origin_pop_tau', list_of_result_df, \
@@ -802,31 +803,32 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
                     [five_fold_cross_val_results_summary.method == 'L_RW_origin_int_tau'], 'pop_half_life'])
                 list_of_result_df = RW(deg, cal_pred_linear, result, 'L_RW_origin_int_pop_tau', list_of_result_df, \
                     'origin_int', tau=1, half_life=[pop_half_life])
-            else: pass
 
         if patient not in patients_to_exclude_quad:
             deg = 2
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_int', list_of_result_df, 'origin_int', tau="")
-            list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin', list_of_result_df, 'wo_origin', tau="")
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp', list_of_result_df, 'origin_dp', tau="")
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_int', list_of_result_df, 'origin_int', tau="")
-            list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_wo_origin', list_of_result_df, 'wo_origin', tau="")
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_dp', list_of_result_df, 'origin_dp', tau="")
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_int', list_of_result_df, 'origin_int', tau="")
-            list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
+
+            if not isinstance(five_fold_cross_val_results_summary, pd.DataFrame):
+                list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin', list_of_result_df, 'wo_origin', tau="")
+                list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
+                list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp', list_of_result_df, 'origin_dp', tau="")
+                list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
+                list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_int', list_of_result_df, 'origin_int', tau="")
+                list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
+                list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin', list_of_result_df, 'wo_origin', tau="")
+                list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
+                list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp', list_of_result_df, 'origin_dp', tau="")
+                list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
+                list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_int', list_of_result_df, 'origin_int', tau="")
+                list_of_result_df = PPM(deg, cal_pred_quad, result, 'Q_PPM_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
+                list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_wo_origin', list_of_result_df, 'wo_origin', tau="")
+                list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_wo_origin_tau', list_of_result_df, 'wo_origin', tau=1)
+                list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_dp', list_of_result_df, 'origin_dp', tau="")
+                list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_dp_tau', list_of_result_df, 'origin_dp', tau=1)
+                list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_int', list_of_result_df, 'origin_int', tau="")
+                list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_int_tau', list_of_result_df, 'origin_int', tau=1)
 
             # Pop tau
-            if isinstance(five_fold_cross_val_results_summary, pd.DataFrame):
+            else:
                 pop_half_life = float(five_fold_cross_val_results_summary.loc[five_fold_cross_val_results_summary.index\
                     [five_fold_cross_val_results_summary.method == 'Q_Cum_wo_origin_tau'], 'pop_half_life'])
                 list_of_result_df = Cum(deg, cal_pred_quad, result, 'Q_Cum_wo_origin_pop_tau', list_of_result_df, \
@@ -871,7 +873,6 @@ def apply_methods(cal_pred, patient, patients_to_exclude_linear, patients_to_exc
                     [five_fold_cross_val_results_summary.method == 'Q_RW_origin_int_tau'], 'pop_half_life'])
                 list_of_result_df = RW(deg, cal_pred_quad, result, 'Q_RW_origin_int_pop_tau', list_of_result_df, \
                     'origin_int', tau=1, half_life=[pop_half_life])
-            else: pass
 
     return list_of_result_df
 
