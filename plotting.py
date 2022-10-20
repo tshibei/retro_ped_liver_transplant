@@ -45,6 +45,114 @@ dosing_strategy_cutoff = 0.4
 acceptable_tac_upper_limit = 12
 acceptable_tac_lower_limit = 6.5
 
+# Create excel sheets
+def all_data(dose='total'):
+    """
+    Clean raw data and label which are ideal or non-ideal.
+    
+    Output: 
+    - Dataframe of all cleaned raw data with label of ideal/non-ideal.
+    - 'all_data.xlsx' with dataframe
+    """
+    if dose == 'total':
+        dose_string = "Eff 24h Tac Dose"
+    else:
+        dose_string = "2nd Tac dose (pm)"
+
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+
+    # Create dataframe from all sheets
+    list_of_patients = find_list_of_patients()
+    list_of_body_weight = find_list_of_body_weight()
+
+    df = pd.DataFrame()
+
+    for patient in list_of_patients:
+        patient_df = pd.read_excel('Retrospective Liver Transplant Data - edited.xlsx', sheet_name=patient, skiprows=17)
+        patient_df['patient'] = patient
+
+        # Subset dataframe
+        patient_df = patient_df[['Day #', 'Tac level (prior to am dose)', dose_string, 'patient']]
+
+        # Shift dose column
+        patient_df[dose_string] = patient_df[dose_string].shift(1)
+
+        # Remove "mg"/"ng" from dose
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mgq', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mg', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('ng', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.strip()
+        patient_df[dose_string] = patient_df[dose_string].astype(float)
+
+        first_day_of_dosing = patient_df['Day #'].loc[~patient_df[dose_string].isnull()].iloc[0]
+
+        # Keep data from first day of dosing
+        patient_df = patient_df[patient_df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
+
+        # Set the first day of dosing as day 2 (because first dose received on day 1)
+        for i in range(len(patient_df)):
+            patient_df.loc[i, 'Day #'] = i + 2
+
+        df = pd.concat([df, patient_df])
+
+    df.reset_index(drop=True)
+    df['patient'] = df['patient'].astype(int)
+
+    # Rename columns
+    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', dose_string:'dose'})
+
+    # Import output dataframe from 'clean'
+    ideal_df = pd.read_excel(result_file, sheet_name='clean')
+
+    # Add ideal column == TRUE
+    ideal_df['ideal'] = True
+
+    # Subset columns
+    ideal_df = ideal_df[['day', 'patient', 'ideal']]
+
+    # Merge dataframes
+    combined_df = df.merge(ideal_df, how='left', on=['day', 'patient'])
+
+    # Fill in ideal column with False if NaN
+    combined_df['ideal'] = combined_df['ideal'].fillna(False)
+
+    # Fill in body weight
+    combined_df['body_weight'] = ""
+
+    for i in range(len(combined_df)):
+        # Find index of patient in list_of_patients
+        index = list_of_patients.index(str(combined_df.patient[i]))
+        body_weight = list_of_body_weight[index]    
+
+        # Add body weight to column
+        combined_df.loc[i, 'body_weight'] = body_weight
+
+    # Add column 'dose' by dividing dose_mg by body weight
+    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
+    combined_df['dose'] = combined_df['dose'].astype(float)
+    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
+
+    # Clean up response column
+    for i in range(len(combined_df)):
+
+        # For response column, if there is a '/', take first value
+        if '/' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = combined_df.response[i].split('/')[0]
+        else: 
+            combined_df.loc[i, 'response'] = combined_df.response[i]
+
+        # If response is <2, which means contain '<', label as NaN
+        if '<' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = np.nan
+
+    # Export to excel
+    combined_df.to_excel(r'all_data_' + dose + '.xlsx', index = False, header=True)
+    
+    return combined_df
+
 # Analysis and plots
 def percentage_of_pts_that_reached_TR_per_dose_range(all_data_file=all_data_file_total):
     """Find percentage of patients that reached TR at the same dose range."""
@@ -1929,114 +2037,6 @@ def dose_recommendation_results(result_file=result_file_total):
             df.to_excel(writer, index=False)
 
     return df
-
-# Create excel sheets
-def all_data(dose='total'):
-    """
-    Clean raw data and label which are ideal or non-ideal.
-    
-    Output: 
-    - Dataframe of all cleaned raw data with label of ideal/non-ideal.
-    - 'all_data.xlsx' with dataframe
-    """
-    if dose == 'total':
-        dose_string = "Eff 24h Tac Dose"
-    else:
-        dose_string = "2nd Tac dose (pm)"
-
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
-
-    # Create dataframe from all sheets
-    list_of_patients = find_list_of_patients()
-    list_of_body_weight = find_list_of_body_weight()
-
-    df = pd.DataFrame()
-
-    for patient in list_of_patients:
-        patient_df = pd.read_excel('Retrospective Liver Transplant Data - edited.xlsx', sheet_name=patient, skiprows=17)
-        patient_df['patient'] = patient
-
-        # Subset dataframe
-        patient_df = patient_df[['Day #', 'Tac level (prior to am dose)', dose_string, 'patient']]
-
-        # Shift dose column
-        patient_df[dose_string] = patient_df[dose_string].shift(1)
-
-        # Remove "mg"/"ng" from dose
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mgq', '')
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mg', '')
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('ng', '')
-        patient_df[dose_string] = patient_df[dose_string].astype(str).str.strip()
-        patient_df[dose_string] = patient_df[dose_string].astype(float)
-
-        first_day_of_dosing = patient_df['Day #'].loc[~patient_df[dose_string].isnull()].iloc[0]
-
-        # Keep data from first day of dosing
-        patient_df = patient_df[patient_df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
-
-        # Set the first day of dosing as day 2 (because first dose received on day 1)
-        for i in range(len(patient_df)):
-            patient_df.loc[i, 'Day #'] = i + 2
-
-        df = pd.concat([df, patient_df])
-
-    df.reset_index(drop=True)
-    df['patient'] = df['patient'].astype(int)
-
-    # Rename columns
-    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', dose_string:'dose'})
-
-    # Import output dataframe from 'clean'
-    ideal_df = pd.read_excel(result_file, sheet_name='clean')
-
-    # Add ideal column == TRUE
-    ideal_df['ideal'] = True
-
-    # Subset columns
-    ideal_df = ideal_df[['day', 'patient', 'ideal']]
-
-    # Merge dataframes
-    combined_df = df.merge(ideal_df, how='left', on=['day', 'patient'])
-
-    # Fill in ideal column with False if NaN
-    combined_df['ideal'] = combined_df['ideal'].fillna(False)
-
-    # Fill in body weight
-    combined_df['body_weight'] = ""
-
-    for i in range(len(combined_df)):
-        # Find index of patient in list_of_patients
-        index = list_of_patients.index(str(combined_df.patient[i]))
-        body_weight = list_of_body_weight[index]    
-
-        # Add body weight to column
-        combined_df.loc[i, 'body_weight'] = body_weight
-
-    # Add column 'dose' by dividing dose_mg by body weight
-    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
-    combined_df['dose'] = combined_df['dose'].astype(float)
-    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
-
-    # Clean up response column
-    for i in range(len(combined_df)):
-
-        # For response column, if there is a '/', take first value
-        if '/' in str(combined_df.response[i]):
-            combined_df.loc[i, 'response'] = combined_df.response[i].split('/')[0]
-        else: 
-            combined_df.loc[i, 'response'] = combined_df.response[i]
-
-        # If response is <2, which means contain '<', label as NaN
-        if '<' in str(combined_df.response[i]):
-            combined_df.loc[i, 'response'] = np.nan
-
-    # Export to excel
-    combined_df.to_excel(r'all_data_' + dose + '.xlsx', index = False, header=True)
-    
-    return combined_df
 
 # Statistical test
 def result_and_distribution(df, metric_string):
