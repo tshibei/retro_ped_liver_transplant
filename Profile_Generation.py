@@ -359,7 +359,7 @@ def execute_CURATE_and_update_pop_tau_results(CV_string, five_fold_cross_val_res
     summary_df = five_fold_cross_val_results_summary.merge(pop_tau_df, how='left', on='pop_tau_method')
 
     # Output dataframes to excel as individual sheets
-    with pd.ExcelWriter('pop_tau (by ' + CV_string + ').xlsx') as writer:
+    with pd.ExcelWriter('experiments_to_find_pop_tau (by ' + cross_val_method + ').xlsx') as writer:
         five_fold_cross_val_results.to_excel(writer, sheet_name='Experiments', index=False)
         summary_df.to_excel(writer, sheet_name='Overall', index=False)
 
