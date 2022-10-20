@@ -197,8 +197,12 @@ def find_pop_tau_with_LOOCV():
     - five_fold_cross_val_results: dataframe of results of LOOCV per experiment
     - five_fold_cross_val_results_summary: dataframe of results of LOOCV per method
     """
+    if dose == 'evening':
+            file_name = 'CURATE_results_evening_dose.xlsx'
+    else:
+        file_name = 'CURATE_results.xlsx'
 
-    dat = pd.read_excel('output (no pop tau).xlsx', sheet_name='result')
+    dat = pd.read_excel(file_name, sheet_name='result')
 
     # Filter for tau methods only
     dat = dat[dat.method.str.contains('tau')]
