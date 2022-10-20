@@ -1711,12 +1711,15 @@ if __name__ == '__main__':
     parser.add_argument("-C", "--cross_val_method", type=str, default='LOOCV')
     args = parser.parse_args()
     
+    print('starting profile generation...')
+
     original_stdout = sys.stdout
     with open('patients_to_exclude.txt', 'w') as f:
         sys.stdout = f
         execute_CURATE(dose=args.dose)
     sys.stdout = original_stdout
-    
-    if args.pop_tau == True:
-        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
-        execute_CURATE_and_update_pop_tau_results('LOOCV', five_fold_cross_val_results_summary, five_fold_cross_val_results)
+    print('end of profile generation for models without pop tau')
+
+    if args.pop_tau:
+        execute_CURATE_and_update_pop_tau_results(args.dose, args.cross_val_method)
+        print('end of profile generation for models with and without pop tau')
