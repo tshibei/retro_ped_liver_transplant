@@ -185,7 +185,7 @@ def find_pop_tau_with_CV():
     
     return five_fold_cross_val_results, five_fold_cross_val_results_summary
 
-def find_pop_tau_with_LOOCV():
+def find_pop_tau_with_LOOCV(dose='total'):
     """
     Calculate pop tau with leave one out cross validation (LOOCV).
 
