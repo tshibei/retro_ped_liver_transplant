@@ -1707,12 +1707,13 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Implement CURATE models and retrieve results')
     parser.add_argument("-p", "--pop_tau", type=str, default=False)
+    parser.add_argument("-d", "--dose", type=str, default='total')
     args = parser.parse_args()
     
     original_stdout = sys.stdout
     with open('patients_to_exclude.txt', 'w') as f:
         sys.stdout = f
-        execute_CURATE()
+        execute_CURATE(dose=args.dose)
     sys.stdout = original_stdout
     
     if args.pop_tau == True:
