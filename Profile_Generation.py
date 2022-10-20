@@ -1,3 +1,4 @@
+import openpyxl
 from openpyxl import load_workbook
 from scipy.optimize import curve_fit
 import math
