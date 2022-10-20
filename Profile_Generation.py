@@ -339,7 +339,13 @@ def execute_CURATE_and_update_pop_tau_results(CV_string, five_fold_cross_val_res
         five_fold_cross_val_results_summary.pop_tau_method[i] = five_fold_cross_val_results_summary.method[i][:-3] + 'pop_tau'
 
     # Import output with pop tau
-    pop_tau_df = pd.read_excel('output (with pop tau by '+ CV_string + ').xlsx', sheet_name='result')
+    pop_tau_string=' (of pop tau models only using ' + cross_val_method + ')'
+    if dose == 'evening':
+        file_name = 'CURATE_results_evening_dose'+ pop_tau_string + '.xlsx'
+    else:
+        file_name = 'CURATE_results' + pop_tau_string + '.xlsx'
+
+    pop_tau_df = pd.read_excel(file_name, sheet_name='result')
 
     # Filter pop tau methods
     pop_tau_df = pop_tau_df[pop_tau_df.method.str.contains('pop_tau')]
