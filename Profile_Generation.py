@@ -330,8 +330,9 @@ def execute_CURATE_and_update_pop_tau_results(CV_string, five_fold_cross_val_res
     Excel sheet containing dataframes for results of each experiment in 'Experiments' sheet and of overall results
     of each method in 'Overall' sheet.
     """
-    
-    execute_CURATE(five_fold_cross_val_results_summary, ' (with pop tau by ' + CV_string + ')')
+    five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau(dose, cross_val_method)
+
+    execute_CURATE(five_fold_cross_val_results_summary, pop_tau_string=' (of pop tau models only using ' + cross_val_method + ')', dose=dose)
 
     # Add pop_tau_method column
     five_fold_cross_val_results_summary['pop_tau_method'] = ""
