@@ -322,7 +322,7 @@ def LOOCV(patient_list, method_df, list_of_pop_half_life_fold, list_of_median_ab
 
     return list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter
 
-def execute_CURATE_and_update_pop_tau_results(CV_string, five_fold_cross_val_results_summary, five_fold_cross_val_results):
+def execute_CURATE_and_update_pop_tau_results(dose, cross_val_method):
     """
     Execute CURATE with pop tau and update pop tau results
 
