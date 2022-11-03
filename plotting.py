@@ -45,7 +45,7 @@ dosing_strategy_cutoff = 0.4
 acceptable_tac_upper_limit = 12
 acceptable_tac_lower_limit = 6.5
 
-# Analysis and plots
+# Patient population
 def percentage_of_pts_that_reached_TR_per_dose_range(all_data_file=all_data_file_total):
     """Find percentage of patients that reached TR at the same dose range."""
     # Filter doses that reached TR
@@ -143,6 +143,7 @@ def patient_population_values():
 
     sys.stdout = original_stdout
 
+# Fig 2
 def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total'):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
@@ -216,6 +217,7 @@ def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total
 
     return new_dat
 
+# Technical performance metrics
 def technical_performance_metrics(result_file=result_file_total, dose='total'):
     """
     Print the following technical performance metrics
@@ -266,6 +268,7 @@ def technical_performance_metrics(result_file=result_file_total, dose='total'):
 
     sys.stdout = original_stdout
 
+# Clinically relevant performance metrics
 def clinically_relevant_performance_metrics(result_file=result_file_total, dose='total'):
     """Clinically relevant performance metrics. 
     Find the percentage of predictions within clinically acceptable prediction error,
@@ -306,6 +309,7 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, dose=
 
     sys.stdout = original_stdout
 
+# Fig 4
 def values_in_clinically_relevant_flow_chart(dose='total'):
     """
     Calculate values for clinically relevant flow chart, in the flow chart boxes, and in additional information
@@ -379,131 +383,7 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
 
     return df
 
-def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total'):
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
-    
-    # Import output results
-    dat = pd.read_excel(result_file, sheet_name='result')
-    # dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
-
-    # Subset L_RW_wo_origin
-    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
-
-    # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
-    dat['dose_recommendation_8'] = ""
-    dat['dose_recommendation_10'] = ""
-
-    for i in range(len(dat)):
-
-        # Create function
-        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
-        coeff = coeff[~np.isnan(coeff)]
-        p = np.poly1d(coeff)
-        x = np.linspace(0, max(dat.dose) + 2)
-        y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
-
-        dat.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
-        dat.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
-
-    # Create list of patients
-    list_of_patients = find_list_of_patients()
-
-    # # Create list of body weight
-    # list_of_body_weight = find_list_of_body_weight()
-
-    # # Add body weight column
-    # dat['body_weight'] = ""
-
-    # for j in range(len(dat)):
-    #     index_patient = list_of_patients.index(str(dat.patient[j]))
-    #     dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
-        
-    # Add dose recommendations
-    dat['possible_doses'] = ""
-    dat['dose_recommendation'] = ""
-    for i in range(len(dat)):
-        # Find minimum dose recommendation by mg
-        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
-
-        # Find maximum dose recommendation by mg
-        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
-
-        # Between and inclusive of min_dose_mg and max_dose_mg,
-        # find doses that are multiples of 0.5 mg
-        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
-        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
-
-        if possible_doses.size == 0:
-            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
-
-        # Add to column of possible doses
-        dat.at[i, 'possible_doses'] = possible_doses
-
-        # Add to column of dose recommendation with lowest out of possible doses
-        dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
-
-    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation']]
-
-    # Add columns for assessment
-    CURATE_assessment['reliable'] = ""
-    CURATE_assessment['accurate'] = ""
-    CURATE_assessment['diff_dose'] = ""
-    CURATE_assessment['therapeutic_range'] = ""
-    CURATE_assessment['actionable'] = ""
-    CURATE_assessment['effect_of_CURATE'] = ""
-
-    for i in range(len(CURATE_assessment)):
-
-        # Reliable
-        if (CURATE_assessment.prediction[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.prediction[i] <= therapeutic_range_upper_limit):
-            prediction_range = 'therapeutic'
-        else:
-            prediction_range = 'non-therapeutic'
-
-        if (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit):
-            response_range = 'therapeutic'
-        else:
-            response_range = 'non-therapeutic'
-
-        reliable = (prediction_range == response_range)
-        CURATE_assessment.loc[i, 'reliable'] = reliable
-
-        # Accurate
-        accurate = (dat.deviation[i] >= overprediction_limit) & (dat.deviation[i] <= underprediction_limit)
-        CURATE_assessment.loc[i, 'accurate'] = accurate
-
-        # Different dose
-        diff_dose = (dat.dose[i] != dat.dose_recommendation[i])
-        CURATE_assessment.loc[i, 'diff_dose'] = diff_dose
-
-        # Therapeutic range
-        therapeutic_range = (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit)
-        CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
-
-        # Actionable
-        actionable = (dat.dose_recommendation[i]) <= max_dose_recommendation
-        CURATE_assessment.loc[i, 'actionable'] = actionable
-
-        # Effect of CURATE
-        if (reliable == True) & (accurate == True) & (diff_dose == True) & (therapeutic_range == False) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Improve'
-        elif (reliable == True) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
-        elif (reliable == False) & (accurate == True) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
-        elif (reliable == False) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
-        else:
-            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
-
-    return CURATE_assessment
-
+# Fig 5
 def fig_5a_case_reach_TR_earlier(plot=False, result_file=result_file_total):
     """
     Line plot of response vs dose for patient 120's day recommendation,
@@ -645,6 +525,7 @@ def fig_5b_case_reach_TR_earlier(plot=False, all_data_file=all_data_file_total):
 
     return patient_120
 
+# Fig 6
 def fig_6a_case_sustain_TR_longer(plot=False, dose='total'):
     """
     Multiple plots of response vs dose for repeated dosing strategy of 
@@ -916,6 +797,7 @@ def fig_6_computation(plot, dose, result_file):
 
     return dat_original, combined_df
 
+# Effect of CURATE.AI
 def effect_of_CURATE_categories(dose='total'):
     """
     Calculate and print out the percentage of days with projected improvement, 
@@ -1405,6 +1287,132 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
 
     return plot_df
 
+# Assessment of CURATE.AI
+def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total'):
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+    
+    # Import output results
+    dat = pd.read_excel(result_file, sheet_name='result')
+    # dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
+
+    # Subset L_RW_wo_origin
+    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
+    dat['dose_recommendation_8'] = ""
+    dat['dose_recommendation_10'] = ""
+
+    for i in range(len(dat)):
+
+        # Create function
+        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(dat.dose) + 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        dat.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
+        dat.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
+
+    # Create list of patients
+    list_of_patients = find_list_of_patients()
+
+    # # Create list of body weight
+    # list_of_body_weight = find_list_of_body_weight()
+
+    # # Add body weight column
+    # dat['body_weight'] = ""
+
+    # for j in range(len(dat)):
+    #     index_patient = list_of_patients.index(str(dat.patient[j]))
+    #     dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+        
+    # Add dose recommendations
+    dat['possible_doses'] = ""
+    dat['dose_recommendation'] = ""
+    for i in range(len(dat)):
+        # Find minimum dose recommendation by mg
+        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
+
+        # Find maximum dose recommendation by mg
+        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
+
+        # Between and inclusive of min_dose_mg and max_dose_mg,
+        # find doses that are multiples of 0.5 mg
+        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
+        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
+
+        if possible_doses.size == 0:
+            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
+
+        # Add to column of possible doses
+        dat.at[i, 'possible_doses'] = possible_doses
+
+        # Add to column of dose recommendation with lowest out of possible doses
+        dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+
+    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation']]
+
+    # Add columns for assessment
+    CURATE_assessment['reliable'] = ""
+    CURATE_assessment['accurate'] = ""
+    CURATE_assessment['diff_dose'] = ""
+    CURATE_assessment['therapeutic_range'] = ""
+    CURATE_assessment['actionable'] = ""
+    CURATE_assessment['effect_of_CURATE'] = ""
+
+    for i in range(len(CURATE_assessment)):
+
+        # Reliable
+        if (CURATE_assessment.prediction[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.prediction[i] <= therapeutic_range_upper_limit):
+            prediction_range = 'therapeutic'
+        else:
+            prediction_range = 'non-therapeutic'
+
+        if (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit):
+            response_range = 'therapeutic'
+        else:
+            response_range = 'non-therapeutic'
+
+        reliable = (prediction_range == response_range)
+        CURATE_assessment.loc[i, 'reliable'] = reliable
+
+        # Accurate
+        accurate = (dat.deviation[i] >= overprediction_limit) & (dat.deviation[i] <= underprediction_limit)
+        CURATE_assessment.loc[i, 'accurate'] = accurate
+
+        # Different dose
+        diff_dose = (dat.dose[i] != dat.dose_recommendation[i])
+        CURATE_assessment.loc[i, 'diff_dose'] = diff_dose
+
+        # Therapeutic range
+        therapeutic_range = (CURATE_assessment.response[i] >= therapeutic_range_lower_limit) & (CURATE_assessment.response[i] <= therapeutic_range_upper_limit)
+        CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
+
+        # Actionable
+        actionable = (dat.dose_recommendation[i]) <= max_dose_recommendation
+        CURATE_assessment.loc[i, 'actionable'] = actionable
+
+        # Effect of CURATE
+        if (reliable == True) & (accurate == True) & (diff_dose == True) & (therapeutic_range == False) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Improve'
+        elif (reliable == True) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        elif (reliable == False) & (accurate == True) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        elif (reliable == False) & (accurate == False) & (diff_dose == True) & (therapeutic_range == True) & (actionable == True):
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
+        else:
+            CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
+
+    return CURATE_assessment
+
 # Create lists
 def find_list_of_body_weight():
 
@@ -1787,3 +1795,46 @@ def dosing_strategy_values():
         print(f'First day where TR is achieved for distributed dose: {first_day_distributed_dose.first_day_to_TR.to_list()}')
 
     sys.stdout = original_stdout
+
+if __name__ == '__main__':
+    # Get arguments
+    import argparse
+    parser = argparse.ArgumentParser(description='Plot CURATE.AI results')
+    parser.add_argument("-f", "--figure", type=str, default=False)
+    parser.add_argument("-a", "--analysis", type=str, default=False)
+    parser.add_argument("-d", "--dose", type=str, default='total')
+    args = parser.parse_args()
+    
+    # Figures
+    if args.figure=='fig_2':
+        fig_2_TTL_over_time(plot=True)
+    elif args.figure=='fig_5':
+        fig_5a_case_reach_TR_earlier(plot=True)
+        fig_5b_case_reach_TR_earlier(plot=True)
+    elif args.figure=='fig_6':
+        fig_6a_case_sustain_TR_longer(plot=True)
+        fig_6b_case_sustain_TR_longer(plot=True)
+        fig_6c_case_sustain_TR_longer(plot=True)
+    elif args.figure=='fig_7':
+        effect_of_CURATE(plot=True)
+        plot_SOC_CURATE_perc_in_TR()
+        SOC_CURATE_first_day_in_TR(plot=True)
+        SOC_CURATE_perc_pts_TR_in_first_week(plot=True)
+    else:
+        print('no valid figure was specified')
+
+    # Analysis
+    if args.analysis=='patient_population':
+        percentage_of_pts_that_reached_TR_per_dose_range()
+        patient_population_values()
+    elif args.analysis=='tech_perf_metrics':
+        technical_performance_metrics(dose=args.dose)
+    elif args.analysis=='clinically_relevant_perf_metrics':
+        clinically_relevant_performance_metrics(dose=args.dose)
+    elif args.analysis=='effect_of_CURATE':
+        effect_of_CURATE_categories()
+        effect_of_CURATE_values()
+    elif args.analysis=='fig_4_values':
+        values_in_clinically_relevant_flow_chart()
+    else:
+        print('no valid analysis was specified')
