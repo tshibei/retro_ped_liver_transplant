@@ -825,10 +825,9 @@ def extreme_prediction_errors():
 
 def clinically_relevant_performance_metrics(result_file=result_file_total, all_data_file=all_data_file_total, dose='total'):
     """Clinically relevant performance metrics. 
-    Calculate the results, conduct statistical tests, and
-    print them out. 
-    
-    Instructions: Uncomment first block of code to write output to txt file.
+    Find the percentage of predictions within clinically acceptable prediction error,
+    percentage of overpredictions, and percentage of underpredictions. Print the results
+    into a text file.
     """
     # Uncomment to write output to txt file
     # file_path = 'Clinically relevant performance metrics.txt'
@@ -844,71 +843,27 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, all_d
     with open('clinically_relevant_perf_metrics_'+ dose +'.txt', 'w') as f:
         sys.stdout = f
 
-        # 1. Find percentage of days within clinically acceptable 
-        # tac levels (6.5 to 12 ng/ml)
+        df = pd.read_excel(result_file, sheet_name='result')
+        df = df[df.method=='L_RW_wo_origin'].reset_index()
+        df = df[['patient', 'pred_day', 'deviation']]   
 
-        data = pd.read_excel(all_data_file)
+        # Percentage of predictions within clinically acceptable prediction error
+        acceptable = df[(df.deviation > overprediction_limit) & (df.deviation < underprediction_limit)].reset_index(drop=True)
+        perc_of_clinically_acceptable_pred = len(acceptable)/len(df)*100
 
-        # Add acceptable tacrolimus levels column
-        data['acceptable'] = (data['response'] >= acceptable_tac_lower_limit) & (data['response'] <= acceptable_tac_upper_limit)
+        # Percentage of overpredictions
+        overpred = df[df.deviation < overprediction_limit]
+        perc_of_overpred = len(overpred)/len(df)*100
 
-        # Calculate results
-        acceptable_SOC = \
-        data.groupby('patient')['acceptable'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
+        # Percentage of underpredictions
+        underpred = df[df.deviation > underprediction_limit]
+        perc_of_underpred = len(underpred)/len(df)*100
 
-        result_and_distribution(acceptable_SOC.acceptable, '(1) % of days within clinically acceptable tac levels:')
+        print(f'% of predictions within clinically acceptable prediction error: {perc_of_clinically_acceptable_pred:.2f}%, n = {len(df)}\n')
+        print(f'% of predictions which are overpredictions: {perc_of_overpred:.2f}%, n = {len(df)}\n')
+        print(f'% of predictions which are underpredictions: {perc_of_underpred:.2f}%, n = {len(df)}')
 
-        # 2. Find % of predictions within clinically acceptable
-        # prediction error (between -1.5 and +2 ng/ml)
-
-        dat = pd.read_excel(result_file, sheet_name='result')
-        dat = dat[dat.method=='L_RW_wo_origin'].reset_index()
-        dat = dat[['patient', 'pred_day', 'deviation']]
-
-        # Add acceptable therapeutic range column
-        dat['acceptable'] = (dat['deviation'] >=overprediction_limit) & (dat['deviation'] <= underprediction_limit)
-
-        # Calculate results
-        acceptable_CURATE = \
-        dat.groupby('patient')['acceptable'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
-
-        result_and_distribution(acceptable_CURATE.acceptable, '(2) % of predictions within clinically acceptable prediction error:')
-
-        # Check normality of (1) and (2)
-        SOC_shapiro_p_value = stats.shapiro(acceptable_SOC.acceptable).pvalue
-        CURATE_shapiro_p_value = stats.shapiro(acceptable_CURATE.acceptable).pvalue
-        print(f'SOC shapiro pvalue: {SOC_shapiro_p_value:.2f} | CURATE shapiro pvalue: {CURATE_shapiro_p_value:.2f}')
-        if (SOC_shapiro_p_value > 0.05) and (CURATE_shapiro_p_value > 0.05):
-            print(f'Normal, mann whitney u p-value: {mannwhitneyu(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue} \n')
-            print(f'Bartlett test for equal variance: {stats.bartlett(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue}')
-            if stats.bartlett(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue > 0.05:
-                print(f'Equal variance, Unpaired t-test p: {stats.ttest_ind(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue:.2f}')
-            else: 
-                print("Unequal variance, Welch's corrected unpaired t test!! (find formula)")
-
-        else:
-            print(f'Non-normal\nmann whitney u p-value: {mannwhitneyu(acceptable_SOC.acceptable, acceptable_CURATE.acceptable).pvalue}')
-
-        # Add unacceptable overprediction
-        dat['unacceptable_overprediction'] = (dat['deviation'] < overprediction_limit)
-        dat['unacceptable_underprediction'] = (dat['deviation'] > underprediction_limit)
-
-        unacceptable_overprediction = \
-        dat.groupby('patient')['unacceptable_overprediction'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
-
-        result_and_distribution(unacceptable_overprediction.unacceptable_overprediction, '(3) % clinically unacceptable overprediction')
-
-        # 4. Clinically unacceptable underprediction
-
-        # Add unacceptable underprediction
-        unacceptable_underprediction = \
-        dat.groupby('patient')['unacceptable_underprediction'].apply(lambda x: x.sum()/x.count()*100).to_frame().reset_index()
-
-        result_and_distribution(unacceptable_underprediction.unacceptable_underprediction, '(4) % clinically unacceptable underprediction')
-    
     sys.stdout = original_stdout
-
-    return acceptable_CURATE, acceptable_SOC, unacceptable_overprediction, unacceptable_underprediction
 
 def technical_performance_metrics(result_file=result_file_total, dose='total'):
     """
