@@ -1819,7 +1819,7 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         sns.despine()
         g.set_xlabel(None)
         # g.set_ylabel('Days in therapeutic range (%)')
-        g.set_xticklabels(['Standard of care\ndosing', 'CURATE.AI-assisted\ndosing'])
+        g.set_xticklabels(['SOC dosing', 'CURATE.AI-assisted\ndosing'])
 
         # Bracket and star
         x1, x2 = 0, 1
@@ -1839,9 +1839,9 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         ax.text(1, CURATE_df.max()+1.5, labels[1], ha='center', va='bottom', 
                 color='k', fontsize=13)
 
-        plt.show()
+        # plt.show()
         # Save
-        # plt.savefig('SOC_CURATE_first_day_in_TR'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('SOC_CURATE_first_day_in_TR_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df, SOC_df, CURATE_df
 
