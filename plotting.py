@@ -1475,6 +1475,37 @@ def case_series_118_repeated_dosing_response_vs_dose(result_file=result_file_tot
     
     return dat
 
+def effect_of_CURATE_categories(dose='total'):
+    """
+    Calculate and print out the percentage of days with projected improvement, 
+    worsening, or having no effect on patient outcomes.
+    """
+    df = effect_of_CURATE(dose=dose)
+    df = df.dropna().reset_index(drop=True)
+
+    for i in range(len(df)):
+        if 'Unaffected' in df['Effect of CURATE.AI-assisted dosing'][i]:
+            df.loc[i, 'result'] = 'unaffected'
+        elif 'Improve' in df['Effect of CURATE.AI-assisted dosing'][i]:
+            df.loc[i, 'result'] = 'improve'
+        elif 'Worsen' in df['Effect of CURATE.AI-assisted dosing'][i]:
+            df.loc[i, 'result'] = 'worsen'
+        else: print(f'uncertain result at index {i}')
+        
+    perc_of_days_improved = len(df[df.result=='improve'])/len(df)*100
+    perc_of_days_worsened = len(df[df.result=='worsen'])/len(df)*100
+    perc_of_days_unaffected = len(df[df.result=='unaffected'])/len(df)*100
+
+    original_stdout = sys.stdout
+    with open('effect_of_CURATE_categories_' + dose + '.txt', 'w') as f:
+        sys.stdout = f
+        print(f'perc_of_days_improved: {perc_of_days_improved:.2f}%, n = {len(df)}')
+        print(f'perc_of_days_worsened: {perc_of_days_worsened:.2f}%, n = {len(df)}')
+        print(f'perc_of_days_unaffected: {perc_of_days_unaffected:.2f}%, n = {len(df)}')
+    sys.stdout = original_stdout
+
+    return df
+
 def effect_of_CURATE_values(dose='total'):
     """
     Output: 
