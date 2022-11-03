@@ -20,7 +20,7 @@ from scipy.stats import wilcoxon
 from scipy.stats import bartlett
 from statistics import *
 
-from profile_generation import *
+from implement_CURATE import *
 
 # Define file names
 result_file_total = 'CURATE_results.xlsx'
