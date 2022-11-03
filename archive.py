@@ -395,3 +395,31 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, all_d
     sys.stdout = original_stdout
 
     return acceptable_CURATE, acceptable_SOC, unacceptable_overprediction, unacceptable_underprediction
+
+def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
+    
+    df = pd.read_excel('all_data_including_non_ideal.xlsx')
+
+    # Declare lists
+    list_of_body_weight = find_list_of_body_weight()
+    list_of_patients = find_list_of_patients()
+
+    # Add body weight column
+    df['body_weight'] = ""
+
+    for i in range(len(df)):
+        # Find index of patient in list_of_patients
+        index = list_of_patients.index(str(df.patient[i]))
+        body_weight = list_of_body_weight[index]    
+
+        # Add body weight to column
+        df.loc[i, 'body_weight'] = body_weight
+
+    # Change current dose column to dose_mg
+    df = df.rename(columns={'dose':'dose_mg'})
+
+    # Add column 'dose' by dividing dose_mg by body weight
+    df['dose'] = df['dose_mg'] / df['body_weight']
+
+    with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
+        df.to_excel(writer, sheet_name='data', index=False)
