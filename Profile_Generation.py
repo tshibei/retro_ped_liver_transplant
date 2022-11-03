@@ -1727,6 +1727,178 @@ def format_result_df(cal_pred, result_df):
     
     return result_df
 
+# Consolidate all patient data and label those assessed as ideal or non-ideal for analysis
+def all_data(dose='total'):
+    """
+    Clean raw data and label which are ideal or non-ideal.
+    
+    Output: 
+    - Dataframe of all cleaned raw data with label of ideal/non-ideal.
+    - 'all_data.xlsx' with dataframe
+    """
+    if dose == 'total':
+        dose_string = "Eff 24h Tac Dose"
+    else:
+        dose_string = "2nd Tac dose (pm)"
+
+    if dose == 'total':
+        result_file = result_file_total
+    else:
+        result_file = result_file_evening
+
+    # Create dataframe from all sheets
+    list_of_patients = find_list_of_patients()
+    list_of_body_weight = find_list_of_body_weight()
+
+    df = pd.DataFrame()
+
+    for patient in list_of_patients:
+        patient_df = pd.read_excel('Retrospective Liver Transplant Data - edited.xlsx', sheet_name=patient, skiprows=17)
+        patient_df['patient'] = patient
+
+        # Subset dataframe
+        patient_df = patient_df[['Day #', 'Tac level (prior to am dose)', dose_string, 'patient']]
+
+        # Shift dose column
+        patient_df[dose_string] = patient_df[dose_string].shift(1)
+
+        # Remove "mg"/"ng" from dose
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mgq', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('mg', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.replace('ng', '')
+        patient_df[dose_string] = patient_df[dose_string].astype(str).str.strip()
+        patient_df[dose_string] = patient_df[dose_string].astype(float)
+
+        first_day_of_dosing = patient_df['Day #'].loc[~patient_df[dose_string].isnull()].iloc[0]
+
+        # Keep data from first day of dosing
+        patient_df = patient_df[patient_df['Day #'] >= first_day_of_dosing].reset_index(drop=True)
+
+        # Set the first day of dosing as day 2 (because first dose received on day 1)
+        for i in range(len(patient_df)):
+            patient_df.loc[i, 'Day #'] = i + 2
+
+        df = pd.concat([df, patient_df])
+
+    df.reset_index(drop=True)
+    df['patient'] = df['patient'].astype(int)
+
+    # Rename columns
+    df = df.rename(columns={'Day #':'day', 'Tac level (prior to am dose)':'response', dose_string:'dose'})
+
+    # Import output dataframe from 'clean'
+    ideal_df = pd.read_excel(result_file, sheet_name='clean')
+
+    # Add ideal column == TRUE
+    ideal_df['ideal'] = True
+
+    # Subset columns
+    ideal_df = ideal_df[['day', 'patient', 'ideal']]
+
+    # Merge dataframes
+    combined_df = df.merge(ideal_df, how='left', on=['day', 'patient'])
+
+    # Fill in ideal column with False if NaN
+    combined_df['ideal'] = combined_df['ideal'].fillna(False)
+
+    # Fill in body weight
+    combined_df['body_weight'] = ""
+
+    for i in range(len(combined_df)):
+        # Find index of patient in list_of_patients
+        index = list_of_patients.index(str(combined_df.patient[i]))
+        body_weight = list_of_body_weight[index]    
+
+        # Add body weight to column
+        combined_df.loc[i, 'body_weight'] = body_weight
+
+    # Add column 'dose' by dividing dose_mg by body weight
+    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
+    combined_df['dose'] = combined_df['dose'].astype(float)
+    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
+
+    # Clean up response column
+    for i in range(len(combined_df)):
+
+        # For response column, if there is a '/', take first value
+        if '/' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = combined_df.response[i].split('/')[0]
+        else: 
+            combined_df.loc[i, 'response'] = combined_df.response[i]
+
+        # If response is <2, which means contain '<', label as NaN
+        if '<' in str(combined_df.response[i]):
+            combined_df.loc[i, 'response'] = np.nan
+
+    # Export to excel
+    combined_df.to_excel(r'all_data_' + dose + '.xlsx', index = False, header=True)
+    
+    return combined_df
+
+# Calculate dose recommendations
+def dose_recommendation_results(dose="total"):
+    """
+    Compute dose recommendations after fitting the training data with L_RW_wo_origin.
+
+    Output: dose_recommendations.xlsx containing dose recommendation results
+    """
+    minimum_capsule = 0.5
+
+    if dose == "total":
+        result_file = "CURATE_results.xlsx"
+    else:
+        result_file = "CURATE_results_evening_dose.xlsx"
+    
+    df = pd.read_excel(result_file, sheet_name='result')
+    df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
+
+    # Interpolate
+    for i in range(len(df)):
+        # Create function
+        coeff = df.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
+        coeff = coeff[~np.isnan(coeff)]
+        p = np.poly1d(coeff)
+        x = np.linspace(0, max(df.dose)+ 2)
+        y = p(x)
+        order = y.argsort()
+        y = y[order]
+        x = x[order]
+
+        df.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
+        df.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
+        df.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+
+    # Possible dose
+    df['possible_doses'] = ""
+    for i in range(len(df)):
+        # Find minimum dose recommendation by mg
+        min_dose_mg = math.ceil(min(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
+
+        # Find maximum dose recommendation by mg
+        max_dose_mg = math.floor(max(df.interpolated_dose_8[i], df.interpolated_dose_10[i]) * 2) / 2
+
+        # Between and inclusive of min_dose_mg and max_dose_mg,
+        # find doses that are multiples of 0.5 mg
+        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
+        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
+
+        if possible_doses.size == 0:
+            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
+
+        # Add to column of possible doses
+        df.at[i, 'possible_doses'] = possible_doses
+
+        # Add to column of dose recommendation with lowest out of possible doses
+        df.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+
+    # df = df[['patient', 'pred_day', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation', 'interpolated_dose_8', 'interpolated_dose_9',
+    #        'interpolated_dose_10', 'possible_doses', 'dose_recommendation']]
+    
+        with pd.ExcelWriter('dose_recommendations_' + dose + '.xlsx') as writer:
+            df.to_excel(writer, index=False)
+
+    return df
+
 if __name__ == '__main__':
     # Get arguments
     import argparse
