@@ -79,9 +79,9 @@ def percentage_of_pts_that_reached_TR_per_dose_range(all_data_file=all_data_file
 
     return df
     
-def patient_journey_values():
+def patient_population_values():
     """
-    Print out results of 
+    Print out results of the following into a text file 'patient_population_values.txt'
     1. Response
     2. % of days within therapeutic range
     3. % of participants that reached therapeutic range within first week
@@ -90,10 +90,10 @@ def patient_journey_values():
     6. Dose administered by body weight
     """
     original_stdout = sys.stdout
-    with open('patient_journey_values.txt', 'w') as f:
+    with open('patient_population_values.txt', 'w') as f:
         sys.stdout = f
         
-        data = response_vs_day(plot=False)
+        data = fig_2_TTL_over_time(plot=False)
 
         # 1. Response
         result_and_distribution(data.response, '1. Response')
@@ -143,9 +143,7 @@ def patient_journey_values():
 
     sys.stdout = original_stdout
 
-    return perc_therapeutic_range
-
-def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
+def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total'):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
     if dose == 'total':
@@ -211,7 +209,7 @@ def response_vs_day(file_string=all_data_file_total, plot=False, dose='total'):
                             label='Region within therapeutic range', alpha=.2)]
         legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.5,-0.42), loc='upper left', frameon=False)
 
-        plt.savefig('response_vs_day_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('TTL_over_time_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
         
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
@@ -983,7 +981,7 @@ def patient_120_day_4_recommendation(plot=False, result_file=result_file_total):
 
     return combined_df, df_original
 
-def patient_120_response_vs_day(plot=False, all_data_file=all_data_file_total):
+def patient_120_TTL_over_time(plot=False, all_data_file=all_data_file_total):
     """
     Scatter plot of response vs day for patient 120,
     with green marker for first day in therapeutic range, 
@@ -1032,7 +1030,7 @@ def patient_120_response_vs_day(plot=False, all_data_file=all_data_file_total):
         axes.add_artist(legend1)
         axes.add_artist(legend2)
         
-        plt.savefig('patient_120_response_vs_day.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('patient_120_TTL_over_time.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return patient_120
 
@@ -1428,7 +1426,7 @@ def effect_of_CURATE_values(dose='total'):
 
         # 1b. % of days within therapeutic range in SOC
         # Drop rows where response is NaN
-        data = response_vs_day(plot=False)
+        data = fig_2_TTL_over_time(plot=False)
         data = data[data.response.notna()].reset_index(drop=True)
 
         # Add therapeutic range column
@@ -1483,7 +1481,7 @@ def SOC_CURATE_perc_in_TR(dose='total'):
     """
 
     # SOC
-    perc_days_TR_SOC = response_vs_day(plot=False, dose=dose)
+    perc_days_TR_SOC = fig_2_TTL_over_time(plot=False, dose=dose)
 
     # Drop rows where response is NaN
     perc_days_TR_SOC = perc_days_TR_SOC[perc_days_TR_SOC.response.notna()].reset_index(drop=True)
@@ -1573,7 +1571,7 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
     SOC and CURATE.
     """
     # SOC
-    data = response_vs_day(plot=False, dose=dose)
+    data = fig_2_TTL_over_time(plot=False, dose=dose)
 
     # Drop rows where response is NaN
     data = data[data.response.notna()].reset_index(drop=True)
@@ -1642,7 +1640,7 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
     """
 
     # SOC
-    SOC = response_vs_day(plot=False, dose=dose)
+    SOC = fig_2_TTL_over_time(plot=False, dose=dose)
     SOC = SOC[SOC.response.notna()].reset_index(drop=True)
 
     # Add therapeutic range column
