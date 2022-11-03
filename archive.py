@@ -423,3 +423,7 @@ def add_body_weight_and_dose_by_body_weight_to_df_in_excel():
 
     with pd.ExcelWriter('all_data_including_non_ideal.xlsx', engine='openpyxl', mode='a') as writer:  
         df.to_excel(writer, sheet_name='data', index=False)
+
+def import_CURATE_results():
+    df = pd.read_excel(result_file, sheet_name='result')
+    return df
