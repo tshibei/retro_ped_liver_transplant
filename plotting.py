@@ -715,7 +715,7 @@ def extreme_prediction_errors():
 
     extreme_prediction_errors[['patient','pred_day','abs_deviation']]
 
-def clinically_relevant_performance_metrics(result_file=result_file_total, all_data_file=all_data_file_total, dose='total'):
+def clinically_relevant_performance_metrics(result_file=result_file_total, dose='total'):
     """Clinically relevant performance metrics. 
     Find the percentage of predictions within clinically acceptable prediction error,
     percentage of overpredictions, and percentage of underpredictions. Print the results
@@ -726,10 +726,8 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, all_d
     # sys.stdout = open(file_path, "w")
     if dose == 'total':
         result_file = result_file_total
-        all_data_file = all_data_file_total
     else:
         result_file = result_file_evening
-        all_data_file = all_data_file_evening
 
     original_stdout = sys.stdout
     with open('clinically_relevant_perf_metrics_'+ dose +'.txt', 'w') as f:
@@ -771,7 +769,7 @@ def technical_performance_metrics(result_file=result_file_total, dose='total'):
         result_file = result_file_evening
 
     original_stdout = sys.stdout
-    with open('technical_perf_metrics'+ dose +'.txt', 'w') as f:
+    with open('technical_perf_metrics_'+ dose +'.txt', 'w') as f:
         sys.stdout = f
 
         df = pd.read_excel(result_file, sheet_name='result')
@@ -794,7 +792,8 @@ def technical_performance_metrics(result_file=result_file_total, dose='total'):
 
         # 4. LOOCV
         print('4. LOOCV\n')
-        experiment = pd.read_excel('LOOCV_results.xlsx', sheet_name='Experiments')
+        LOOCV_all_methods(dose=dose)
+        experiment = pd.read_excel('LOOCV_results_'+dose+'.xlsx', sheet_name='Experiments')
 
         experiment = experiment[experiment.method=='L_RW_wo_origin']
         result_and_distribution(experiment.train_median, 'Training set LOOCV')
@@ -805,8 +804,6 @@ def technical_performance_metrics(result_file=result_file_total, dose='total'):
         ## Compare medians between training and test sets
 
     sys.stdout = original_stdout
-
-    return df
 
 def dosing_strategy_values():
     """
@@ -1827,13 +1824,6 @@ def import_raw_data_including_non_ideal():
 
     return df
 
-def import_CURATE_results():
-    df = pd.read_excel(result_file, sheet_name='result')
-    return df
-
-# Edit excel sheets
-
-
 # Statistical test
 def result_and_distribution(df, metric_string):
     """
@@ -1880,12 +1870,15 @@ def median_IQR_range(df):
 
 # LOOCV for all methods
 
-def LOOCV_all_methods(file_string=result_file_total):
+def LOOCV_all_methods(file_string=result_file_total, dose='total'):
     """
     Perform LOOCV for all methods
     
     Output: Excel sheet 'all_methods_LOOCV.xlsx' with results of LOOCV for all methods
     """
+    if dose == 'evening':
+        file_string=result_file_evening
+
     dat = read_file_and_remove_unprocessed_pop_tau(file_string)
 
     # Define lists
@@ -1933,7 +1926,7 @@ def LOOCV_all_methods(file_string=result_file_total):
     # test_median_shapiro = experiment_results_df.groupby('method')['test_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
 
     # Output dataframes to excel as individual sheets
-    with pd.ExcelWriter('LOOCV_results.xlsx') as writer:
+    with pd.ExcelWriter('LOOCV_results_' + dose + '.xlsx') as writer:
         experiment_results_df.to_excel(writer, sheet_name='Experiments', index=False)
         overall_results_df.to_excel(writer, sheet_name='Overall', index=False)
 

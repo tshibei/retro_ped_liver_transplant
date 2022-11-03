@@ -32,7 +32,7 @@ def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', do
 
     # Print patients to exclude anad ouput dataframes to excel as individual sheets
     print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
-    output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose)
+    output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose=dose)
 
 # Pop tau
 def find_pop_tau(dose='total', method='LOOCV'):
@@ -1742,10 +1742,10 @@ def all_data(dose='total'):
     else:
         dose_string = "2nd Tac dose (pm)"
 
-    if dose == 'total':
-        result_file = result_file_total
+    if dose == "total":
+        result_file = "CURATE_results.xlsx"
     else:
-        result_file = result_file_evening
+        result_file = "CURATE_results_evening_dose.xlsx"
 
     # Create dataframe from all sheets
     list_of_patients = find_list_of_patients()
@@ -1909,21 +1909,24 @@ if __name__ == '__main__':
     parser.add_argument("-C", "--cross_val_method", type=str, default='LOOCV')
     args = parser.parse_args()
     
-    print('implementing CURATE.AI...')
-
+    # Implement CURATE.AI models without pop tau
+    print('implementing CURATE.AI models without pop tau...')
     original_stdout = sys.stdout
     with open('patients_to_exclude.txt', 'w') as f:
         sys.stdout = f
         execute_CURATE(dose=args.dose)
     sys.stdout = original_stdout
-    print('end of implementing CURATE.AI models without pop tau')
 
+    # Implement CURATE.AI models with pop tau
     if args.pop_tau:
+        print('implementing CURATE.AI models with pop tau...')
         execute_CURATE_and_update_pop_tau_results(args.dose, args.cross_val_method)
-        print('end of implementing CURATE.AI models with and without pop tau')
-
+        
+    # Consolidate all patient data, label them as ideal or non-ideal for analysis
+    print('consolidating all patient data and labeling them as ideal or non-ideal for analysis...')   
     all_data(dose=args.dose)
-    print('consolidated all patient data and labeled as ideal or non-ideal for analysis')
     
+    # Dose recommendations
+    print('computing CURATE.AI dose recommendations...')
     dose_recommendation_results(dose=args.dose)
-    print('computed CURATE.AI dose recommendations')
+    print('end of code')
