@@ -1827,7 +1827,7 @@ if __name__ == '__main__':
     if args.analysis=='patient_population':
         percentage_of_pts_that_reached_TR_per_dose_range()
         patient_population_values()
-    elif args.analysis=='tech_perf_metrics':
+    elif args.analysis=='technical_perf_metrics':
         technical_performance_metrics(dose=args.dose)
     elif args.analysis=='clinically_relevant_perf_metrics':
         clinically_relevant_performance_metrics(dose=args.dose)
