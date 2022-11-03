@@ -1909,15 +1909,21 @@ if __name__ == '__main__':
     parser.add_argument("-C", "--cross_val_method", type=str, default='LOOCV')
     args = parser.parse_args()
     
-    print('starting profile generation...')
+    print('implementing CURATE.AI...')
 
     original_stdout = sys.stdout
     with open('patients_to_exclude.txt', 'w') as f:
         sys.stdout = f
         execute_CURATE(dose=args.dose)
     sys.stdout = original_stdout
-    print('end of profile generation for models without pop tau')
+    print('end of implementing CURATE.AI models without pop tau')
 
     if args.pop_tau:
         execute_CURATE_and_update_pop_tau_results(args.dose, args.cross_val_method)
-        print('end of profile generation for models with and without pop tau')
+        print('end of implementing CURATE.AI models with and without pop tau')
+
+    all_data(dose=args.dose)
+    print('consolidated all patient data and labeled as ideal or non-ideal for analysis')
+    
+    dose_recommendation_results(dose=args.dose)
+    print('computed CURATE.AI dose recommendations')
