@@ -49,8 +49,12 @@
 # *.wmv
 
 __pycache__
-.ipynb_checkpoints
+.ipynb_checkpoints/
 *.xlsx
 *.txt
 *.png
 *.pdf
+Graphs/
+Data/
+Archive/
+archive.py
