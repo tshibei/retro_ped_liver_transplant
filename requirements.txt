@@ -1,0 +1,10 @@
+seaborn
+pandas
+numpy
+sklearn
+math
+matplotlib
+openpyxl
+sys
+scipy
+statistics
