@@ -23,12 +23,12 @@ Add `--dose evening` to implement CURATE.AI models with evening dose instead of 
 - *dose_recommendations.xlsx* containing CURATE.AI dose recommendations.  
 
 ### Plot and analyse results
-Plot figures. Valid figure numbers are `2`, `5`, `6`, or `7`.
+To plot figures. Valid figure numbers are `2`, `5`, `6`, or `7`.
 ```
 python plotting.py --figure fig_<figure number>
 ```
   
-  Analyse results. Valid analysis names are `patient_population`, `technical_perf_metrics`, `clinically_relevant_perf_metrics`, `effect_of_CURATE`, or `fig_4_values`.
+  To annalyse results. Valid analysis names are `patient_population`, `technical_perf_metrics`, `clinically_relevant_perf_metrics`, `effect_of_CURATE`, or `fig_4_values`.
 ```
 python plotting.py --analysis <analysis name>
 ```
