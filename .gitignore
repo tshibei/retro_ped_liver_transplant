@@ -54,6 +54,7 @@ __pycache__
 *.txt
 *.png
 *.pdf
+*.pptx
 Graphs/
 Data/
 Archive/
