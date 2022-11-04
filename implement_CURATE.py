@@ -1904,7 +1904,6 @@ if __name__ == '__main__':
     # Get arguments
     import argparse
     parser = argparse.ArgumentParser(description='Implement CURATE models and retrieve results')
-    parser.add_argument("-p", "--pop_tau", type=str, default=False)
     parser.add_argument("-d", "--dose", type=str, default='total')
     parser.add_argument("-C", "--cross_val_method", type=str, default='LOOCV')
     args = parser.parse_args()
@@ -1917,10 +1916,8 @@ if __name__ == '__main__':
         execute_CURATE(dose=args.dose)
     sys.stdout = original_stdout
 
-    # Implement CURATE.AI models with pop tau
-    if args.pop_tau:
-        print('implementing CURATE.AI models with pop tau...')
-        execute_CURATE_and_update_pop_tau_results(args.dose, args.cross_val_method)
+    print('implementing CURATE.AI models with pop tau...')
+    execute_CURATE_and_update_pop_tau_results(args.dose, args.cross_val_method)
         
     # Consolidate all patient data, label them as ideal or non-ideal for analysis
     print('consolidating all patient data and labeling them as ideal or non-ideal for analysis...')   
