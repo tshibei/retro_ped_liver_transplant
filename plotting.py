@@ -1088,7 +1088,7 @@ def plot_SOC_CURATE_perc_in_TR():
     sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
 
     # Bar plot
-    p = ax.bar(['SOC dosing', 'CURATE.AI-assisted\ndosing'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
+    p = ax.bar(['SOC dosing\n(N = 16)', 'CURATE.AI-assisted\ndosing\n(N = 16)'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
         edgecolor='black', capsize=10, color=[sns.color_palette("Paired",8)[0],sns.color_palette("Paired",8)[1]], zorder=1, width=.4)
 
     # Scatter points
@@ -1114,6 +1114,7 @@ def plot_SOC_CURATE_perc_in_TR():
             ha="center", va="bottom", fontsize=13
         )
 
+    plt.tight_layout()
     plt.savefig('perc_days_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return df
@@ -1192,7 +1193,7 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
         sns.despine()
         g.set_xlabel(None)
         # g.set_ylabel('Days in therapeutic range (%)')
-        g.set_xticklabels(['SOC dosing', 'CURATE.AI-assisted\ndosing'])
+        g.set_xticklabels(['SOC dosing\n(N = 15)', 'CURATE.AI-assisted\ndosing\n(N = 15)'])
 
         # Bracket and star
         x1, x2 = 0, 1
@@ -1277,7 +1278,7 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
         
         # Aesthetics
         sns.despine()
-        ax.set_xticklabels(['SOC dosing', 'CURATE.AI-assisted\ndosing'])
+        ax.set_xticklabels(['SOC dosing\n(N = 15)', 'CURATE.AI-assisted\ndosing\n(N = 15)'])
         plt.ylabel('Patients who achieve therapeutic\nrange in first week (%)')
         
         # Bar labels
