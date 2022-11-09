@@ -172,8 +172,8 @@ def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total
 
     # Rename columns and entries
     new_dat = dat.copy()
-    new_dat = new_dat.rename(columns={'within_range':'TTL'})
-    new_dat['TTL'] = new_dat['TTL'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
+    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus trough levels (TTL)'})
+    new_dat['Tacrolimus trough levels (TTL)'] = new_dat['Tacrolimus trough levels (TTL)'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
     new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
     new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
@@ -188,7 +188,7 @@ def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total
         # Plot tac levels by day
         sns.set(font_scale=1.5, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
 
-        g = sns.relplot(data=new_dat, x='Day', y='response', hue='TTL', col='patient', col_wrap=4, style='Dose range',
+        g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus trough levels (TTL)', col='patient', col_wrap=4, style='Dose range',
                 height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'], 
                 style_order=['Low', 'Medium', 'High', 'Unavailable'], zorder=2)
 
