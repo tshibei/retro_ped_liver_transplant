@@ -384,7 +384,60 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
     return df
 
 # Fig 5
-def fig_5a_case_reach_TR_earlier(plot=False, result_file=result_file_total):
+def fig_5a_case_reach_TR_earlier(plot=False, all_data_file=all_data_file_total):
+    """
+    Scatter plot of response vs day for patient 120,
+    with green marker for first day in therapeutic range, 
+    and purple marker for potential first day with
+    CURATE.AI. 
+    """
+    
+    df, df_original = fig_5a_case_reach_TR_earlier()
+
+    # Find predicted response on day 4
+    predicted_response = (df_original.loc[0, 'coeff_1x'] * 2) + (df_original.loc[0, 'coeff_0x'])
+
+    # SOC data
+    patient_120 = pd.read_excel(all_data_file)
+    patient_120 = patient_120[patient_120.patient==120]
+    patient_120 = patient_120[['day', 'response']].reset_index(drop=True)
+
+    if plot==True:
+        # Plot
+        fig, axes = plt.subplots(figsize=(7,7))
+        sns.set(style='white', font_scale=2.2,
+            rc={"xtick.bottom":True, "ytick.left":True})
+
+        plt.plot(patient_120.day, patient_120.response, 'yo', linestyle='-', ms=10)
+        plt.scatter(x=patient_120.day[0], y=patient_120.response[0], color='y', s=100, label='SOC dosing')
+        plt.plot(4, predicted_response, 'm^', ms=10, label='First day of therapeutic range\nwith CURATE.AI-assisted dosing')
+        plt.plot(8, 9.9, 'go', ms=10, label='First day of therapeutic range\nwith SOC dosing')
+
+        plt.ylim(0,max(patient_120.response+1))
+
+        sns.despine()
+        plt.xticks(np.arange(2,max(patient_120.day),step=4))
+        plt.xlabel('Day')
+        plt.ylabel('TTL (ng/ml)')
+        plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
+
+        handles, labels = plt.gca().get_legend_handles_labels()
+        order = [2,1,0]
+        legend1 = plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
+                bbox_to_anchor=(1.04,0.5), loc='center left', frameon=False) 
+
+        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+                                label='Region within therapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(1.04,0.34), loc='upper left', frameon=False)
+
+        axes.add_artist(legend1)
+        axes.add_artist(legend2)
+        
+        plt.savefig('fig_5b_case_reach_TR_earlier.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return patient_120
+
+def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
     """
     Line plot of response vs dose for patient 120's day recommendation,
     with data points as (dose, response) pairs on day 2 and 3,
@@ -471,59 +524,6 @@ def fig_5a_case_reach_TR_earlier(plot=False, result_file=result_file_total):
         plt.savefig('fig_5a_case_reach_TR_earlier.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_df, df_original
-
-def fig_5b_case_reach_TR_earlier(plot=False, all_data_file=all_data_file_total):
-    """
-    Scatter plot of response vs day for patient 120,
-    with green marker for first day in therapeutic range, 
-    and purple marker for potential first day with
-    CURATE.AI. 
-    """
-    
-    df, df_original = fig_5a_case_reach_TR_earlier()
-
-    # Find predicted response on day 4
-    predicted_response = (df_original.loc[0, 'coeff_1x'] * 2) + (df_original.loc[0, 'coeff_0x'])
-
-    # SOC data
-    patient_120 = pd.read_excel(all_data_file)
-    patient_120 = patient_120[patient_120.patient==120]
-    patient_120 = patient_120[['day', 'response']].reset_index(drop=True)
-
-    if plot==True:
-        # Plot
-        fig, axes = plt.subplots(figsize=(7,7))
-        sns.set(style='white', font_scale=2.2,
-            rc={"xtick.bottom":True, "ytick.left":True})
-
-        plt.plot(patient_120.day, patient_120.response, 'yo', linestyle='-', ms=10)
-        plt.scatter(x=patient_120.day[0], y=patient_120.response[0], color='y', s=100, label='SOC dosing')
-        plt.plot(4, predicted_response, 'm^', ms=10, label='First day of therapeutic range\nwith CURATE.AI-assisted dosing')
-        plt.plot(8, 9.9, 'go', ms=10, label='First day of therapeutic range\nwith SOC dosing')
-
-        plt.ylim(0,max(patient_120.response+1))
-
-        sns.despine()
-        plt.xticks(np.arange(2,max(patient_120.day),step=4))
-        plt.xlabel('Day')
-        plt.ylabel('TTL (ng/ml)')
-        plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
-
-        handles, labels = plt.gca().get_legend_handles_labels()
-        order = [2,1,0]
-        legend1 = plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
-                bbox_to_anchor=(1.04,0.5), loc='center left', frameon=False) 
-
-        legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                                label='Region within therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(1.04,0.34), loc='upper left', frameon=False)
-
-        axes.add_artist(legend1)
-        axes.add_artist(legend2)
-        
-        plt.savefig('fig_5b_case_reach_TR_earlier.png', dpi=1000, facecolor='w', bbox_inches='tight')
-
-    return patient_120
 
 # Fig 6
 def fig_6a_case_sustain_TR_longer(plot=False, dose='total'):
