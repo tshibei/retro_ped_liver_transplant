@@ -14,6 +14,7 @@ from statistics import mean
 import sys
 pd.options.mode.chained_assignment = None  # default='warn'
 from plotting import *
+from scipy import interpolate
 
 # CURATE
 def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', dose='total'):
@@ -1859,15 +1860,24 @@ def dose_recommendation_results(dose="total"):
         coeff = df.loc[i, 'coeff_2x':'coeff_0x'].apply(float).to_numpy()
         coeff = coeff[~np.isnan(coeff)]
         p = np.poly1d(coeff)
-        x = np.linspace(0, max(df.dose)+ 2)
+        x = np.linspace(0, 8)
         y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
+        
+        # Check for duplicates, which will occur if coeff_1x is very close to 0, and
+        # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
+        # also known as coeff_0x
+        dupes = [x for n, x in enumerate(y) if x in y[:n]]
+        if len(dupes) != 0:
+            df.loc[i, 'interpolated_dose_8'] = df.loc[i, 'coeff_0x']
+            df.loc[i, 'interpolated_dose_9'] = df.loc[i, 'coeff_0x']
+            df.loc[i, 'interpolated_dose_10'] = df.loc[i, 'coeff_0x']
 
-        df.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
-        df.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
-        df.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+        else:
+            f = interpolate.interp1d(y, x, fill_value='extrapolate')
+
+            df.loc[i, 'interpolated_dose_8'] = f(8)
+            df.loc[i, 'interpolated_dose_9'] = f(9)
+            df.loc[i, 'interpolated_dose_10'] = f(10)
 
     # Possible dose
     df['possible_doses'] = ""
@@ -1895,8 +1905,8 @@ def dose_recommendation_results(dose="total"):
     # df = df[['patient', 'pred_day', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation', 'interpolated_dose_8', 'interpolated_dose_9',
     #        'interpolated_dose_10', 'possible_doses', 'dose_recommendation']]
     
-        with pd.ExcelWriter('dose_recommendations_' + dose + '.xlsx') as writer:
-            df.to_excel(writer, index=False)
+    with pd.ExcelWriter('dose_recommendations_' + dose + '.xlsx') as writer:
+        df.to_excel(writer, index=False)
 
     return df
 
