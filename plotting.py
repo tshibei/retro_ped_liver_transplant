@@ -392,7 +392,7 @@ def fig_5a_case_reach_TR_earlier(plot=False, all_data_file=all_data_file_total):
     CURATE.AI. 
     """
     
-    df, df_original = fig_5a_case_reach_TR_earlier()
+    df, df_original = fig_5b_case_reach_TR_earlier()
 
     # Find predicted response on day 4
     predicted_response = (df_original.loc[0, 'coeff_1x'] * 2) + (df_original.loc[0, 'coeff_0x'])
