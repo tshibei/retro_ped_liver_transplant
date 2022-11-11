@@ -929,6 +929,57 @@ def effect_of_CURATE_values(dose='total'):
 
     sys.stdout = original_stdout
 
+def effect_of_CURATE_inter_indiv_differences(dose='total'):
+    """
+    1) Print the percentage of patients, out of total patients, 
+    that were in therapeutic range more/less/equally frequent with CURATE.AI-assisted
+    dosing. 
+    2) Print the percentage of patients, out of total patients, 
+    that first achieved the therapeutic range earlier/later/on the same day
+    with CURATE.AI-assisted dosing.
+    """
+    original_stdout = sys.stdout
+    with open('effect_of_CURATE_inter_indiv_differences_' + dose + '.txt', 'w') as f:
+        sys.stdout = f
+        df = effect_of_CURATE().dropna()
+
+        # Percentage of days within TTR
+        SOC_TTR = df.groupby('patient')['therapeutic_range'].apply(lambda x: (x=='therapeutic').sum()/x.count()*100).reset_index(name='SOC_TTR')
+        CURATE_TTR = df.groupby('patient')['Effect of CURATE.AI-assisted dosing'].apply(lambda x: (x.count()-x[x.str.contains('non-therapeutic')].count())/x.count()*100).reset_index(name='CURATE_TTR')
+
+        combined_df_TTR = SOC_TTR.merge(CURATE_TTR, on='patient')
+        for i in range(len(combined_df_TTR)):
+            if combined_df_TTR.CURATE_TTR[i] > combined_df_TTR.SOC_TTR[i]:
+                combined_df_TTR.loc[i, 'effect_of_CURATE_on_TTR'] = 'more frequent'
+            elif combined_df_TTR.CURATE_TTR[i] < combined_df_TTR.SOC_TTR[i]:
+                combined_df_TTR.loc[i, 'effect_of_CURATE_on_TTR'] = 'less frequent'
+            else:
+                combined_df_TTR.loc[i, 'effect_of_CURATE_on_TTR'] = 'equally frequent'
+
+        TTR = combined_df_TTR.effect_of_CURATE_on_TTR.value_counts()/len(df.patient.unique())*100
+        print(TTR)
+        print(f'Out of {len(df.patient.unique())} patients')
+
+        # First day to reach TTR
+        SOC_first_day = df[df.therapeutic_range=='therapeutic'].groupby('patient')['day'].first().reset_index(name='SOC_first_day')
+        CURATE_first_day = df.copy()
+        CURATE_first_day = CURATE_first_day[CURATE_first_day['Effect of CURATE.AI-assisted dosing'].str.contains("non-therapeutic")==False].groupby('patient')['day'].first().reset_index(name='CURATE_first_day')
+
+        combined_df_first_day = CURATE_first_day.merge(SOC_first_day, on='patient')
+        for i in range(len(combined_df_first_day)):
+            if combined_df_first_day.CURATE_first_day[i] < combined_df_first_day.SOC_first_day[i]:
+                combined_df_first_day.loc[i, 'first_day_in_TTR'] = 'earlier'
+            elif combined_df_first_day.CURATE_first_day[i] > combined_df_first_day.SOC_first_day[i]:
+                combined_df_first_day.loc[i, 'first_day_in_TTR'] = 'later'
+            else:
+                combined_df_first_day.loc[i, 'first_day_in_TTR'] = 'same'
+
+        first_day_in_TTR = combined_df_first_day.first_day_in_TTR.value_counts()/len(df.patient.unique())*100
+        print(first_day_in_TTR)
+        print(f'Out of {len(df.patient.unique())} patients')
+    
+    sys.stdout = original_stdout
+
 # Fig 7a
 def effect_of_CURATE(plot=False, dose='total'):
     """
@@ -1865,6 +1916,7 @@ if __name__ == '__main__':
     elif args.analysis=='effect_of_CURATE':
         effect_of_CURATE_categories()
         effect_of_CURATE_values()
+        effect_of_CURATE_inter_indiv_differences()
     elif args.analysis=='fig_4_values':
         values_in_clinically_relevant_flow_chart()
     else:
