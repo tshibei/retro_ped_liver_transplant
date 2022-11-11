@@ -19,6 +19,7 @@ from scipy.stats import levene
 from scipy.stats import wilcoxon
 from scipy.stats import bartlett
 from statistics import *
+from scipy import interpolate
 
 from implement_CURATE import *
 
@@ -37,6 +38,7 @@ medium_dose_upper_limit_BW = 0.6
 overprediction_limit = -1.5
 underprediction_limit = 2
 max_dose_recommendation = 8
+min_dose_recommendation = 0
 max_dose_recommendation_BW = 0.85
 minimum_capsule = 0.5
 therapeutic_range_upper_limit = 10
@@ -118,7 +120,7 @@ def patient_population_values():
 
         # 3. % of participants that reached therapeutic range within first week
         first_week_df = data.copy()
-        first_week_df = first_week_df[first_week_df['TTL']=='Therapeutic range'].reset_index(drop=True)
+        first_week_df = first_week_df[first_week_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
         first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
         result = first_week_df.Day.sum()/first_week_df.Day.count()*100
 
@@ -127,7 +129,7 @@ def patient_population_values():
 
         # 4. Day where patient first achieved therapeutic range
         first_TR_df = data.copy()
-        first_TR_df = first_TR_df[first_TR_df['TTL']=='Therapeutic range'].reset_index(drop=True)
+        first_TR_df = first_TR_df[first_TR_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
         first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
 
         # Result and distribution
@@ -461,14 +463,22 @@ def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
         coeff = df.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
         coeff = coeff[~np.isnan(coeff)]
         p = np.poly1d(coeff)
-        x = np.linspace(0, max_dose_recommendation + 2)
+        x = np.linspace(0, max_dose_recommendation)
         y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
 
-        df.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
-        df.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
+        # Check for duplicates, which will occur if coeff_1x is very close to 0, and
+        # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
+        # also known as coeff_0x
+        dupes = [x for n, x in enumerate(y) if x in y[:n]]
+        if len(dupes) != 0:
+            df.loc[i, 'dose_recommendation_8'] = df.loc[i, 'coeff_0x']
+            df.loc[i, 'dose_recommendation_10'] = df.loc[i, 'coeff_0x']
+
+        else:
+            f = interpolate.interp1d(y, x, fill_value='extrapolate')
+
+            df.loc[i, 'dose_recommendation_8'] = f(8)
+            df.loc[i, 'dose_recommendation_10'] = f(10)
 
     df_original = df.copy()
 
@@ -708,15 +718,24 @@ def fig_6_computation(plot, dose, result_file):
         coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
         coeff = coeff[~np.isnan(coeff)]
         p = np.poly1d(coeff)
-        x = np.linspace(0, max(dat.dose)+ 2)
+        x = np.linspace(0, max_dose_recommendation)
         y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
 
-        dat.loc[i, 'interpolated_dose_8'] = np.interp(8, y, x)
-        dat.loc[i, 'interpolated_dose_9'] = np.interp(9, y, x)
-        dat.loc[i, 'interpolated_dose_10'] = np.interp(10, y, x)
+        # Check for duplicates, which will occur if coeff_1x is very close to 0, and
+        # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
+        # also known as coeff_0x
+        dupes = [x for n, x in enumerate(y) if x in y[:n]]
+        if len(dupes) != 0:
+            dat.loc[i, 'interpolated_dose_8'] = dat.loc[i, 'coeff_0x']
+            dat.loc[i, 'interpolated_dose_9'] = dat.loc[i, 'coeff_0x']
+            dat.loc[i, 'interpolated_dose_10'] = dat.loc[i, 'coeff_0x']
+
+        else:
+            f = interpolate.interp1d(y, x, fill_value='extrapolate')
+
+            dat.loc[i, 'interpolated_dose_8'] = f(8)
+            dat.loc[i, 'interpolated_dose_9'] = f(9)
+            dat.loc[i, 'interpolated_dose_10'] = f(10)
         
     # Create column to find points that outperform, benefit, or do not affect SOC
     dat['effect_on_SOC'] = 'none'
@@ -896,7 +915,7 @@ def effect_of_CURATE_values(dose='total'):
 
         # 3b. Day where patient first achieved therapeutic range in SOC
         first_TR_df = data.copy()
-        first_TR_df = first_TR_df[first_TR_df['TTL']=='Therapeutic range'].reset_index(drop=True)
+        first_TR_df = first_TR_df[first_TR_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
         first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
 
         # Result and distribution
@@ -1085,7 +1104,8 @@ def plot_SOC_CURATE_perc_in_TR():
     df = SOC_CURATE_perc_in_TR()
 
     fig, ax = plt.subplots()
-    sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+    # plt.figure(figsize=(5,5))
+    sns.set(font_scale=1.2, rc={"xtick.bottom":True, "ytick.left":True}, style='white')
 
     # Bar plot
     p = ax.bar(['SOC dosing\n(N = 16)', 'CURATE.AI-assisted\ndosing\n(N = 16)'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
@@ -1136,8 +1156,9 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
             SOC.loc[i, 'therapeutic_range'] = True
         else:
             SOC.loc[i, 'therapeutic_range'] = False
+    print(SOC.columns)
 
-    SOC = SOC[SOC['TTL']=='Therapeutic range'].reset_index(drop=True)
+    SOC = SOC[SOC['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
     SOC = SOC.groupby('patient')['Day'].first().reset_index(name='SOC')
 
     # CURATE
@@ -1239,7 +1260,8 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
             data.loc[i, 'therapeutic_range'] = False
 
     first_week_df = data.copy()
-    first_week_df = first_week_df[first_week_df['TTL']=='Therapeutic range'].reset_index(drop=True)
+    print(first_week_df.columns)
+    first_week_df = first_week_df[first_week_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
     first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
     result = first_week_df.Day.sum()/first_week_df.Day.count()*100
 
@@ -1312,14 +1334,22 @@ def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total
         coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
         coeff = coeff[~np.isnan(coeff)]
         p = np.poly1d(coeff)
-        x = np.linspace(0, max(dat.dose) + 2)
+        x = np.linspace(0, max_dose_recommendation)
         y = p(x)
-        order = y.argsort()
-        y = y[order]
-        x = x[order]
 
-        dat.loc[i, 'dose_recommendation_8'] = np.interp(8, y, x)
-        dat.loc[i, 'dose_recommendation_10'] = np.interp(10, y, x)
+        # Check for duplicates, which will occur if coeff_1x is very close to 0, and
+        # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
+        # also known as coeff_0x
+        dupes = [x for n, x in enumerate(y) if x in y[:n]]
+        if len(dupes) != 0:
+            dat.loc[i, 'dose_recommendation_8'] = dat.loc[i, 'coeff_0x']
+            dat.loc[i, 'dose_recommendation_10'] = dat.loc[i, 'coeff_0x']
+
+        else:
+            f = interpolate.interp1d(y, x, fill_value='extrapolate')
+
+            dat.loc[i, 'dose_recommendation_8'] = f(8)
+            dat.loc[i, 'dose_recommendation_10'] = f(10)
 
     # Create list of patients
     list_of_patients = find_list_of_patients()
@@ -1397,7 +1427,7 @@ def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total
         CURATE_assessment.loc[i, 'therapeutic_range'] = therapeutic_range
 
         # Actionable
-        actionable = (dat.dose_recommendation[i]) <= max_dose_recommendation
+        actionable = ((dat.dose_recommendation[i]) <= max_dose_recommendation) & ((dat.dose_recommendation[i]) >= min_dose_recommendation)
         CURATE_assessment.loc[i, 'actionable'] = actionable
 
         # Effect of CURATE
