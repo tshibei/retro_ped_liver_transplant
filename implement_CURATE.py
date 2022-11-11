@@ -1862,7 +1862,7 @@ def dose_recommendation_results(dose="total"):
         p = np.poly1d(coeff)
         x = np.linspace(0, 8)
         y = p(x)
-        
+
         # Check for duplicates, which will occur if coeff_1x is very close to 0, and
         # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
         # also known as coeff_0x
@@ -1902,11 +1902,11 @@ def dose_recommendation_results(dose="total"):
         # Add to column of dose recommendation with lowest out of possible doses
         df.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
 
-    # df = df[['patient', 'pred_day', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation', 'interpolated_dose_8', 'interpolated_dose_9',
-    #        'interpolated_dose_10', 'possible_doses', 'dose_recommendation']]
-    
-    with pd.ExcelWriter('dose_recommendations_' + dose + '.xlsx') as writer:
-        df.to_excel(writer, index=False)
+    # Resulting response with dose recommendation
+    df['predicted_response_after_recommended_dose'] = df['coeff_1x'] * df['dose_recommendation'] + df['coeff_0x']
+
+    # Export to excel
+    df.to_excel(r'dose_recommendations_' + dose + '.xlsx', index = False, header=True)
 
     return df
 

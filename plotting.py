@@ -386,47 +386,51 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
     return df
 
 # Fig 5
-def fig_5a_case_reach_TR_earlier(plot=False, all_data_file=all_data_file_total):
-    """
-    Scatter plot of response vs day for patient 120,
-    with green marker for first day in therapeutic range, 
-    and purple marker for potential first day with
-    CURATE.AI. 
-    """
-    
-    df, df_original = fig_5b_case_reach_TR_earlier()
+def fig_5a(plot=False, all_data_file=all_data_file_total):
+    case_series_patient_num = 120
+    case_series_patient_journey(case_series_patient_num=case_series_patient_num, all_data_file=all_data_file)
 
-    # Find predicted response on day 4
-    predicted_response = (df_original.loc[0, 'coeff_1x'] * 2) + (df_original.loc[0, 'coeff_0x'])
-
+def case_series_patient_journey(case_series_patient_num, all_data_file, plot=True):
     # SOC data
-    patient_120 = pd.read_excel(all_data_file)
-    patient_120 = patient_120[patient_120.patient==120]
-    patient_120 = patient_120[['day', 'response']].reset_index(drop=True)
+    case_series_patient = pd.read_excel(all_data_file)
+    case_series_patient = case_series_patient[case_series_patient.patient==case_series_patient_num]
+    case_series_patient = case_series_patient[['day', 'response']].reset_index(drop=True)
+    
+    if case_series_patient==118:
+        case_series_patient = case_series_patient.iloc[:13,:] # Added this line for patient 118 to stop from the row where the rest of the days have NaN response
 
+    # CURATE data
+    df = create_df_for_CURATE_assessment()
+    df = df[df.patient==case_series_patient_num].reset_index(drop=True)
+
+    # Merge both dataframes
+    df = df.rename(columns={'pred_day':'day'})
+    combined_df = case_series_patient.merge(df[['day', 'projected_response']], how='left', on='day')
+    for i in range(len(combined_df)):
+        if math.isnan(combined_df.projected_response[i]):
+            combined_df.loc[i, 'projected_response'] = combined_df.loc[i, 'response']
+
+    # Plot
     if plot==True:
-        # Plot
-        fig, axes = plt.subplots(figsize=(7,7))
-        sns.set(style='white', font_scale=2.2,
-            rc={"xtick.bottom":True, "ytick.left":True})
+        
+        fig, axes = plt.subplots(figsize=(10,7))
+        sns.set(style='white', font_scale=2.2, rc={"xtick.bottom":True, "ytick.left":True})
 
-        plt.plot(patient_120.day, patient_120.response, 'yo', linestyle='-', ms=10)
-        plt.scatter(x=patient_120.day[0], y=patient_120.response[0], color='y', s=100, label='SOC dosing')
-        plt.plot(4, predicted_response, 'm^', ms=10, label='First day of therapeutic range\nwith CURATE.AI-assisted dosing')
-        plt.plot(8, 9.9, 'go', ms=10, label='First day of therapeutic range\nwith SOC dosing')
-
-        plt.ylim(0,max(patient_120.response+1))
+        plt.plot(case_series_patient.day, case_series_patient.response, 'yo', linestyle='-', ms=14, mfc="none", label='SOC dosing', mew=2)
+        plt.plot(combined_df[(combined_df['response']>=8) & (combined_df['response']<=10)].day, combined_df[(combined_df['response']>=8) & (combined_df['response']<=10)].response, 'yo', ms=14, label='Within the therapeutic range\nwith SOC dosing', mew=2)
+        plt.plot(combined_df.day, combined_df.projected_response, 'm^', ms=14, linestyle='-', label='CURATE.AI-assisted dosing', mfc="none", mew=2)
+        plt.plot(combined_df[(combined_df['projected_response']>=8) & (combined_df['projected_response']<=10)].day, combined_df[(combined_df['projected_response']>=8) & (combined_df['projected_response']<=10)].projected_response, 'm^', ms=14, label='Within the therapeutic range\nwith CURATE.AI-assisted dosing', mew=2)
 
         sns.despine()
-        plt.xticks(np.arange(2,max(patient_120.day),step=4))
+        plt.xticks(np.arange(2,max(case_series_patient.day),step=4))
         plt.xlabel('Day')
         plt.ylabel('TTL (ng/ml)')
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
-
+        
         handles, labels = plt.gca().get_legend_handles_labels()
-        order = [2,1,0]
+        order = [0,1,2,3]
         legend1 = plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order],
-                bbox_to_anchor=(1.04,0.5), loc='center left', frameon=False) 
+                bbox_to_anchor=(1.04,0.54), loc='center left', frameon=False) 
 
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
                                 label='Region within therapeutic range', alpha=.2)]
@@ -435,9 +439,12 @@ def fig_5a_case_reach_TR_earlier(plot=False, all_data_file=all_data_file_total):
         axes.add_artist(legend1)
         axes.add_artist(legend2)
         
-        plt.savefig('fig_5b_case_reach_TR_earlier.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.tight_layout()
 
-    return patient_120
+        if case_series_patient == 120:
+            plt.savefig('fig_5a.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        elif case_series_patient == 118:
+            plt.savefig('fig_6a.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
 def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
     """
@@ -531,12 +538,16 @@ def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
         plt.xticks(np.arange(0,3.5,step=0.5))
         plt.xlim(0,2.5)
         
-        plt.savefig('fig_5a_case_reach_TR_earlier.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_5b_case_reach_TR_earlier.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_df, df_original
 
 # Fig 6
-def fig_6a_case_sustain_TR_longer(plot=False, dose='total'):
+def fig_6a(plot=False, all_data_file=all_data_file_total):
+    case_series_patient_num = 118
+    case_series_patient_journey(case_series_patient_num=case_series_patient_num, all_data_file=all_data_file)
+
+def fig_6b(plot=False, dose='total'):
     """
     Multiple plots of response vs dose for repeated dosing strategy of 
     patient 118, with each plot representing one day of prediction. 
@@ -596,11 +607,11 @@ def fig_6a_case_sustain_TR_longer(plot=False, dose='total'):
             plt.legend(handles=legend_elements, bbox_to_anchor=(-0.2,-.3), loc='upper left', frameon=False)       
 
     plt.tight_layout()
-    plt.savefig('fig_6a_case_sustain_TR_longer' + dose + '.png',dpi=1000, bbox_inches='tight', pad_inches=0)
+    plt.savefig('fig_6b' + dose + '.png',dpi=1000, bbox_inches='tight', pad_inches=0)
 
     return combined_df
 
-def fig_6b_case_sustain_TR_longer(plot=False, dose='total'):
+def fig_6c(plot=False, dose='total'):
     """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
     if dose == 'total':
         result_file = result_file_total
@@ -643,9 +654,9 @@ def fig_6b_case_sustain_TR_longer(plot=False, dose='total'):
     
 
     plt.tight_layout()
-    plt.savefig('fig_6b_case_sustain_TR_longer'+ dose +'.png',dpi=1000)
+    plt.savefig('fig_6c'+ dose +'.png',dpi=1000)
 
-def fig_6c_case_sustain_TR_longer(result_file=result_file_total, plot=True, dose='total'):
+def fig_6d(result_file=result_file_total, plot=True, dose='total'):
     """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
     dat_original, combined_df = fig_6_computation(plot=plot, dose=dose, result_file=result_file)
     clean_dat = pd.read_excel(result_file, sheet_name='clean')
@@ -696,7 +707,7 @@ def fig_6c_case_sustain_TR_longer(result_file=result_file_total, plot=True, dose
              bbox=dict(facecolor='m', ec='black', alpha=0.5, boxstyle='circle'))
 
     plt.tight_layout()
-    plt.savefig('fig_6c_case_sustain_TR_longer.png',dpi=1000, bbox_inches='tight')
+    plt.savefig('fig_6d.png',dpi=1000, bbox_inches='tight')
     
     return dat
 
@@ -1362,84 +1373,83 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
     return plot_df
 
 # Assessment of CURATE.AI
-def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total'):
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
-    
-    # Import output results
-    dat = pd.read_excel(result_file, sheet_name='result')
-    # dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
+def create_df_for_CURATE_assessment(dose='total'):
+    file_name = 'dose_recommendations_'+dose+'.xlsx'
 
-    # Subset L_RW_wo_origin
-    dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
+    # # Import output results
+    # dat = pd.read_excel(result_file, sheet_name='result')
+    # # dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
 
-    # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
-    dat['dose_recommendation_8'] = ""
-    dat['dose_recommendation_10'] = ""
+    # # Subset L_RW_wo_origin
+    # dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
 
-    for i in range(len(dat)):
+    # # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
+    # dat['dose_recommendation_8'] = ""
+    # dat['dose_recommendation_10'] = ""
 
-        # Create function
-        coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
-        coeff = coeff[~np.isnan(coeff)]
-        p = np.poly1d(coeff)
-        x = np.linspace(0, max_dose_recommendation)
-        y = p(x)
+    # for i in range(len(dat)):
 
-        # Check for duplicates, which will occur if coeff_1x is very close to 0, and
-        # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
-        # also known as coeff_0x
-        dupes = [x for n, x in enumerate(y) if x in y[:n]]
-        if len(dupes) != 0:
-            dat.loc[i, 'dose_recommendation_8'] = dat.loc[i, 'coeff_0x']
-            dat.loc[i, 'dose_recommendation_10'] = dat.loc[i, 'coeff_0x']
+    #     # Create function
+    #     coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
+    #     coeff = coeff[~np.isnan(coeff)]
+    #     p = np.poly1d(coeff)
+    #     x = np.linspace(0, max_dose_recommendation)
+    #     y = p(x)
 
-        else:
-            f = interpolate.interp1d(y, x, fill_value='extrapolate')
+    #     # Check for duplicates, which will occur if coeff_1x is very close to 0, and
+    #     # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
+    #     # also known as coeff_0x
+    #     dupes = [x for n, x in enumerate(y) if x in y[:n]]
+    #     if len(dupes) != 0:
+    #         dat.loc[i, 'dose_recommendation_8'] = dat.loc[i, 'coeff_0x']
+    #         dat.loc[i, 'dose_recommendation_10'] = dat.loc[i, 'coeff_0x']
 
-            dat.loc[i, 'dose_recommendation_8'] = f(8)
-            dat.loc[i, 'dose_recommendation_10'] = f(10)
+    #     else:
+    #         f = interpolate.interp1d(y, x, fill_value='extrapolate')
 
-    # Create list of patients
-    list_of_patients = find_list_of_patients()
+    #         dat.loc[i, 'dose_recommendation_8'] = f(8)
+    #         dat.loc[i, 'dose_recommendation_10'] = f(10)
 
-    # # Create list of body weight
-    # list_of_body_weight = find_list_of_body_weight()
+    # # Create list of patients
+    # list_of_patients = find_list_of_patients()
 
-    # # Add body weight column
-    # dat['body_weight'] = ""
+    # # # Create list of body weight
+    # # list_of_body_weight = find_list_of_body_weight()
 
-    # for j in range(len(dat)):
-    #     index_patient = list_of_patients.index(str(dat.patient[j]))
-    #     dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
+    # # # Add body weight column
+    # # dat['body_weight'] = ""
+
+    # # for j in range(len(dat)):
+    # #     index_patient = list_of_patients.index(str(dat.patient[j]))
+    # #     dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
         
-    # Add dose recommendations
-    dat['possible_doses'] = ""
-    dat['dose_recommendation'] = ""
-    for i in range(len(dat)):
-        # Find minimum dose recommendation by mg
-        min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
+    # # Add dose recommendations
+    # dat['possible_doses'] = ""
+    # dat['dose_recommendation'] = ""
+    # for i in range(len(dat)):
+    #     # Find minimum dose recommendation by mg
+    #     min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
 
-        # Find maximum dose recommendation by mg
-        max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
+    #     # Find maximum dose recommendation by mg
+    #     max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
 
-        # Between and inclusive of min_dose_mg and max_dose_mg,
-        # find doses that are multiples of 0.5 mg
-        possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
-        possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
+    #     # Between and inclusive of min_dose_mg and max_dose_mg,
+    #     # find doses that are multiples of 0.5 mg
+    #     possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
+    #     possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
 
-        if possible_doses.size == 0:
-            possible_doses = np.array(min(min_dose_mg, max_dose_mg))
+    #     if possible_doses.size == 0:
+    #         possible_doses = np.array(min(min_dose_mg, max_dose_mg))
 
-        # Add to column of possible doses
-        dat.at[i, 'possible_doses'] = possible_doses
+    #     # Add to column of possible doses
+    #     dat.at[i, 'possible_doses'] = possible_doses
 
-        # Add to column of dose recommendation with lowest out of possible doses
-        dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
+    #     # Add to column of dose recommendation with lowest out of possible doses
+    #     dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
 
-    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation']]
+    dat = pd.read_excel(file_name)
+
+    CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation', 'predicted_response_after_recommended_dose']]
 
     # Add columns for assessment
     CURATE_assessment['reliable'] = ""
@@ -1492,6 +1502,21 @@ def create_df_for_CURATE_assessment(result_file = result_file_total, dose='total
             CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Worsen'
         else:
             CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
+
+        for i in range(len(CURATE_assessment)):
+            if CURATE_assessment.effect_of_CURATE[i] == 'Unaffected':
+                CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'response']
+            else:
+                CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'predicted_response_after_recommended_dose']
+
+            # If effect of CURATE is Worsen, but projected response is within the therapeutic range, it means that we assumed
+            # that CURATE's recommended dose resulted in falling out of therapeutic range, due to either profile
+            # lacking reliability and/or prediction lacking accuracy. Thus, we set an arbitrary projected response of 7 ng/ml
+            # to represent outside of therapeutic range.
+            if (CURATE_assessment.effect_of_CURATE[i] == 'Worsen') & \
+                (CURATE_assessment.projected_response[i] >= therapeutic_range_lower_limit) & \
+                    (CURATE_assessment.projected_response[i] <= therapeutic_range_upper_limit):
+                    CURATE_assessment.loc[i, 'projected_response'] = 7
 
     return CURATE_assessment
 
@@ -1891,12 +1916,13 @@ if __name__ == '__main__':
     if args.figure=='fig_2':
         fig_2_TTL_over_time(plot=True)
     elif args.figure=='fig_5':
-        fig_5a_case_reach_TR_earlier(plot=True)
+        fig_5a(plot=True)
         fig_5b_case_reach_TR_earlier(plot=True)
     elif args.figure=='fig_6':
-        fig_6a_case_sustain_TR_longer(plot=True)
-        fig_6b_case_sustain_TR_longer(plot=True)
-        fig_6c_case_sustain_TR_longer(plot=True)
+        fig_6a(plot=True)
+        fig_6b(plot=True)
+        fig_6c(plot=True)
+        fig_6d(plot=True)
     elif args.figure=='fig_7':
         effect_of_CURATE(plot=True)
         plot_SOC_CURATE_perc_in_TR()
