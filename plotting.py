@@ -639,60 +639,75 @@ def fig_6c(plot=False, dose='total'):
     plt.tight_layout()
     plt.savefig('fig_6c.png',dpi=1000)
 
+    return df
+
 def fig_6d(result_file=result_file_total, plot=True, dose='total'):
     """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
-    dat_original, combined_df = fig_6_computation(plot=plot, dose=dose, result_file=result_file)
-    clean_dat = pd.read_excel(result_file, sheet_name='clean')
+    # dat_original, combined_df = fig_6_computation(plot=plot, dose=dose, result_file=result_file)
+    # clean_dat = pd.read_excel(result_file, sheet_name='clean')
 
-    # Subset pred_days with repeated dose of 6mg
-    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)].reset_index(drop=True)
+    # # Subset pred_days with repeated dose of 6mg
+    # dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)].reset_index(drop=True)
 
-    # Add column for CURATE recommendation
-    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
-    dat['CURATE-recommended dose'] = CURATE_dosing
+    # # Add column for CURATE recommendation
+    # CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
+    # dat['CURATE-recommended dose'] = CURATE_dosing
 
-    # Add column for predicted response if CURATE dose was administered instead
-    dat['predicted_response_based_on_rec'] = dat['coeff_1x'] * dat['CURATE-recommended dose'] + dat['coeff_0x']
+    # # Add column for predicted response if CURATE dose was administered instead
+    # dat['predicted_response_based_on_rec'] = dat['coeff_1x'] * dat['CURATE-recommended dose'] + dat['coeff_0x']
 
-    dat = dat[['pred_day', 'dose', 'response', 'CURATE-recommended dose', 'predicted_response_based_on_rec']]
+    # dat = dat[['pred_day', 'dose', 'response', 'CURATE-recommended dose', 'predicted_response_based_on_rec']]
 
-    # Plot
-    fig, axes = plt.subplots()
-    sns.set(font_scale=2.2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
+    all_data_file='all_data_total.xlsx'
+    case_series_patient_num=118
 
-    plt.scatter(x=dat['CURATE-recommended dose'], y=dat['predicted_response_based_on_rec'], marker='^', color='m', label='CURATE.AI-assisted dosing', s=100)
-    plt.scatter(x=dat['dose'], y=dat['response'], marker='o', color='y', label='SOC dosing', s=100)
-    sns.despine()
-    plt.xlabel('Dose (mg)')
-    plt.ylabel('TTL (ng/ml)')
-    plt.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
-    plt.xticks(np.arange(4,8.5,step=0.5))
-    plt.xlim(4,8)
-    plt.yticks(np.arange(8,15,step=1))
+    df = create_df_for_CURATE_assessment()
+    df = df[df.patient==case_series_patient_num].reset_index(drop=True)
+    df = df[(df.pred_day>=5) & (df.pred_day<=9)].reset_index(drop=True)
 
-    legend1 = plt.legend(bbox_to_anchor=(0.5,-0.3), loc='center', frameon=False)
+    if plot==True:
+        # Plot
+        fig, axes = plt.subplots()
+        sns.set(font_scale=2.2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
 
-    legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                            label='Region within therapeutic range', alpha=.2)]
-    legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-0.07,-0.35), loc='upper left', frameon=False)
+        plt.plot(df['dose_recommendation'], df['projected_response'], 'm^', label='CURATE.AI-assisted dosing', ms=14, mfc="none", mew=2)
+        plt.plot(df[(df['projected_response']<=therapeutic_range_upper_limit) & (df['projected_response']>=therapeutic_range_lower_limit)].dose_recommendation, \
+            df[(df['projected_response']<=therapeutic_range_upper_limit) & (df['projected_response']>=therapeutic_range_lower_limit)].projected_response, \
+                'm^', ms=14, mew=2)
+        plt.plot(df['dose'], df['response'],'yo', label='SOC dosing', ms=14, mfc="none", mew=2)
+        plt.plot(df[(df['response']<=therapeutic_range_upper_limit) & (df['response']>=therapeutic_range_lower_limit)].dose, \
+            df[(df['response']<=therapeutic_range_upper_limit) & (df['response']>=therapeutic_range_lower_limit)].response, \
+                'yo', ms=14, mew=2)
+        sns.despine()
+        plt.xlabel('Dose (mg)')
+        plt.ylabel('TTL (ng/ml)')
+        plt.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2)
+        plt.xticks(np.arange(4,8.5,step=0.5))
+        plt.xlim(4,8)
+        plt.yticks(np.arange(8,15,step=1))
 
+        # legend1 = plt.legend(bbox_to_anchor=(0.5,-0.3), loc='center', frameon=False)
+
+        # legend_elements = [Patch(facecolor='grey', edgecolor='grey',
+        #                         label='Region within therapeutic range', alpha=.2)]
+        # legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-0.07,-0.35), loc='upper left', frameon=False)
+
+        # axes.add_artist(legend1)
+        # axes.add_artist(legend2)        
+
+        for i in range(df.shape[0]):
+            plt.text(x=df.dose[i]+0.2,y=df.response[i],s=int(df.pred_day[i]),
+                    fontdict=dict(color='black',size=18),
+                    bbox=dict(facecolor='none', ec='black', alpha=0.5, boxstyle='circle'))
+
+            plt.text(x=df.loc[i, 'dose_recommendation']+0.2,y=df.loc[i, 'projected_response'],s=int(df.pred_day[i]),
+                fontdict=dict(color='black',size=18),
+                bbox=dict(facecolor='none', ec='black', alpha=0.5, boxstyle='circle'))
+
+        plt.tight_layout()
+        plt.savefig('fig_6d.png',dpi=1000, bbox_inches='tight')
     
-    axes.add_artist(legend1)
-    axes.add_artist(legend2)        
-
-    for i in range(dat.shape[0]):
-        plt.text(x=dat.dose[i]+0.2,y=dat.response[i],s=int(dat.pred_day[i]),
-                 fontdict=dict(color='black',size=13),
-                 bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
-
-        plt.text(x=dat.loc[i, 'CURATE-recommended dose']+0.2,y=dat.loc[i, 'predicted_response_based_on_rec'],s=int(dat.pred_day[i]),
-             fontdict=dict(color='black',size=13),
-             bbox=dict(facecolor='m', ec='black', alpha=0.5, boxstyle='circle'))
-
-    plt.tight_layout()
-    plt.savefig('fig_6d.png',dpi=1000, bbox_inches='tight')
-    
-    return dat
+    return df
 
 def fig_6_computation(plot, dose, result_file):
     """
