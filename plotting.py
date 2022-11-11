@@ -446,7 +446,7 @@ def case_series_patient_journey(case_series_patient_num, all_data_file, plot=Tru
         elif case_series_patient == 118:
             plt.savefig('fig_6a.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
-def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
+def fig_5b(plot=False, result_file=result_file_total):
     """
     Line plot of response vs dose for patient 120's day recommendation,
     with data points as (dose, response) pairs on day 2 and 3,
@@ -517,10 +517,10 @@ def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
         y = np.array([combined_df.y[0],combined_df.y[1]])
         a, b = np.polyfit(x, y, 1)
         x_values = np.linspace(0, 3)
-        plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
+        plt.plot(x_values, a*x_values + b, color='y', linestyle='-')
 
         # Plot scatter points
-        plt.scatter(x, y, s=120, color='y')
+        plt.scatter(x, y, s=200, facecolors="none", edgecolors="y", linewidths=2)
 
         # Plot therapeutic range
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
@@ -529,7 +529,7 @@ def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
         for i in range(combined_df.shape[0]):
             plt.text(x=combined_df.x[i]+0.13,y=combined_df.y[i]-0.3,s=int(combined_df.day[i]),
                     fontdict=dict(color='black',size=18),
-                    bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+                    bbox=dict(facecolor='none', ec='black', alpha=0.5, boxstyle='circle'))
 
         sns.despine()
         plt.title('Day 4 Recommendation')
@@ -538,7 +538,7 @@ def fig_5b_case_reach_TR_earlier(plot=False, result_file=result_file_total):
         plt.xticks(np.arange(0,3.5,step=0.5))
         plt.xlim(0,2.5)
         
-        plt.savefig('fig_5b_case_reach_TR_earlier.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_5b.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_df, df_original
 
@@ -1917,7 +1917,7 @@ if __name__ == '__main__':
         fig_2_TTL_over_time(plot=True)
     elif args.figure=='fig_5':
         fig_5a(plot=True)
-        fig_5b_case_reach_TR_earlier(plot=True)
+        fig_5b(plot=True)
     elif args.figure=='fig_6':
         fig_6a(plot=True)
         fig_6b(plot=True)
