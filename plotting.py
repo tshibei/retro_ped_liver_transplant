@@ -1374,77 +1374,6 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
 def create_df_for_CURATE_assessment(dose='total'):
     file_name = 'dose_recommendations_'+dose+'.xlsx'
 
-    # # Import output results
-    # dat = pd.read_excel(result_file, sheet_name='result')
-    # # dat_dose_by_mg = pd.read_excel(result_file, sheet_name='clean')
-
-    # # Subset L_RW_wo_origin
-    # dat = dat[dat.method=='L_RW_wo_origin'].reset_index(drop=True)
-
-    # # Add dose recommendation columns for tac levels of 8 to 10 ng/ml
-    # dat['dose_recommendation_8'] = ""
-    # dat['dose_recommendation_10'] = ""
-
-    # for i in range(len(dat)):
-
-    #     # Create function
-    #     coeff = dat.loc[i, 'coeff_1x':'coeff_0x'].apply(float).to_numpy()
-    #     coeff = coeff[~np.isnan(coeff)]
-    #     p = np.poly1d(coeff)
-    #     x = np.linspace(0, max_dose_recommendation)
-    #     y = p(x)
-
-    #     # Check for duplicates, which will occur if coeff_1x is very close to 0, and
-    #     # will cause RuntimeError for interp1d. Hence, set interpolated doses to the intercept,
-    #     # also known as coeff_0x
-    #     dupes = [x for n, x in enumerate(y) if x in y[:n]]
-    #     if len(dupes) != 0:
-    #         dat.loc[i, 'dose_recommendation_8'] = dat.loc[i, 'coeff_0x']
-    #         dat.loc[i, 'dose_recommendation_10'] = dat.loc[i, 'coeff_0x']
-
-    #     else:
-    #         f = interpolate.interp1d(y, x, fill_value='extrapolate')
-
-    #         dat.loc[i, 'dose_recommendation_8'] = f(8)
-    #         dat.loc[i, 'dose_recommendation_10'] = f(10)
-
-    # # Create list of patients
-    # list_of_patients = find_list_of_patients()
-
-    # # # Create list of body weight
-    # # list_of_body_weight = find_list_of_body_weight()
-
-    # # # Add body weight column
-    # # dat['body_weight'] = ""
-
-    # # for j in range(len(dat)):
-    # #     index_patient = list_of_patients.index(str(dat.patient[j]))
-    # #     dat.loc[j, 'body_weight'] = list_of_body_weight[index_patient]
-        
-    # # Add dose recommendations
-    # dat['possible_doses'] = ""
-    # dat['dose_recommendation'] = ""
-    # for i in range(len(dat)):
-    #     # Find minimum dose recommendation by mg
-    #     min_dose_mg = math.ceil(min(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
-
-    #     # Find maximum dose recommendation by mg
-    #     max_dose_mg = math.floor(max(dat.dose_recommendation_8[i], dat.dose_recommendation_10[i]) * 2) / 2
-
-    #     # Between and inclusive of min_dose_mg and max_dose_mg,
-    #     # find doses that are multiples of 0.5 mg
-    #     possible_doses = np.arange(min_dose_mg, max_dose_mg + minimum_capsule, minimum_capsule)
-    #     possible_doses = possible_doses[possible_doses % minimum_capsule == 0]
-
-    #     if possible_doses.size == 0:
-    #         possible_doses = np.array(min(min_dose_mg, max_dose_mg))
-
-    #     # Add to column of possible doses
-    #     dat.at[i, 'possible_doses'] = possible_doses
-
-    #     # Add to column of dose recommendation with lowest out of possible doses
-    #     dat.loc[i, 'dose_recommendation'] = possible_doses if (possible_doses.size == 1) else min(possible_doses)
-
     dat = pd.read_excel(file_name)
 
     CURATE_assessment = dat[['patient', 'pred_day', 'prediction', 'response', 'deviation', 'dose', 'dose_recommendation', 'predicted_response_after_recommended_dose']]
@@ -1501,20 +1430,29 @@ def create_df_for_CURATE_assessment(dose='total'):
         else:
             CURATE_assessment.loc[i, 'effect_of_CURATE'] = 'Unaffected'
 
+        # Compute the projected response based on Supplementary Fig S1
         for i in range(len(CURATE_assessment)):
             if CURATE_assessment.effect_of_CURATE[i] == 'Unaffected':
-                CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'response']
-            else:
-                CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'predicted_response_after_recommended_dose']
+                if reliable == True:
+                    if actionable == True:
+                        CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'response']
+                    else:
+                        CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'predicted_response_after_recommended_dose']
+                else:
+                    if actionable == False:
+                        CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'response']
+                    else:
+                        CURATE_assessment.loc[i, 'projected_response'] = 7
 
-            # If effect of CURATE is Worsen, but projected response is within the therapeutic range, it means that we assumed
-            # that CURATE's recommended dose resulted in falling out of therapeutic range, due to either profile
-            # lacking reliability and/or prediction lacking accuracy. Thus, we set an arbitrary projected response of 7 ng/ml
-            # to represent outside of therapeutic range.
-            if (CURATE_assessment.effect_of_CURATE[i] == 'Worsen') & \
-                (CURATE_assessment.projected_response[i] >= therapeutic_range_lower_limit) & \
-                    (CURATE_assessment.projected_response[i] <= therapeutic_range_upper_limit):
-                    CURATE_assessment.loc[i, 'projected_response'] = 7
+
+                CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'response']
+            
+            elif CURATE_assessment.effect_of_CURATE[i] == 'Improve':
+                CURATE_assessment.loc[i, 'projected_response'] = CURATE_assessment.loc[i, 'predicted_response_after_recommended_dose']
+            # Worsen
+            else:
+                # Worsen
+                CURATE_assessment.loc[i, 'projected_response'] = 7
 
     return CURATE_assessment
 
