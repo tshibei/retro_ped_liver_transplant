@@ -386,7 +386,7 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
     return df
 
 # Fig 5
-def fig_5a(plot=False, all_data_file=all_data_file_total):
+def fig_5a(plot=True, all_data_file=all_data_file_total):
     case_series_patient_num = 120
     case_series_patient_journey(case_series_patient_num=case_series_patient_num, all_data_file=all_data_file)
 
@@ -396,7 +396,7 @@ def case_series_patient_journey(case_series_patient_num, all_data_file, plot=Tru
     case_series_patient = case_series_patient[case_series_patient.patient==case_series_patient_num]
     case_series_patient = case_series_patient[['day', 'response']].reset_index(drop=True)
     
-    if case_series_patient==118:
+    if case_series_patient_num==118:
         case_series_patient = case_series_patient.iloc[:13,:] # Added this line for patient 118 to stop from the row where the rest of the days have NaN response
 
     # CURATE data
@@ -441,10 +441,12 @@ def case_series_patient_journey(case_series_patient_num, all_data_file, plot=Tru
         
         plt.tight_layout()
 
-        if case_series_patient == 120:
+        if case_series_patient_num == 120:
             plt.savefig('fig_5a.png', dpi=1000, facecolor='w', bbox_inches='tight')
-        elif case_series_patient == 118:
+        elif case_series_patient_num == 118:
             plt.savefig('fig_6a.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return combined_df
 
 def fig_5b(plot=False, result_file=result_file_total):
     """
@@ -613,48 +615,29 @@ def fig_6b(plot=False, dose='total'):
 
 def fig_6c(plot=False, dose='total'):
     """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
+    all_data_file='all_data_total.xlsx'
+    case_series_patient_num=118
 
-    dat_original, combined_df = fig_6_computation(plot, dose, result_file)
-    clean_dat = pd.read_excel(result_file, sheet_name='clean')
-    
-    # Subset pred_days with repeated dose of 6mg
-    dat = dat_original[(dat_original.pred_day >= 5) & (dat_original.pred_day <= 9)]
-    CURATE_dosing = [7.5, 5.5, 5.5, 5, 5]
-    dat['CURATE.AI-assisted dosing'] = CURATE_dosing
+    df = create_df_for_CURATE_assessment()
+    df = df[df.patient==case_series_patient_num].reset_index(drop=True)
+    df = df[(df.pred_day>=5) & (df.pred_day<=9)]
 
-    # Subset columns
-    dat = dat[['pred_day','CURATE.AI-assisted dosing']]
-    dat = dat.rename(columns={'pred_day':'day'})
+    sns.set(font_scale=2.2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
 
-    # Subset patient 118 data only
-    clean_dat = clean_dat[(clean_dat.patient == 118) & ((clean_dat.day >= 5) & (clean_dat.day <= 9))].reset_index(drop=True)
+    plt.plot(df.pred_day, df.dose, 'yo', linestyle='-', ms=14, mfc="none", label='SOC dosing', mew=2)
+    plt.plot(df[(df['response']>=8) & (df['response']<=10)].pred_day, df[(df['response']>=8) & (df['response']<=10)].dose, 'yo', ms=14, label='Within the therapeutic range\nwith SOC dosing', mew=2)
+    plt.plot(df.pred_day, df.dose_recommendation, 'm^', ms=14, linestyle='-', label='CURATE.AI-assisted dosing', mfc="none", mew=2)
+    plt.plot(df[(df['projected_response']>=8) & (df['projected_response']<=10)].pred_day, df[(df['projected_response']>=8) & (df['projected_response']<=10)].dose_recommendation, 'm^', ms=14, label='Within the therapeutic range\nwith CURATE.AI-assisted dosing', mew=2)
 
-    # Subset day and dose
-    clean_dat = clean_dat[['day', 'dose']]
-    clean_dat = clean_dat.rename(columns={'dose':'SOC dosing'})
-
-    # Combine both CURATE.AI-assisted dosing recommendations and actual dose given
-    combined_dat = dat.merge(clean_dat, how='left', on='day')
-
-    # Plot
-    sns.set(font_scale=2.2, rc={"figure.figsize": (9,7), "xtick.bottom":True, "ytick.left":True}, style='white')
-
-    plt.plot(combined_dat['day'], combined_dat['CURATE.AI-assisted dosing'], marker='^', color='m', label='CURATE.AI-assisted dosing', ms=10)
-    plt.plot(combined_dat['day'], combined_dat['SOC dosing'], marker='o', color='y', label='SOC dosing', ms=10)
-    plt.legend(bbox_to_anchor=(0.5,-0.5), loc='center', frameon=False)
+    plt.legend('', frameon=False)
     sns.despine()
     plt.xlabel('Day')
     plt.ylabel('Dose (mg)')
     plt.yticks(np.arange(5,8,step=0.5))
     plt.ylim(4.5, 8)
-    
 
     plt.tight_layout()
-    plt.savefig('fig_6c'+ dose +'.png',dpi=1000)
+    plt.savefig('fig_6c.png',dpi=1000)
 
 def fig_6d(result_file=result_file_total, plot=True, dose='total'):
     """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
