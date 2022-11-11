@@ -581,7 +581,7 @@ def fig_6b(plot=False, dose='total'):
         plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
 
         # Plot scatter points
-        plt.scatter(x, y, s=100, color='y')
+        plt.scatter(x, y, s=200, facecolors="none", edgecolors="y", linewidths=2)
 
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
@@ -598,7 +598,7 @@ def fig_6b(plot=False, dose='total'):
         for j in range(2):
             plt.text(x=combined_df.x[i*2+j]+0.8,y=combined_df.y[i*2+j]-0.3,s=int(combined_df.day[i*2+j]), 
                 fontdict=dict(color='black',size=18),
-                bbox=dict(facecolor='y', ec='black', alpha=0.5, boxstyle='circle'))
+                bbox=dict(facecolor='none', ec='black', alpha=0.5, boxstyle='circle'))
             
         # Add legend for grey patch of therapeutic range
         if i == 0:
@@ -607,7 +607,7 @@ def fig_6b(plot=False, dose='total'):
             plt.legend(handles=legend_elements, bbox_to_anchor=(-0.2,-.3), loc='upper left', frameon=False)       
 
     plt.tight_layout()
-    plt.savefig('fig_6b' + dose + '.png',dpi=1000, bbox_inches='tight', pad_inches=0)
+    plt.savefig('fig_6b.png',dpi=1000, bbox_inches='tight', pad_inches=0)
 
     return combined_df
 
