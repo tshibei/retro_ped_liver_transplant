@@ -95,7 +95,7 @@ def patient_population_values():
     with open('patient_population_values.txt', 'w') as f:
         sys.stdout = f
         
-        data = fig_2_TTL_over_time(plot=False)
+        data = fig_2(plot=False)
 
         # 1. Response
         result_and_distribution(data.response, '1. Response')
@@ -146,7 +146,7 @@ def patient_population_values():
     sys.stdout = original_stdout
 
 # Fig 2
-def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total'):
+def fig_2(file_string=all_data_file_total, plot=False, dose='total'):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
     if dose == 'total':
@@ -212,7 +212,7 @@ def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total
                             label='Region within therapeutic range', alpha=.2)]
         legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.30,-0.4), loc='upper left', frameon=False)
 
-        plt.savefig('TTL_over_time_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_2_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
         
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
@@ -831,7 +831,7 @@ def effect_of_CURATE_categories(dose='total'):
     Calculate and print out the percentage of days with projected improvement, 
     worsening, or having no effect on patient outcomes.
     """
-    df = effect_of_CURATE(dose=dose)
+    df = fig_7a(dose=dose)
     df = df.dropna().reset_index(drop=True)
 
     for i in range(len(df)):
@@ -870,7 +870,7 @@ def effect_of_CURATE_values(dose='total'):
     with open('effect_of_CURATE_' + dose + '.txt', 'w') as f:
         sys.stdout = f
 
-        df = effect_of_CURATE(dose=dose)
+        df = fig_7a(dose=dose)
 
         # Drop rows where response is NaN
         df = df[df.response.notna()].reset_index(drop=True)
@@ -890,7 +890,7 @@ def effect_of_CURATE_values(dose='total'):
 
         # 1b. % of days within therapeutic range in SOC
         # Drop rows where response is NaN
-        data = fig_2_TTL_over_time(plot=False)
+        data = fig_2(plot=False)
         data = data[data.response.notna()].reset_index(drop=True)
 
         # Add therapeutic range column
@@ -950,7 +950,7 @@ def effect_of_CURATE_inter_indiv_differences(dose='total'):
     original_stdout = sys.stdout
     with open('effect_of_CURATE_inter_indiv_differences_' + dose + '.txt', 'w') as f:
         sys.stdout = f
-        df = effect_of_CURATE().dropna()
+        df = fig_7a().dropna()
 
         # Percentage of days within TTR
         SOC_TTR = df.groupby('patient')['therapeutic_range'].apply(lambda x: (x=='therapeutic').sum()/x.count()*100).reset_index(name='SOC_TTR')
@@ -990,7 +990,7 @@ def effect_of_CURATE_inter_indiv_differences(dose='total'):
     sys.stdout = original_stdout
 
 # Fig 7a
-def effect_of_CURATE(plot=False, dose='total'):
+def fig_7a(plot=False, dose='total'):
     """
     Facetgrid scatter plot of effect of CURATE on all data.
 
@@ -1110,113 +1110,19 @@ def effect_of_CURATE(plot=False, dose='total'):
 
         # plt.show()
         # plt.tight_layout()
-        plt.savefig('effect_of_CURATE_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7a_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
 # Fig 7b
-def SOC_CURATE_perc_in_TR(dose='total'):
-    """
-    Boxplot of % of days in TR, for SOC and CURATE.
-    Print out kruskal wallis test for difference in medians.
-    """
-
-    # SOC
-    perc_days_TR_SOC = fig_2_TTL_over_time(plot=False, dose=dose)
-
-    # Drop rows where response is NaN
-    perc_days_TR_SOC = perc_days_TR_SOC[perc_days_TR_SOC.response.notna()].reset_index(drop=True)
-
-    # Add therapeutic range column
-    for i in range(len(perc_days_TR_SOC)):
-        if (perc_days_TR_SOC.response[i] >= therapeutic_range_lower_limit) & (perc_days_TR_SOC.response[i] <= therapeutic_range_upper_limit):
-            perc_days_TR_SOC.loc[i, 'therapeutic_range'] = True
-        else:
-            perc_days_TR_SOC.loc[i, 'therapeutic_range'] = False
-
-    perc_days_TR_SOC = perc_days_TR_SOC.groupby('patient')['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100)
-    perc_days_TR_SOC = perc_days_TR_SOC.reset_index(name='SOC')
-
-    # CURATE
-    perc_days_TR_CURATE = effect_of_CURATE(dose=dose)
-
-    # Drop rows where response is NaN
-    perc_days_TR_CURATE = perc_days_TR_CURATE[perc_days_TR_CURATE.response.notna()].reset_index(drop=True)
-
-    # Create column of final therapeutic range result
-    for i in range(len(perc_days_TR_CURATE)):
-        if 'non' in perc_days_TR_CURATE['Effect of CURATE.AI-assisted dosing'][i]:
-            perc_days_TR_CURATE.loc[i, 'final_response_in_TR'] = False
-        else:
-            perc_days_TR_CURATE.loc[i, 'final_response_in_TR'] = True
-
-    perc_days_TR_CURATE = perc_days_TR_CURATE.groupby('patient')['final_response_in_TR'].apply(lambda x: x.sum()/x.count()*100)
-    perc_days_TR_CURATE = perc_days_TR_CURATE.reset_index(name='CURATE')
-
-    perc_days_TR = perc_days_TR_SOC.merge(perc_days_TR_CURATE, how='left', on='patient')
-
-    # Compare medians
-    print('Comparison of medians between SOC and CURATE\n')
-    if (stats.shapiro(perc_days_TR.SOC).pvalue < 0.05) or (stats.shapiro(perc_days_TR.CURATE).pvalue < 0.05):
-        print(f'Non-normal distribution, Wilcoxon p value: {wilcoxon(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue:.2f}')
-    else:
-        print(f'Normal distribution, Paired t test p value: {stats.ttest_rel(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue:.2f}')
-
-    # Rearrange dataframe for seaborn boxplot
-    perc_days_TR_plot = perc_days_TR.set_index('patient')
-    perc_days_TR_plot = perc_days_TR_plot.stack().reset_index()
-    perc_days_TR_plot = perc_days_TR_plot.rename(columns={'level_1':'Dosing', 0:'Days in therapeutic range (%)'})
-    
-    return perc_days_TR
-
-def plot_SOC_CURATE_perc_in_TR():
-    df = SOC_CURATE_perc_in_TR()
-
-    fig, ax = plt.subplots()
-    # plt.figure(figsize=(5,5))
-    sns.set(font_scale=1.2, rc={"xtick.bottom":True, "ytick.left":True}, style='white')
-
-    # Bar plot
-    p = ax.bar(['SOC dosing\n(N = 16)', 'CURATE.AI-assisted\ndosing\n(N = 16)'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
-        edgecolor='black', capsize=10, color=[sns.color_palette("Paired",8)[0],sns.color_palette("Paired",8)[1]], zorder=1, width=.4)
-
-    # Scatter points
-    plt.scatter(np.zeros(len(df.SOC)), df.SOC, c='k', zorder=2)
-    plt.scatter(np.ones(len(df.CURATE)), df.CURATE, c='k', zorder=3)
-    for i in range(len(df.CURATE)):
-        plt.plot([0,1], [df.SOC[i], df.CURATE[i]], c='k', alpha=.5)
-
-    # Aesthetics
-    plt.ylabel('Days in therapeutic range (%)')
-    sns.despine()
-    plt.ylim(0, 65)
-
-    # Bar labels
-    rects = ax.patches
-    averages = [mean(df.SOC), mean(df.CURATE)]
-    SD = [stdev(df.SOC), stdev(df.CURATE)]
-    labels = [f"{i:.2f} ± {j:.2f}" for i,j in zip(averages, SD)]
-    for rect, label in zip(rects, labels):
-        height = rect.get_height()
-        ax.text(
-            rect.get_x() + rect.get_width() / 2, height + 35, label, 
-            ha="center", va="bottom", fontsize=13
-        )
-
-    plt.tight_layout()
-    plt.savefig('perc_days_in_TR.png', dpi=1000, facecolor='w', bbox_inches='tight')
-
-    return df
-
-# Fig 7c
-def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
+def fig_7b(plot=False, dose='total'):
     """
     Boxplot for day when TR is first achieved, for
     both SOC and CURATE
     """
 
     # SOC
-    SOC = fig_2_TTL_over_time(plot=False, dose=dose)
+    SOC = fig_2(plot=False, dose=dose)
     SOC = SOC[SOC.response.notna()].reset_index(drop=True)
 
     # Add therapeutic range column
@@ -1225,20 +1131,19 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
             SOC.loc[i, 'therapeutic_range'] = True
         else:
             SOC.loc[i, 'therapeutic_range'] = False
-    print(SOC.columns)
 
-    SOC = SOC[SOC['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
+    SOC = SOC[SOC['Tacrolimus trough levels (TTL)']=='Within the therapeutic range'].reset_index(drop=True)
     SOC = SOC.groupby('patient')['Day'].first().reset_index(name='SOC')
 
     # CURATE
-    CURATE = effect_of_CURATE(dose=dose)
+    CURATE = fig_7a(dose=dose)
 
     # Drop rows where response is NaN
     CURATE = CURATE[CURATE.response.notna()].reset_index(drop=True)
 
     # Create column of final therapeutic range result
     for i in range(len(CURATE)):
-        if 'non' in CURATE['Effect of CURATE.AI-assisted dosing'][i]:
+        if ('remains outside' in CURATE['Effect of CURATE.AI-assisted dosing'][i]) | ('moves from within to outside' in CURATE['Effect of CURATE.AI-assisted dosing'][i]):
             CURATE.loc[i, 'final_response_in_TR'] = False
         else:
             CURATE.loc[i, 'final_response_in_TR'] = True
@@ -1249,7 +1154,8 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
     combined_df = SOC.merge(CURATE, how='left', on='patient')
 
     # Compare medians
-    print('Comparison of medians between SOC and CURATE\n')
+    print(combined_df)
+
     if (stats.shapiro(combined_df.SOC).pvalue < 0.05) or (stats.shapiro(combined_df.CURATE).pvalue < 0.05):
         print(f'Non-normal distribution, Wilcoxon p value: {wilcoxon(combined_df.SOC, combined_df.CURATE).pvalue:.2f}')
     else:
@@ -1305,18 +1211,18 @@ def SOC_CURATE_first_day_in_TR(plot=False, dose='total'):
 
         # plt.show()
         # Save
-        plt.savefig('SOC_CURATE_first_day_in_TR_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7b'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df, SOC_df, CURATE_df
 
-# Fig 7d
-def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
+# Fig 7c
+def fig_7c(plot=False, dose='total'):
     """
     Barplot of % of patients in TR within first week, of
     SOC and CURATE.
     """
     # SOC
-    data = fig_2_TTL_over_time(plot=False, dose=dose)
+    data = fig_2(plot=False, dose=dose)
 
     # Drop rows where response is NaN
     data = data[data.response.notna()].reset_index(drop=True)
@@ -1329,21 +1235,20 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
             data.loc[i, 'therapeutic_range'] = False
 
     first_week_df = data.copy()
-    print(first_week_df.columns)
-    first_week_df = first_week_df[first_week_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
+    first_week_df = first_week_df[first_week_df['Tacrolimus trough levels (TTL)']=='Within the therapeutic range'].reset_index(drop=True)
     first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
     result = first_week_df.Day.sum()/first_week_df.Day.count()*100
 
     SOC = result
 
     # CURATE
-    df = effect_of_CURATE()
+    df = fig_7a()
     # Drop rows where response is NaN
     df = df[df.response.notna()].reset_index(drop=True)
 
     # Create column of final therapeutic range result
     for i in range(len(df)):
-        if 'non' in df['Effect of CURATE.AI-assisted dosing'][i]:
+        if ('remains outside' in df['Effect of CURATE.AI-assisted dosing'][i]) | ('moves from within to outside' in df['Effect of CURATE.AI-assisted dosing'][i]):
             df.loc[i, 'final_response_in_TR'] = False
         else:
             df.loc[i, 'final_response_in_TR'] = True
@@ -1351,6 +1256,8 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
     # % of participants that reach within first week
     reach_TR_in_first_week = df[df.final_response_in_TR==True].groupby('patient')['day'].first().reset_index(name='first_day')
     reach_TR_in_first_week['result'] = reach_TR_in_first_week['first_day'] <= 7
+
+    print(reach_TR_in_first_week)
     result = reach_TR_in_first_week['result'].sum() / len(reach_TR_in_first_week) * 100
 
     CURATE = result
@@ -1375,9 +1282,105 @@ def SOC_CURATE_perc_pts_TR_in_first_week(plot=False, dose='total'):
         # Bar labels
         ax.bar_label(p, fmt='%.2f', fontsize=13)
         # plt.show()
-        plt.savefig('SOC_CURATE_perc_pts_TR_in_first_week_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7c_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
+
+# Fig 7d
+def SOC_CURATE_perc_in_TR(dose='total'):
+    """
+    Boxplot of % of days in TR, for SOC and CURATE.
+    Print out kruskal wallis test for difference in medians.
+    """
+
+    # SOC
+    perc_days_TR_SOC = fig_2(plot=False, dose=dose)
+
+    # Drop rows where response is NaN
+    perc_days_TR_SOC = perc_days_TR_SOC[perc_days_TR_SOC.response.notna()].reset_index(drop=True)
+
+    # Add therapeutic range column
+    for i in range(len(perc_days_TR_SOC)):
+        if (perc_days_TR_SOC.response[i] >= therapeutic_range_lower_limit) & (perc_days_TR_SOC.response[i] <= therapeutic_range_upper_limit):
+            perc_days_TR_SOC.loc[i, 'therapeutic_range'] = True
+        else:
+            perc_days_TR_SOC.loc[i, 'therapeutic_range'] = False
+
+    perc_days_TR_SOC = perc_days_TR_SOC.groupby('patient')['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100)
+    perc_days_TR_SOC = perc_days_TR_SOC.reset_index(name='SOC')
+
+    # CURATE
+    perc_days_TR_CURATE = fig_7a(dose=dose)
+
+    # Drop rows where response is NaN
+    perc_days_TR_CURATE = perc_days_TR_CURATE[perc_days_TR_CURATE.response.notna()].reset_index(drop=True)
+
+    # Create column of final therapeutic range result
+    for i in range(len(perc_days_TR_CURATE)):
+
+        if ('remains outside' in perc_days_TR_CURATE['Effect of CURATE.AI-assisted dosing'][i]) | ('moves from within to outside' in perc_days_TR_CURATE['Effect of CURATE.AI-assisted dosing'][i]):
+        # if 'non' in perc_days_TR_CURATE['Effect of CURATE.AI-assisted dosing'][i]:
+            perc_days_TR_CURATE.loc[i, 'final_response_in_TR'] = False
+        else:
+            perc_days_TR_CURATE.loc[i, 'final_response_in_TR'] = True
+
+    perc_days_TR_CURATE = perc_days_TR_CURATE.groupby('patient')['final_response_in_TR'].apply(lambda x: x.sum()/x.count()*100)
+    perc_days_TR_CURATE = perc_days_TR_CURATE.reset_index(name='CURATE')
+
+    perc_days_TR = perc_days_TR_SOC.merge(perc_days_TR_CURATE, how='left', on='patient')
+
+    # Compare medians
+    print('Comparison of medians between SOC and CURATE\n')
+    if (stats.shapiro(perc_days_TR.SOC).pvalue < 0.05) or (stats.shapiro(perc_days_TR.CURATE).pvalue < 0.05):
+        print(f'Non-normal distribution, Wilcoxon p value: {wilcoxon(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue:.2f}')
+    else:
+        print(f'Normal distribution, Paired t test p value: {stats.ttest_rel(perc_days_TR.SOC, perc_days_TR.CURATE).pvalue:.2f}')
+
+    # Rearrange dataframe for seaborn boxplot
+    perc_days_TR_plot = perc_days_TR.set_index('patient')
+    perc_days_TR_plot = perc_days_TR_plot.stack().reset_index()
+    perc_days_TR_plot = perc_days_TR_plot.rename(columns={'level_1':'Dosing', 0:'Days in therapeutic range (%)'})
+    
+    return perc_days_TR
+
+def fig_7d():
+    df = SOC_CURATE_perc_in_TR()
+
+    fig, ax = plt.subplots()
+    # plt.figure(figsize=(5,5))
+    sns.set(font_scale=1.2, rc={"xtick.bottom":True, "ytick.left":True}, style='white')
+
+    # Bar plot
+    p = ax.bar(['SOC dosing\n(N = 16)', 'CURATE.AI-assisted\ndosing\n(N = 16)'], [mean(df.SOC), mean(df.CURATE)], yerr=[stdev(df.SOC), stdev(df.CURATE)],
+        edgecolor='black', capsize=10, color=[sns.color_palette("Paired",8)[0],sns.color_palette("Paired",8)[1]], zorder=1, width=.4)
+
+    # Scatter points
+    plt.scatter(np.zeros(len(df.SOC)), df.SOC, c='k', zorder=2)
+    plt.scatter(np.ones(len(df.CURATE)), df.CURATE, c='k', zorder=3)
+    for i in range(len(df.CURATE)):
+        plt.plot([0,1], [df.SOC[i], df.CURATE[i]], c='k', alpha=.5)
+
+    # Aesthetics
+    plt.ylabel('Days in therapeutic range (%)')
+    sns.despine()
+    plt.ylim(0, 65)
+
+    # Bar labels
+    rects = ax.patches
+    averages = [mean(df.SOC), mean(df.CURATE)]
+    SD = [stdev(df.SOC), stdev(df.CURATE)]
+    labels = [f"{i:.2f} ± {j:.2f}" for i,j in zip(averages, SD)]
+    for rect, label in zip(rects, labels):
+        height = rect.get_height()
+        ax.text(
+            rect.get_x() + rect.get_width() / 2, height + 35, label, 
+            ha="center", va="bottom", fontsize=13
+        )
+
+    plt.tight_layout()
+    plt.savefig('fig_7d.png', dpi=1000, facecolor='w', bbox_inches='tight')
+
+    return df
 
 # Assessment of CURATE.AI
 def create_df_for_CURATE_assessment(dose='total'):
@@ -1859,7 +1862,7 @@ if __name__ == '__main__':
     
     # Figures
     if args.figure=='fig_2':
-        fig_2_TTL_over_time(plot=True)
+        fig_2(plot=True)
     elif args.figure=='fig_5':
         fig_5a(plot=True)
         fig_5b(plot=True)
@@ -1869,10 +1872,11 @@ if __name__ == '__main__':
         fig_6c(plot=True)
         fig_6d(plot=True)
     elif args.figure=='fig_7':
-        effect_of_CURATE(plot=True)
-        plot_SOC_CURATE_perc_in_TR()
-        SOC_CURATE_first_day_in_TR(plot=True)
-        SOC_CURATE_perc_pts_TR_in_first_week(plot=True)
+        fig_7a(plot=True)
+        fig_7b(plot=True)
+        fig_7c(plot=True)
+        fig_7d()
+        
     else:
         print('no valid figure was specified')
 
