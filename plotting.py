@@ -175,7 +175,7 @@ def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total
     # Rename columns and entries
     new_dat = dat.copy()
     new_dat = new_dat.rename(columns={'within_range':'Tacrolimus trough levels (TTL)'})
-    new_dat['Tacrolimus trough levels (TTL)'] = new_dat['Tacrolimus trough levels (TTL)'].map({True:'Therapeutic range', False: 'Non-therapeutic range'})
+    new_dat['Tacrolimus trough levels (TTL)'] = new_dat['Tacrolimus trough levels (TTL)'].map({True:'Within the therapeutic range', False: 'Outside of the therapeutic range'})
     new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
     new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
@@ -210,7 +210,7 @@ def fig_2_TTL_over_time(file_string=all_data_file_total, plot=False, dose='total
         sns.move_legend(g, 'center', bbox_to_anchor=(0.18,-0.08), ncol=2)
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
                             label='Region within therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.5,-0.42), loc='upper left', frameon=False)
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.30,-0.4), loc='upper left', frameon=False)
 
         plt.savefig('TTL_over_time_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
         
@@ -1066,27 +1066,36 @@ def effect_of_CURATE(plot=False, dose='total'):
                                                 123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
                                                 133:15, 138:16})
 
+    # Rename effect of CURATE
+    plot_df = combined_dat.copy()
+    plot_df['Effect of CURATE.AI-assisted dosing'] = plot_df['Effect of CURATE.AI-assisted dosing'].map({\
+        'Unaffected, remain as therapeutic range':'TTL is unaffected (remains within the therapeutic range)',
+        'Unaffected, remain as non-therapeutic range':'TTL is unaffected (remains outside of the therapeutic range)',
+        'Improve to therapeutic range':'TTL improves (moves from outside to within the therapeutic range)',
+        'Worsen to non-therapeutic range':'TTL worsens (moves from within to outside the therapeutic range)'})
+    
     if plot == True:
         # Plot
         sns.set(font_scale=1.5, rc={"figure.figsize": (16,10), "xtick.bottom":True, "ytick.left":True}, style='white')
-        hue_order = ['Unaffected, remain as therapeutic range', 'Unaffected, remain as non-therapeutic range',
-                    'Improve to therapeutic range', 'Worsen to non-therapeutic range']
+        hue_order = ['TTL is unaffected (remains within the therapeutic range)', 'TTL is unaffected (remains outside of the therapeutic range)',
+                    'TTL improves (moves from outside to within the therapeutic range)', 'TTL worsens (moves from within to outside the therapeutic range)']
         palette = [sns.color_palette()[1], sns.color_palette()[0], sns.color_palette()[2],\
                 sns.color_palette()[3]]
         style_order = ['Low', 'Medium', 'High', 'Unavailable']
 
         # Scatter point
-        g = sns.relplot(data=combined_dat, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
+        g = sns.relplot(data=plot_df, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
                         hue_order=hue_order, col='patient', palette=palette,\
                         col_wrap=4, height=3, aspect=1, s=100, style_order=style_order, zorder=2)
 
         # Move legend below plot
-        sns.move_legend(g, 'center', bbox_to_anchor=(0.20,-0.1), title='Effect of CURATE.AI-assisted dosing', ncol=1)
+        sns.move_legend(g, 'upper left', bbox_to_anchor=(0,0), \
+            title='Effect of CURATE.AI-assisted dosing on tacrolimus trough levels (TTL)', ncol=1)
 
         # Titles and labels
         g.set_titles('Patient {col_name}')
-        g.set(yticks=np.arange(0,math.ceil(max(combined_dat['response'])),4),
-            xticks=np.arange(0,max(combined_dat.day),step=5))
+        g.set(yticks=np.arange(0,math.ceil(max(plot_df['response'])),4),
+            xticks=np.arange(0,max(plot_df.day),step=5))
         g.set_ylabels('TTL (ng/ml)')
         g.set_xlabels('Day')
 
@@ -1096,14 +1105,14 @@ def effect_of_CURATE(plot=False, dose='total'):
 
         legend1 = plt.legend()
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
-                            label='Region within\ntherapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.1,-0.5), loc='upper left', frameon=False)
+                            label='Region within therapeutic range', alpha=.2)]
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-0.5,-0.42), loc='upper left', frameon=False)
 
         # plt.show()
         # plt.tight_layout()
         plt.savefig('effect_of_CURATE_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
 
-    return combined_dat
+    return plot_df
 
 # Fig 7b
 def SOC_CURATE_perc_in_TR(dose='total'):
