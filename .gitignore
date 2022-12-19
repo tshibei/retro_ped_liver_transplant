@@ -54,7 +54,10 @@ __pycache__
 *.txt
 *.png
 *.pptx
+*.svg
+*.eps
 Graphs/
 Data/
 Archive/
 archive.py
+test.ipynb
