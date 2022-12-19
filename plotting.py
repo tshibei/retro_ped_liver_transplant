@@ -192,7 +192,7 @@ def fig_2(file_string=all_data_file_total, plot=False, dose='total'):
 
         g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus trough levels (TTL)', col='patient', col_wrap=4, style='Dose range',
                 height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'], 
-                style_order=['Low', 'Medium', 'High', 'Unavailable'], zorder=2)
+                style_order=['Low', 'Medium', 'High', 'Unavailable'], zorder=2, edgecolor=None)
 
         # g = sns.relplot(data=new_dat[new_dat['Dose range']=='Low'], x='Day', y='response', hue='TTL', col='patient', col_wrap=4, style='o',
         # height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'])
@@ -207,13 +207,14 @@ def fig_2(file_string=all_data_file_total, plot=False, dose='total'):
             xticks=np.arange(0, max(new_dat.Day+2), step=5))
         
         # Move legend below plot
-        sns.move_legend(g, 'center', bbox_to_anchor=(0.18,-0.08), ncol=2)
+        sns.move_legend(g, 'center', bbox_to_anchor=(0.245,-0.08), ncol=2)
         legend_elements = [Patch(facecolor='grey', edgecolor='grey',
                             label='Region within therapeutic range', alpha=.2)]
-        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.30,-0.4), loc='upper left', frameon=False)
+        legend2 = plt.legend(handles=legend_elements, bbox_to_anchor=(-1.0,-0.4), loc='upper left', frameon=False)
 
-        plt.savefig('fig_2_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
-        
+        # plt.savefig('fig_2_' + dose + '.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_2.svg', format='svg', dpi=1000, facecolor='w', bbox_inches='tight')
+
         # Remove fake row before end of function
         new_dat = new_dat[:-1]
 
@@ -413,12 +414,12 @@ def case_series_patient_journey(case_series_patient_num, all_data_file, plot=Tru
     # Plot
     if plot==True:
         
-        fig, axes = plt.subplots(figsize=(10,7))
         sns.set(style='white', font_scale=2.2, rc={"xtick.bottom":True, "ytick.left":True})
+        fig, axes = plt.subplots(figsize=(10,7))
 
-        plt.plot(case_series_patient.day, case_series_patient.response, 'yo', linestyle='-', ms=14, mfc="none", label='SOC dosing', mew=2)
+        plt.plot(case_series_patient.day, case_series_patient.response, 'yo', linestyle='-', ms=14, mfc='white', label='SOC dosing', mew=2)
         plt.plot(combined_df[(combined_df['response']>=8) & (combined_df['response']<=10)].day, combined_df[(combined_df['response']>=8) & (combined_df['response']<=10)].response, 'yo', ms=14, label='Within the therapeutic range\nwith SOC dosing', mew=2)
-        plt.plot(combined_df.day, combined_df.projected_response, 'm^', ms=14, linestyle='-', label='CURATE.AI-assisted dosing', mfc="none", mew=2)
+        plt.plot(combined_df.day, combined_df.projected_response, 'm^', ms=14, linestyle='-', label='CURATE.AI-assisted dosing', mfc="white", mew=2)
         plt.plot(combined_df[(combined_df['projected_response']>=8) & (combined_df['projected_response']<=10)].day, combined_df[(combined_df['projected_response']>=8) & (combined_df['projected_response']<=10)].projected_response, 'm^', ms=14, label='Within the therapeutic range\nwith CURATE.AI-assisted dosing', mew=2)
 
         sns.despine()
@@ -443,8 +444,11 @@ def case_series_patient_journey(case_series_patient_num, all_data_file, plot=Tru
 
         if case_series_patient_num == 120:
             plt.savefig('fig_5a.png', dpi=1000, facecolor='w', bbox_inches='tight')
+            plt.savefig('fig_5a.svg', dpi=1000, facecolor='w', bbox_inches='tight')
         elif case_series_patient_num == 118:
             plt.savefig('fig_6a.png', dpi=1000, facecolor='w', bbox_inches='tight')
+            plt.savefig('fig_6a.svg', dpi=1000, facecolor='w', bbox_inches='tight')
+
 
     return combined_df
 
@@ -519,10 +523,10 @@ def fig_5b(plot=False, result_file=result_file_total):
         y = np.array([combined_df.y[0],combined_df.y[1]])
         a, b = np.polyfit(x, y, 1)
         x_values = np.linspace(0, 3)
-        plt.plot(x_values, a*x_values + b, color='y', linestyle='-')
+        plt.plot(x_values, a*x_values + b, color='y', linestyle='-', zorder=1)
 
         # Plot scatter points
-        plt.scatter(x, y, s=200, facecolors="none", edgecolors="y", linewidths=2)
+        plt.scatter(x, y, s=200, facecolors="white", edgecolors="y", linewidths=2, zorder=2)
 
         # Plot therapeutic range
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
@@ -541,6 +545,7 @@ def fig_5b(plot=False, result_file=result_file_total):
         plt.xlim(0,2.5)
         
         plt.savefig('fig_5b.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_5b.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return combined_df, df_original
 
@@ -580,10 +585,10 @@ def fig_6b(plot=False, dose='total'):
         y = np.array([combined_df.y[i*2],combined_df.y[i*2+1]])
         a, b = np.polyfit(x, y, 1)
         x_values = np.linspace(0, 9)
-        plt.plot(x_values, a*x_values + b, linestyle='-', color='y')
+        plt.plot(x_values, a*x_values + b, linestyle='-', color='y', zorder=1)
 
         # Plot scatter points
-        plt.scatter(x, y, s=200, facecolors="none", edgecolors="y", linewidths=2)
+        plt.scatter(x, y, s=200, facecolors="white", edgecolors="y", linewidths=2, zorder=2)
 
         plt.axhspan(8, 10, facecolor='grey', alpha=0.2)
 
@@ -610,6 +615,7 @@ def fig_6b(plot=False, dose='total'):
 
     plt.tight_layout()
     plt.savefig('fig_6b.png',dpi=1000, bbox_inches='tight', pad_inches=0)
+    plt.savefig('fig_6b.svg',dpi=1000, bbox_inches='tight', pad_inches=0)
 
     return combined_df
 
@@ -624,9 +630,9 @@ def fig_6c(plot=False, dose='total'):
 
     sns.set(font_scale=2.2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
 
-    plt.plot(df.pred_day, df.dose, 'yo', linestyle='-', ms=14, mfc="none", label='SOC dosing', mew=2)
+    plt.plot(df.pred_day, df.dose, 'yo', linestyle='-', ms=14, mfc="white", label='SOC dosing', mew=2)
     plt.plot(df[(df['response']>=8) & (df['response']<=10)].pred_day, df[(df['response']>=8) & (df['response']<=10)].dose, 'yo', ms=14, label='Within the therapeutic range\nwith SOC dosing', mew=2)
-    plt.plot(df.pred_day, df.dose_recommendation, 'm^', ms=14, linestyle='-', label='CURATE.AI-assisted dosing', mfc="none", mew=2)
+    plt.plot(df.pred_day, df.dose_recommendation, 'm^', ms=14, linestyle='-', label='CURATE.AI-assisted dosing', mfc="white", mew=2)
     plt.plot(df[(df['projected_response']>=8) & (df['projected_response']<=10)].pred_day, df[(df['projected_response']>=8) & (df['projected_response']<=10)].dose_recommendation, 'm^', ms=14, label='Within the therapeutic range\nwith CURATE.AI-assisted dosing', mew=2)
 
     plt.legend('', frameon=False)
@@ -638,6 +644,7 @@ def fig_6c(plot=False, dose='total'):
 
     plt.tight_layout()
     plt.savefig('fig_6c.png',dpi=1000)
+    plt.savefig('fig_6c.svg',dpi=1000)
 
     return df
 
@@ -667,14 +674,14 @@ def fig_6d(result_file=result_file_total, plot=True, dose='total'):
 
     if plot==True:
         # Plot
-        fig, axes = plt.subplots()
         sns.set(font_scale=2.2, rc={"figure.figsize": (7,7), "xtick.bottom":True, "ytick.left":True}, style='white')
+        fig, axes = plt.subplots()
 
-        plt.plot(df['dose_recommendation'], df['projected_response'], 'm^', label='CURATE.AI-assisted dosing', ms=14, mfc="none", mew=2)
+        plt.plot(df['dose_recommendation'], df['projected_response'], 'm^', label='CURATE.AI-assisted dosing', ms=14, mfc="white", mew=2)
         plt.plot(df[(df['projected_response']<=therapeutic_range_upper_limit) & (df['projected_response']>=therapeutic_range_lower_limit)].dose_recommendation, \
             df[(df['projected_response']<=therapeutic_range_upper_limit) & (df['projected_response']>=therapeutic_range_lower_limit)].projected_response, \
                 'm^', ms=14, mew=2)
-        plt.plot(df['dose'], df['response'],'yo', label='SOC dosing', ms=14, mfc="none", mew=2)
+        plt.plot(df['dose'], df['response'],'yo', label='SOC dosing', ms=14, mfc="white", mew=2)
         plt.plot(df[(df['response']<=therapeutic_range_upper_limit) & (df['response']>=therapeutic_range_lower_limit)].dose, \
             df[(df['response']<=therapeutic_range_upper_limit) & (df['response']>=therapeutic_range_lower_limit)].response, \
                 'yo', ms=14, mew=2)
@@ -706,6 +713,7 @@ def fig_6d(result_file=result_file_total, plot=True, dose='total'):
 
         plt.tight_layout()
         plt.savefig('fig_6d.png',dpi=1000, bbox_inches='tight')
+        plt.savefig('fig_6d.svg',dpi=1000, bbox_inches='tight')
     
     return df
 
@@ -1086,7 +1094,7 @@ def fig_7a(plot=False, dose='total'):
         # Scatter point
         g = sns.relplot(data=plot_df, x='day', y='response', hue='Effect of CURATE.AI-assisted dosing',\
                         hue_order=hue_order, col='patient', palette=palette,\
-                        col_wrap=4, height=3, aspect=1, s=100, style_order=style_order, zorder=2)
+                        col_wrap=4, height=3, aspect=1, s=100, style_order=style_order, zorder=2, edgecolor=None)
 
         # Move legend below plot
         sns.move_legend(g, 'upper left', bbox_to_anchor=(0,0), \
@@ -1111,6 +1119,7 @@ def fig_7a(plot=False, dose='total'):
         # plt.show()
         # plt.tight_layout()
         plt.savefig('fig_7a_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7a_'+dose+'.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
@@ -1168,9 +1177,9 @@ def fig_7b(plot=False, dose='total'):
 
     if plot == True:
         
-        fig, ax = plt.subplots()
         sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
-        
+        fig, ax = plt.subplots()
+
         # Boxplot
         g = sns.boxplot(x="Dosing", y="First day in therapeutic range", 
                         data=plot_df, width=0.5, palette=[sns.color_palette("Paired",8)[2],sns.color_palette("Paired",8)[3]],
@@ -1211,7 +1220,8 @@ def fig_7b(plot=False, dose='total'):
 
         # plt.show()
         # Save
-        plt.savefig('fig_7b'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7b_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7b_'+dose+'.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df, SOC_df, CURATE_df
 
@@ -1283,6 +1293,7 @@ def fig_7c(plot=False, dose='total'):
         ax.bar_label(p, fmt='%.2f', fontsize=13)
         # plt.show()
         plt.savefig('fig_7c_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7c_'+dose+'.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
@@ -1379,6 +1390,7 @@ def fig_7d():
 
     plt.tight_layout()
     plt.savefig('fig_7d.png', dpi=1000, facecolor='w', bbox_inches='tight')
+    plt.savefig('fig_7d.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return df
 
