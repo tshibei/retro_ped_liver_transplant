@@ -28,7 +28,7 @@ To plot figures. Valid figure numbers are `2`, `5`, `6`, or `7`.
 python plotting.py --figure fig_<figure number>
 ```
   
-  To annalyse results. Valid analysis names are `patient_population`, `technical_perf_metrics`, `clinically_relevant_perf_metrics`, `effect_of_CURATE`, or `fig_4_values`.
+  To analyse results. Valid analysis names are `patient_population`, `technical_perf_metrics`, `clinically_relevant_perf_metrics`, `effect_of_CURATE`, or `fig_4_values`.
 ```
 python plotting.py --analysis <analysis name>
 ```
