@@ -8,6 +8,8 @@ Plot and analyse results.
 Install dependencies required in `requirements.txt`
 
 ## Usage
+Note: The raw data is not provided, and can be provided upon reasonable request to Agata Blasiak (agata.blasiak@nus.edu.sg), Vidyadhar Padmakar Mali (vidyadhar_mali@nuhs.edu.sg), Marion M. Aw (paeawm@nus.edu.sg), or Dean Ho (biedh@nus.edu.sg).
+
 ### Implement CURATE.AI models
 ```
 python implement_CURATE.py
