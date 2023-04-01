@@ -50,7 +50,6 @@
 
 __pycache__
 .ipynb_checkpoints/
-*.xlsx
 *.txt
 *.png
 *.pptx
