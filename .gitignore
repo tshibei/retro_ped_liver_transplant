@@ -55,6 +55,9 @@ __pycache__
 *.pptx
 *.svg
 *.eps
+NPJ Graphs/
+Results/
+Temp/
 Graphs/
 Data/
 Archive/
