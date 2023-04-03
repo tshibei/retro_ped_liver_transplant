@@ -419,15 +419,6 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
     list_of_result_df = []
     patients_to_exclude_linear = []
     patients_to_exclude_quad = []
-    list_of_body_weight = []
-
-    # Create list of body_weight
-    for i in range(len(list_of_patients)):    
-        data = pd.read_excel(input_file, list_of_patients[i], index_col=None, usecols = "C", nrows=15)
-        data = data.reset_index(drop=True)
-        list_of_body_weight.append(data['Unnamed: 2'][13])
-        
-    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
 
     number_of_patients = 0
 
@@ -437,9 +428,6 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
         df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
         df = clean_data(df, dose)
         df = keep_ideal_data(df, patient, list_of_patient_df, dose)
-
-        # Change to dose by body weight
-        df['dose_BW'] = df['dose'] / list_of_body_weight[number_of_patients]
         
         # Counter for number of patients
         number_of_patients = number_of_patients + 1
@@ -1750,7 +1738,6 @@ def all_data(dose='total'):
 
     # Create dataframe from all sheets
     list_of_patients = find_list_of_patients()
-    list_of_body_weight = find_list_of_body_weight()
 
     df = pd.DataFrame()
 
@@ -1803,21 +1790,12 @@ def all_data(dose='total'):
     # Fill in ideal column with False if NaN
     combined_df['ideal'] = combined_df['ideal'].fillna(False)
 
-    # Fill in body weight
-    combined_df['body_weight'] = ""
-
     for i in range(len(combined_df)):
         # Find index of patient in list_of_patients
-        index = list_of_patients.index(str(combined_df.patient[i]))
-        body_weight = list_of_body_weight[index]    
+        index = list_of_patients.index(str(combined_df.patient[i]))  
 
-        # Add body weight to column
-        combined_df.loc[i, 'body_weight'] = body_weight
-
-    # Add column 'dose' by dividing dose_mg by body weight
-    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
+    # Add column 'dose'
     combined_df['dose'] = combined_df['dose'].astype(float)
-    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
 
     # Clean up response column
     for i in range(len(combined_df)):
