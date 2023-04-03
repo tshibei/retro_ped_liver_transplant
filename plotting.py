@@ -890,13 +890,16 @@ def effect_of_CURATE_values():
 
         # 3b. Day where patient first achieved therapeutic range in SOC
         first_TR_df = data.copy()
-        first_TR_df = first_TR_df[first_TR_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
+        first_TR_df = first_TR_df[first_TR_df['Tacrolimus trough levels (TTL)']=='Within the therapeutic range'].reset_index(drop=True)
         first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
 
         # Result and distribution
         result_and_distribution(first_TR_df.Day, '3b. Day where patient first achieved therapeutic range (SOC)')
 
         # 3c. Compare between 3a and 3b
+        print(reach_TR_in_first_week.first_day)
+        print(first_TR_df.Day)
+
         if (stats.shapiro(reach_TR_in_first_week.first_day).pvalue > 0.05) & (stats.shapiro(first_TR_df.Day).pvalue > 0.05):
             print(f'Normal, paired, paired t-test p-value: {stats.ttest_rel(reach_TR_in_first_week.first_day, first_TR_df.Day).pvalue:.2f}')
         else:
