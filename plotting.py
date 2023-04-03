@@ -114,7 +114,7 @@ def patient_population_values():
 
         # 3. % of participants that reached therapeutic range within first week
         first_week_df = data.copy()
-        first_week_df = first_week_df[first_week_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
+        first_week_df = first_week_df[first_week_df['Tacrolimus trough levels (TTL)']=='Within the therapeutic range'].reset_index(drop=True)
         first_week_df = (first_week_df.groupby('patient')['Day'].first() <= 7).to_frame().reset_index()
         result = first_week_df.Day.sum()/first_week_df.Day.count()*100
 
@@ -123,7 +123,7 @@ def patient_population_values():
 
         # 4. Day where patient first achieved therapeutic range
         first_TR_df = data.copy()
-        first_TR_df = first_TR_df[first_TR_df['Tacrolimus trough levels (TTL)']=='Therapeutic range'].reset_index(drop=True)
+        first_TR_df = first_TR_df[first_TR_df['Tacrolimus trough levels (TTL)']=='Within the therapeutic range'].reset_index(drop=True)
         first_TR_df = first_TR_df.groupby('patient')['Day'].first().to_frame().reset_index()
 
         # Result and distribution
