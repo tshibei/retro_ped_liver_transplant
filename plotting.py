@@ -24,22 +24,17 @@ from scipy import interpolate
 from implement_CURATE import *
 
 # Define file names
-result_file_total = 'CURATE_results.xlsx'
-result_file_evening = 'CURATE_results_evening_dose.xlsx'
-raw_data_file = 'Retrospective Liver Transplant Data.xlsx'
-all_data_file_total = 'all_data_total.xlsx'
-all_data_file_evening = 'all_data_evening.xlsx'
+result_file = 'CURATE_results.xlsx'
+raw_data_file = 'data_retro_ped_liver_transplant.xlsx'
+all_data_file = 'all_data.xlsx'
 
 # Define clinically relevant parameters
 low_dose_upper_limit = 2
 medium_dose_upper_limit = 4
-low_dose_upper_limit_BW = 0.3
-medium_dose_upper_limit_BW = 0.6
 overprediction_limit = -1.5
 underprediction_limit = 2
 max_dose_recommendation = 8
 min_dose_recommendation = 0
-max_dose_recommendation_BW = 0.85
 minimum_capsule = 0.5
 therapeutic_range_upper_limit = 10
 therapeutic_range_lower_limit = 8
@@ -48,10 +43,10 @@ acceptable_tac_upper_limit = 12
 acceptable_tac_lower_limit = 6.5
 
 # Patient population
-def percentage_of_pts_that_reached_TR_per_dose_range(all_data_file=all_data_file_total):
+def percentage_of_pts_that_reached_TR_per_dose_range(all_data_file=all_data_file):
     """Find percentage of patients that reached TR at the same dose range."""
     # Filter doses that reached TR
-    df = pd.read_excel(all_data_file_total)
+    df = pd.read_excel(all_data_file)
     df = df[df['dose'].notna()].reset_index(drop=True)
     for i in range(len(df)):
         if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
@@ -141,13 +136,10 @@ def patient_population_values():
     sys.stdout = original_stdout
 
 # Fig 2
-def fig_2(file_string=all_data_file_total, plot=False, dose='total'):
+def fig_2(file_string=all_data_file, plot=False):
     """Scatter plot of inidividual profiles, longitudinally, and response vs dose"""
     
-    if dose == 'total':
-        file_string = all_data_file_total
-    else:
-        file_string = all_data_file_evening
+    file_string = all_data_file
 
     # Plot individual profiles
     dat = pd.read_excel(file_string)
@@ -172,9 +164,6 @@ def fig_2(file_string=all_data_file_total, plot=False, dose='total'):
     new_dat = new_dat.rename(columns={'within_range':'Tacrolimus trough levels (TTL)'})
     new_dat['Tacrolimus trough levels (TTL)'] = new_dat['Tacrolimus trough levels (TTL)'].map({True:'Within the therapeutic range', False: 'Outside of the therapeutic range'})
     new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
-    new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
-                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
-                                                133:15, 138:16})
 
     if plot == True:
 
@@ -216,21 +205,15 @@ def fig_2(file_string=all_data_file_total, plot=False, dose='total'):
     return new_dat
 
 # Technical performance metrics
-def technical_performance_metrics(result_file=result_file_total, dose='total'):
+def technical_performance_metrics():
     """
     Print the following technical performance metrics
     1. Prediction erorr
     2. Absolute prediction error
     3. RMSE
-    4. LOOCV
     """
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
-
     original_stdout = sys.stdout
-    with open('technical_perf_metrics_'+ dose +'.txt', 'w') as f:
+    with open('technical_perf_metrics.txt', 'w') as f:
         sys.stdout = f
 
         df = pd.read_excel(result_file, sheet_name='result')
@@ -251,23 +234,12 @@ def technical_performance_metrics(result_file=result_file_total, dose='total'):
         RMSE = (math.sqrt(mean_squared_error(df.response, df.prediction)))
         print(f'3. RMSE: {RMSE:.2f}\n')
 
-        # 4. LOOCV
-        print('4. LOOCV\n')
-        LOOCV_all_methods(dose=dose)
-        experiment = pd.read_excel('LOOCV_results_'+dose+'.xlsx', sheet_name='Experiments')
-
-        experiment = experiment[experiment.method=='L_RW_wo_origin']
-        result_and_distribution(experiment.train_median, 'Training set LOOCV')
-        result_and_distribution(experiment.test_median, 'Test set LOOCV')
-        median_IQR_range(experiment.test_median)
-        print(f'Mann whitney u: {mannwhitneyu(experiment.test_median, experiment.train_median)}')
-
         ## Compare medians between training and test sets
 
     sys.stdout = original_stdout
 
 # Clinically relevant performance metrics
-def clinically_relevant_performance_metrics(result_file=result_file_total, dose='total'):
+def clinically_relevant_performance_metrics():
     """Clinically relevant performance metrics. 
     Find the percentage of predictions within clinically acceptable prediction error,
     percentage of overpredictions, and percentage of underpredictions. Print the results
@@ -276,13 +248,9 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, dose=
     # Uncomment to write output to txt file
     # file_path = 'Clinically relevant performance metrics.txt'
     # sys.stdout = open(file_path, "w")
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
-
+    
     original_stdout = sys.stdout
-    with open('clinically_relevant_perf_metrics_'+ dose +'.txt', 'w') as f:
+    with open('clinically_relevant_perf_metrics.txt', 'w') as f:
         sys.stdout = f
 
         df = pd.read_excel(result_file, sheet_name='result')
@@ -308,7 +276,7 @@ def clinically_relevant_performance_metrics(result_file=result_file_total, dose=
     sys.stdout = original_stdout
 
 # Fig 4
-def values_in_clinically_relevant_flow_chart(dose='total'):
+def values_in_clinically_relevant_flow_chart():
     """
     Calculate values for clinically relevant flow chart, in the flow chart boxes, and in additional information
 
@@ -318,14 +286,11 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
     """
     original_stdout = sys.stdout
 
-    file_string = 'clinically_relevant_flow_chart_' + dose + '.txt'
+    file_string = 'clinically_relevant_flow_chart.txt'
     with open(file_string, 'w') as f:
         sys.stdout = f
 
-        if dose == 'total':
-            result_file = 'CURATE_results.xlsx'
-        else:
-            result_file = result_file_evening
+        result_file = 'CURATE_results.xlsx'
 
         df = create_df_for_CURATE_assessment(result_file)
 
@@ -382,8 +347,8 @@ def values_in_clinically_relevant_flow_chart(dose='total'):
     return df
 
 # Fig 5
-def fig_5a(plot=True, all_data_file=all_data_file_total):
-    case_series_patient_num = 120
+def fig_5a(plot=True):
+    case_series_patient_num = 5
     case_series_patient_journey(case_series_patient_num=case_series_patient_num, all_data_file=all_data_file)
 
 def case_series_patient_journey(case_series_patient_num, all_data_file, plot=True):
@@ -392,8 +357,8 @@ def case_series_patient_journey(case_series_patient_num, all_data_file, plot=Tru
     case_series_patient = case_series_patient[case_series_patient.patient==case_series_patient_num]
     case_series_patient = case_series_patient[['day', 'response']].reset_index(drop=True)
     
-    if case_series_patient_num==118:
-        case_series_patient = case_series_patient.iloc[:13,:] # Added this line for patient 118 to stop from the row where the rest of the days have NaN response
+    if case_series_patient_num==4:
+        case_series_patient = case_series_patient.iloc[:13,:] # Added this line for patient 4 to stop from the row where the rest of the days have NaN response
 
     # CURATE data
     df = create_df_for_CURATE_assessment()
@@ -437,26 +402,26 @@ def case_series_patient_journey(case_series_patient_num, all_data_file, plot=Tru
         
         plt.tight_layout()
 
-        if case_series_patient_num == 120:
+        if case_series_patient_num == 5:
             plt.savefig('fig_5a.png', dpi=1000, facecolor='w', bbox_inches='tight')
             plt.savefig('fig_5a.svg', dpi=1000, facecolor='w', bbox_inches='tight')
-        elif case_series_patient_num == 118:
+        elif case_series_patient_num == 4:
             plt.savefig('fig_6a.png', dpi=1000, facecolor='w', bbox_inches='tight')
             plt.savefig('fig_6a.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
 
     return combined_df
 
-def fig_5b(plot=False, result_file=result_file_total):
+def fig_5b(plot=False):
     """
-    Line plot of response vs dose for patient 120's day recommendation,
+    Line plot of response vs dose for patient 5's day recommendation,
     with data points as (dose, response) pairs on day 2 and 3,
     and with linear regression line. 
     """
     df = pd.read_excel(result_file, sheet_name='result')
 
-    # Subset patient 120 and method
-    df = df[(df.patient==120) & (df.method=='L_RW_wo_origin') & (df.pred_day==4)]
+    # Subset patient 5 and method
+    df = df[(df.patient==5) & (df.method=='L_RW_wo_origin') & (df.pred_day==4)]
 
     df = df[['patient', 'pred_day', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 
              'coeff_1x', 'coeff_0x', 'dose', 'response', 'prediction', 'deviation', 'abs_deviation']].reset_index(drop=True)
@@ -545,21 +510,17 @@ def fig_5b(plot=False, result_file=result_file_total):
     return combined_df, df_original
 
 # Fig 6
-def fig_6a(plot=False, all_data_file=all_data_file_total):
-    case_series_patient_num = 118
+def fig_6a(plot=False):
+    case_series_patient_num = 4
     case_series_patient_journey(case_series_patient_num=case_series_patient_num, all_data_file=all_data_file)
 
-def fig_6b(plot=False, dose='total'):
+def fig_6b(plot=False):
     """
     Multiple plots of response vs dose for repeated dosing strategy of 
-    patient 118, with each plot representing one day of prediction. 
+    patient 4, with each plot representing one day of prediction. 
     """
-    if dose == 'total':
-        result_file = result_file_total
-    else:
-        result_file = result_file_evening
 
-    dat_original, combined_df = fig_6_computation(plot, dose, result_file)
+    dat_original, combined_df = fig_6_computation(result_file)
 
     # Subset repeated doses
     combined_df = combined_df[(combined_df.pred_day > 4) & (combined_df.pred_day <= 9)].reset_index(drop=True)
@@ -614,10 +575,10 @@ def fig_6b(plot=False, dose='total'):
 
     return combined_df
 
-def fig_6c(plot=False, dose='total'):
+def fig_6c(plot=False):
     """Line and scatter plot of repeated dose vs day for CURATE.AI-assisted vs SOC"""
-    all_data_file='all_data_total.xlsx'
-    case_series_patient_num=118
+    all_data_file='all_data.xlsx'
+    case_series_patient_num=4
 
     df = create_df_for_CURATE_assessment()
     df = df[df.patient==case_series_patient_num].reset_index(drop=True)
@@ -643,7 +604,7 @@ def fig_6c(plot=False, dose='total'):
 
     return df
 
-def fig_6d(result_file=result_file_total, plot=True, dose='total'):
+def fig_6d(plot=True):
     """Scatter plot of dose and response for CURATE.AI-assisted and SOC dosing"""
     # dat_original, combined_df = fig_6_computation(plot=plot, dose=dose, result_file=result_file)
     # clean_dat = pd.read_excel(result_file, sheet_name='clean')
@@ -660,8 +621,8 @@ def fig_6d(result_file=result_file_total, plot=True, dose='total'):
 
     # dat = dat[['pred_day', 'dose', 'response', 'CURATE-recommended dose', 'predicted_response_based_on_rec']]
 
-    all_data_file='all_data_total.xlsx'
-    case_series_patient_num=118
+    all_data_file='all_data.xlsx'
+    case_series_patient_num=4
 
     df = create_df_for_CURATE_assessment()
     df = df[df.patient==case_series_patient_num].reset_index(drop=True)
@@ -712,15 +673,15 @@ def fig_6d(result_file=result_file_total, plot=True, dose='total'):
     
     return df
 
-def fig_6_computation(plot, dose, result_file):
+def fig_6_computation(result_file):
     """
-    Plot RW profiles for patient 118, with shaded region representing therapeutic range,
+    Plot RW profiles for patient 4, with shaded region representing therapeutic range,
     colors representing prediction days, and number circles for the day from which
     the dose-response pairs were obtained from.
     """    
     dat = pd.read_excel(result_file, sheet_name='result')
-    # Subset L_RW_wo_origin and patient 118
-    dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==118)]
+    # Subset L_RW_wo_origin and patient 4
+    dat = dat[(dat.method=='L_RW_wo_origin') &  (dat.patient==4)]
 
     dat = dat[['patient', 'method', 'pred_day', 'dose', 'response', 'coeff_1x', 'coeff_0x', 'prediction', 'deviation', 'fit_dose_1', 'fit_dose_2', 'fit_response_1', 'fit_response_2', 'day_1', 'day_2']].reset_index(drop=True)
 
@@ -824,12 +785,12 @@ def fig_6_computation(plot, dose, result_file):
     #     # Add data point of day 12 and day 14
     #     plt.plot(0, 10.4, marker="o", markeredgecolor="black", markerfacecolor="white")
     #     plt.plot(0, 8.7, marker="o", markeredgecolor="black", markerfacecolor="white")
-    #     plt.savefig('patient_118_RW_profiles_' + dose + '.png', dpi=500, facecolor='w', bbox_inches='tight')
+    #     plt.savefig('patient_4_RW_profiles_' + dose + '.png', dpi=500, facecolor='w', bbox_inches='tight')
 
     return dat_original, combined_df
 
 # Effect of CURATE.AI
-def effect_of_CURATE_categories(dose='total'):
+def effect_of_CURATE_categories():
     """
     Calculate and print out the percentage of days with projected improvement, 
     worsening, or having no effect on patient outcomes.
@@ -851,7 +812,7 @@ def effect_of_CURATE_categories(dose='total'):
     perc_of_days_unaffected = len(df[df.result=='unaffected'])/len(df)*100
 
     original_stdout = sys.stdout
-    with open('effect_of_CURATE_categories_' + dose + '.txt', 'w') as f:
+    with open('effect_of_CURATE_categorie.txt', 'w') as f:
         sys.stdout = f
         print(f'perc_of_days_improved: {perc_of_days_improved:.2f}%, n = {len(df)}')
         print(f'perc_of_days_worsened: {perc_of_days_worsened:.2f}%, n = {len(df)}')
@@ -860,7 +821,7 @@ def effect_of_CURATE_categories(dose='total'):
 
     return df
 
-def effect_of_CURATE_values(dose='total'):
+def effect_of_CURATE_values():
     """
     Output: 
     1) Print:
@@ -870,7 +831,7 @@ def effect_of_CURATE_values(dose='total'):
     2) Corresponding dataframes
     """
     original_stdout = sys.stdout
-    with open('effect_of_CURATE_' + dose + '.txt', 'w') as f:
+    with open('effect_of_CURATE.txt', 'w') as f:
         sys.stdout = f
 
         df = fig_7a(dose=dose)
@@ -941,7 +902,7 @@ def effect_of_CURATE_values(dose='total'):
 
     sys.stdout = original_stdout
 
-def effect_of_CURATE_inter_indiv_differences(dose='total'):
+def effect_of_CURATE_inter_indiv_differences():
     """
     1) Print the percentage of patients, out of total patients, 
     that were in therapeutic range more/less/equally frequent with CURATE.AI-assisted
@@ -951,7 +912,7 @@ def effect_of_CURATE_inter_indiv_differences(dose='total'):
     with CURATE.AI-assisted dosing.
     """
     original_stdout = sys.stdout
-    with open('effect_of_CURATE_inter_indiv_differences_' + dose + '.txt', 'w') as f:
+    with open('effect_of_CURATE_inter_indiv_differences.txt', 'w') as f:
         sys.stdout = f
         df = fig_7a().dropna()
 
@@ -993,7 +954,7 @@ def effect_of_CURATE_inter_indiv_differences(dose='total'):
     sys.stdout = original_stdout
 
 # Fig 7a
-def fig_7a(plot=False, dose='total'):
+def fig_7a(plot=False):
     """
     Facetgrid scatter plot of effect of CURATE on all data.
 
@@ -1001,12 +962,8 @@ def fig_7a(plot=False, dose='total'):
     - Plot (saved)
     - Dataframe used to create the plot
     """
-    if dose == 'total':
-        all_data_file = all_data_file_total
-    else:
-        all_data_file = all_data_file_evening
 
-    df = create_df_for_CURATE_assessment(dose=dose)
+    df = create_df_for_CURATE_assessment()
 
     # Add column of 'Effect of CURATE.AI-assisted dosing' and 
     # add column for dose range
@@ -1064,11 +1021,6 @@ def fig_7a(plot=False, dose='total'):
             else:
                 combined_dat.loc[i, 'Effect of CURATE.AI-assisted dosing'] = 'Unaffected, remain as non-therapeutic range' 
 
-    # Rename patients
-    combined_dat['patient'] = combined_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
-                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
-                                                133:15, 138:16})
-
     # Rename effect of CURATE
     plot_df = combined_dat.copy()
     plot_df['Effect of CURATE.AI-assisted dosing'] = plot_df['Effect of CURATE.AI-assisted dosing'].map({\
@@ -1113,20 +1065,20 @@ def fig_7a(plot=False, dose='total'):
 
         # plt.show()
         # plt.tight_layout()
-        plt.savefig('fig_7a_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
-        plt.savefig('fig_7a_'+dose+'.svg', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7a.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7a.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
 # Fig 7b
-def fig_7b(plot=False, dose='total'):
+def fig_7b(plot=False):
     """
     Boxplot for day when TR is first achieved, for
     both SOC and CURATE
     """
 
     # SOC
-    SOC = fig_2(plot=False, dose=dose)
+    SOC = fig_2(plot=False)
     SOC = SOC[SOC.response.notna()].reset_index(drop=True)
 
     # Add therapeutic range column
@@ -1140,7 +1092,7 @@ def fig_7b(plot=False, dose='total'):
     SOC = SOC.groupby('patient')['Day'].first().reset_index(name='SOC')
 
     # CURATE
-    CURATE = fig_7a(dose=dose)
+    CURATE = fig_7a()
 
     # Drop rows where response is NaN
     CURATE = CURATE[CURATE.response.notna()].reset_index(drop=True)
@@ -1215,13 +1167,13 @@ def fig_7b(plot=False, dose='total'):
 
         # plt.show()
         # Save
-        plt.savefig('fig_7b_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
-        plt.savefig('fig_7b_'+dose+'.svg', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7b.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7b.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df, SOC_df, CURATE_df
 
 # Fig 7c
-def fig_7c(plot=False, dose='total'):
+def fig_7c(plot=False):
     """
     Barplot of % of patients in TR within first week, of
     SOC and CURATE.
@@ -1287,13 +1239,13 @@ def fig_7c(plot=False, dose='total'):
         # Bar labels
         ax.bar_label(p, fmt='%.2f', fontsize=13)
         # plt.show()
-        plt.savefig('fig_7c_'+dose+'.png', dpi=1000, facecolor='w', bbox_inches='tight')
-        plt.savefig('fig_7c_'+dose+'.svg', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7c.png', dpi=1000, facecolor='w', bbox_inches='tight')
+        plt.savefig('fig_7c.svg', dpi=1000, facecolor='w', bbox_inches='tight')
 
     return plot_df
 
 # Fig 7d
-def SOC_CURATE_perc_in_TR(dose='total'):
+def SOC_CURATE_perc_in_TR():
     """
     Boxplot of % of days in TR, for SOC and CURATE.
     Print out kruskal wallis test for difference in medians.
@@ -1390,8 +1342,8 @@ def fig_7d():
     return df
 
 # Assessment of CURATE.AI
-def create_df_for_CURATE_assessment(dose='total'):
-    file_name = 'dose_recommendations_'+dose+'.xlsx'
+def create_df_for_CURATE_assessment():
+    file_name = 'dose_recommendations.xlsx'
 
     dat = pd.read_excel(file_name)
 
@@ -1536,318 +1488,12 @@ def median_IQR_range(df):
 
     print(f'median {median:.2f} | IQR {lower_quartile:.2f} - {upper_quartile:.2f} | count {count} | range {minimum:.2f} - {maximum:.2f}\n')
 
-# LOOCV for all methods
-def LOOCV_all_methods(file_string=result_file_total, dose='total'):
-    """
-    Perform LOOCV for all methods
-    
-    Output: Excel sheet 'all_methods_LOOCV.xlsx' with results of LOOCV for all methods
-    """
-    if dose == 'evening':
-        file_string=result_file_evening
-
-    dat = read_file_and_remove_unprocessed_pop_tau(file_string)
-
-    # Define lists
-    linear_patient_list = dat[dat.method.str.contains('L_')].patient.unique().tolist()
-    quad_patient_list = dat[dat.method.str.contains('Q_')].patient.unique().tolist()
-    method_list = dat.method.unique().tolist()
-
-    # Keep only useful columns in dataframe
-    dat = dat[['method', 'patient', 'abs_deviation']]
-
-    # Create output dataframes
-    experiment_results_df = pd.DataFrame(columns=['method', 'experiment', 'train_median', 'test_median'])
-    overall_results_df = pd.DataFrame(columns=['method', 'train (median)', 'test (median)'])
-
-    exp_res_counter = 0
-    overall_res_counter = 0
-
-    for method in method_list:
-
-        #  Define num of patients according to whether method is linear or quadratic
-        num_of_patients, patient_list = num_patients_and_list(method, linear_patient_list, quad_patient_list)
-
-        for i in range(num_of_patients):
-
-            train_median = find_train_median_LOOCV(dat, method, patient_list, i)
-            test_median = find_test_median_LOOCV(dat, method, patient_list, i)
-
-            # Update experiment results dataframe
-            experiment_results_df.loc[exp_res_counter, 'experiment'] = i + 1
-            experiment_results_df.loc[exp_res_counter, 'method'] = method
-            experiment_results_df.loc[exp_res_counter, 'train_median'] = train_median
-            experiment_results_df.loc[exp_res_counter, 'test_median'] = test_median
-
-            exp_res_counter = exp_res_counter + 1
-
-    # Find median of the train_median and test_median of each method
-    train_median_df = experiment_results_df.groupby('method')['train_median'].median().reset_index()
-    test_median_df = experiment_results_df.groupby('method')['test_median'].median().reset_index()
-
-    # Create dataframe for overall results by method
-    overall_results_df = train_median_df.merge(test_median_df, how='inner', on='method')
-
-    # # Shapiro test by method, on train_median and test_median (result: some normal)
-    # train_median_shapiro = experiment_results_df.groupby('method')['train_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
-    # test_median_shapiro = experiment_results_df.groupby('method')['test_median'].apply(lambda x: stats.shapiro(x).pvalue < 0.05)
-
-    # Output dataframes to excel as individual sheets
-    with pd.ExcelWriter('LOOCV_results_' + dose + '.xlsx') as writer:
-        experiment_results_df.to_excel(writer, sheet_name='Experiments', index=False)
-        overall_results_df.to_excel(writer, sheet_name='Overall', index=False)
-
-def find_test_median_LOOCV(dat, method, patient_list, i):
-    """Find median of test set"""
-    
-    # Define test df
-    test_df = dat[(dat.method == method) & (dat.patient == patient_list[i])]
-    
-    # Find test_median
-    test_median = test_df.abs_deviation.median()
-    
-    return test_median
-
-def find_train_median_LOOCV(dat, method, patient_list, i):
-    """Find median of training set"""
-        
-    # Define train df
-    train_patient_list = patient_list.copy()
-    train_patient_list.pop(i)
-    train_df = dat[(dat.method == method) & (dat.patient.isin(train_patient_list))]
-
-    # Find train_median
-    train_median = train_df.abs_deviation.median()
-    
-    return train_median
-
-def num_patients_and_list(method, linear_patient_list, quad_patient_list):
-    """Define num of patients according to whether method is linear or quadratic"""
-    
-    if 'L_' in method:
-        num_of_patients = len(linear_patient_list)
-        patient_list = linear_patient_list
-    else:
-        num_of_patients = len(quad_patient_list)
-        patient_list = quad_patient_list
-        
-    return num_of_patients, patient_list
-
-# For clinical paper
-def response_vs_dose(plot=False, dose='total'):
-    """
-    Facetgrid scatter plot of response vs dose, colored by number of days. 
-
-    Note: To plot color bar, uncomment commented code. 
-    """
-    if dose == 'total':
-        all_data_file = all_data_file_total
-    else:
-        all_data_file = all_data_file_evening
-    
-    # Plot individual profiles
-    dat = pd.read_excel(all_data_file)
-
-    # Create within-range column for color
-    dat['within_range'] = (dat.response <= therapeutic_range_upper_limit) & (dat.response >= therapeutic_range_lower_limit)
-
-    # Create low/med/high dose column
-    dat['dose_range'] = ""
-    for i in range(len(dat)):
-        if dat.dose[i] < low_dose_upper_limit:
-            dat.loc[i, 'dose_range'] = 'Low'
-        elif dat.dose[i] < medium_dose_upper_limit:
-            dat.loc[i, 'dose_range'] = 'Medium'
-        else:
-            dat.loc[i, 'dose_range'] = 'High'
-
-    # Rename columns and entries
-    new_dat = dat.copy()
-    new_dat = new_dat.rename(columns={'within_range':'Tacrolimus Levels'})
-    new_dat['Tacrolimus Levels'] = new_dat['Tacrolimus Levels'].map({True:'Therapeutic Range', False: 'Non-therapeutic Range'})
-    new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
-    new_dat['patient'] = new_dat['patient'].map({84:1, 114:2, 117:3, 118:4, 120:5, 121:6, 122:7,
-                                                123:8, 125:9, 126:10, 129:11, 130:12, 131:13, 132:14,
-                                                133:15, 138:16})
-    
-    if plot == True:
-        # Plot response vs dose
-        # Settings
-        fig1 = plt.figure()
-        sns.set(font_scale=1.5, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
-        
-        # Plot
-        cmap = mpl.cm.Purples(np.linspace(0,1,20))
-        cmap = mpl.colors.ListedColormap(cmap[5:,:-1])
-
-        ax = sns.relplot(data=new_dat, x='dose', y='response', hue='Day', col='patient', col_wrap=4, style='Dose range',
-                height=3, aspect=1,s=100, zorder=2, palette=cmap)
-
-        # Add gray region for therapeutic range
-        for g in ax.axes:
-            g.axhspan(therapeutic_range_lower_limit, therapeutic_range_upper_limit, facecolor='grey', alpha=0.2, zorder=1)
-
-        # Label
-        ax.set_ylabels('TTL (ng/ml)')
-        ax.set_titles('Patient {col_name}')
-        ax.set_xlabels('Dose (mg)')
-        g.set(yticks=np.arange(0,math.ceil(max(new_dat.response)),4),
-        xticks=np.arange(0, max(new_dat.dose+1), step=1))
-
-        # Legend
-        ax.legend.remove()
-        plt.savefig('response_vs_dose.png', dpi=1000, facecolor='w', bbox_inches='tight')
-
-        # Colorbar
-        fig2, ax2 = plt.subplots(figsize=(6, 1))
-        fig2.subplots_adjust(bottom=0.4, top=0.7, hspace=.8)
-        norm = mpl.colors.Normalize(vmin=0, vmax=new_dat.Day.max())
-
-        cb = fig2.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-             cax=ax2, orientation='horizontal', label='Day')
-
-        cb.ax.xaxis.set_label_position('top')
-
-        legend_elements = [Line2D([0], [0], marker='o', color='w', label='Low',
-                          markerfacecolor='k', markersize=9),
-                          Line2D([0], [0], marker='X', color='w', label='Medium',
-                          markerfacecolor='k', markersize=9),
-                          Line2D([0], [0], marker='s', color='w', label='High',
-                          markerfacecolor='k', markersize=9),
-                          Patch(facecolor='grey', edgecolor='grey',
-                          label='Region within therapeutic range', alpha=.2)]
-        legend1 = plt.legend(handles=legend_elements[:3], bbox_to_anchor=(1.2,2.3), loc='upper left', frameon=False, title='Dose range')
-        legend2 = plt.legend(handles=legend_elements[3:], bbox_to_anchor=(1.7,2.3), loc='upper left', frameon=False)
-        ax2.add_artist(legend1)
-        ax2.add_artist(legend2) 
-
-        plt.savefig('response_vs_dose_colorbar.png', dpi=1000, facecolor='w', bbox_inches='tight')
-        
-    return new_dat
-
-def extreme_prediction_errors():
-    """
-    Analysis of extreme prediction errors
-    Output: 
-    - Printed values of upper quartile of 
-    absolute prediction errors, and distribution within
-    extreme prediction errors from the upper quartile.
-    """
-
-    df = import_raw_data_including_non_ideal()
-
-    # Subset RW
-    df = df[df.method=='L_RW_wo_origin']
-
-    upper_quartile = df.abs_deviation.describe().loc['75%']
-    print(f'upper quartile: {upper_quartile:.2f}\n')
-
-    # Extract predictions with deviation higher than upper quartile
-    extreme_prediction_errors = df[df.abs_deviation>upper_quartile]
-
-    print(f'distribution within extreme prediction errors: {extreme_prediction_errors["abs_deviation"].describe().loc["50%"]:.2f}\
-     [IQR {extreme_prediction_errors["abs_deviation"].describe().loc["25%"]:.2f} - \
-     {extreme_prediction_errors["abs_deviation"].describe().loc["75%"]:.2f}]')
-
-    extreme_prediction_errors[['patient','pred_day','abs_deviation']]
-
-def dosing_strategy_values():
-    """
-    Print the following, to file:
-    - Thresholds for repeated and distributed doses
-    - 1. % of patients with repeated doses
-    - 2. % of days in TR when there are repeated doses
-    - 3. % of patients with distributed dose
-    - 4. First day where TR is achieved for distributed dose
-    """
-    # Uncomment stdout if not writing to file.
-    original_stdout = sys.stdout
-    with open('dosing_strategy_values.txt', 'w') as f:
-        sys.stdout = f
-        
-        df = response_vs_dose()
-        df = df.dropna().reset_index(drop=True)
-
-        # Create therapeutic_range column
-        for i in range(len(df)):
-            if (df.response[i] >= therapeutic_range_lower_limit) & (df.response[i] <= therapeutic_range_upper_limit):
-                df.loc[i, 'therapeutic_range'] = True
-            else:
-                df.loc[i, 'therapeutic_range'] = False
-
-        # Find suitable lower limit of dose repeats to consider the dose strategy as repeated dosing.
-        repeated_count = df.groupby('patient')['dose'].value_counts().reset_index(name='count')
-        repeated_dose_threshold = repeated_count['count'].describe().loc['75%']
-        print(f"Repeated dose threshold is based on {repeated_dose_threshold} which is the 75th percentile of number of repeats.\n\
-            Repeated dose: > 4 dose repeats")
-        
-
-        # 1. % of patients with repeated doses
-        # 2. % of days in TR when there are repeated doses
-
-        # For each patient, identify groups of consecutive days and label a group number.
-        # To do that, label the first row of each patient as group 1. 
-        # For each subsequent row, if the previous row is more than 1 day apart, label it as a new group.
-        df['group_num_by_repeats'] = ""
-        for i in range(len(df)):
-            if i==0:
-                group_num = 1
-            else:
-                if df.patient[i] != df.patient[i-1]:
-                    group_num = 1 
-            
-                if df.Day[i] - df.Day[i-1] > 1:
-                    group_num += 1
-            df.loc[i, 'group_num_by_consecutive_days'] = group_num
-
-        # Remove unnecessary columns
-        df = df[['patient', 'Day', 'dose', 'therapeutic_range','group_num_by_consecutive_days']]
-
-        # Find number of dose repeats across consecutive days
-        num_of_dose_repeats = df.groupby(['patient', 'group_num_by_consecutive_days', 'dose'])['dose'].count().reset_index(name='num_of_dose_repeats')
-
-        # Find percentage of days in therapeutic range, for each dose in each group of consecutive days
-        perc_in_therapeutic_range =  df.groupby(['patient', 'group_num_by_consecutive_days', 'dose'])['therapeutic_range'].apply(lambda x: x.sum()/x.count()*100).reset_index(name='perc_in_therapeutic_range')
-
-        # Combine both dataframes
-        combined_df = num_of_dose_repeats.merge(perc_in_therapeutic_range, on=['patient', 'group_num_by_consecutive_days', 'dose'])
-        combined_df = combined_df[combined_df.num_of_dose_repeats > 4].reset_index(drop=True)
-
-        # Print results
-        perc_of_patients_with_repeated_doses = len(combined_df.patient.unique())/len(df.patient.unique())*100
-        print(f"1. % of patients with repeated dose: {perc_of_patients_with_repeated_doses}% (N={len(df.patient.unique())})\n")
-        result_and_distribution(combined_df.perc_in_therapeutic_range, '2. % of days in therapeutic range when there are repeated doses')
-        
-        # 3. % of patients with distributed dose
-
-        # Find dose range
-        dose_range = df.groupby('patient')['dose'].apply(lambda x: x.max() - x.min()).reset_index(name='dose_range')
-        distributed_dose_threshold = dose_range['dose_range'].describe().loc['75%']
-
-        print(f'Distributed dose: > {distributed_dose_threshold} mg\n')
-
-        patients_with_distributed_dose = dose_range[dose_range.dose_range > distributed_dose_threshold].loc[:, "patient"].to_list()
-
-        print(f'3. % of patients with distributed dose: {len(patients_with_distributed_dose)/len(df.patient.unique())*100}%,\
-        {len(patients_with_distributed_dose)} out of 16 patients')
-        print(f'Patients with distributed doses (> {distributed_dose_threshold} mg range): {patients_with_distributed_dose}')
-
-        # 4. First day where TR is achieved for distributed dose
-        first_day_distributed_dose = df[df.patient.isin(patients_with_distributed_dose)]
-        first_day_distributed_dose = first_day_distributed_dose[first_day_distributed_dose.therapeutic_range == True]
-
-        first_day_distributed_dose = first_day_distributed_dose.groupby('patient')['Day'].first().reset_index(name='first_day_to_TR')
-        print(f'First day where TR is achieved for distributed dose: {first_day_distributed_dose.first_day_to_TR.to_list()}')
-
-    sys.stdout = original_stdout
-
 if __name__ == '__main__':
     # Get arguments
     import argparse
     parser = argparse.ArgumentParser(description='Plot CURATE.AI results')
     parser.add_argument("-f", "--figure", type=str, default=False)
     parser.add_argument("-a", "--analysis", type=str, default=False)
-    parser.add_argument("-d", "--dose", type=str, default='total')
     args = parser.parse_args()
     
     # Figures
