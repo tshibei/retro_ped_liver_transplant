@@ -165,17 +165,19 @@ def fig_2(file_string=all_data_file, plot=False):
     new_dat['Tacrolimus trough levels (TTL)'] = new_dat['Tacrolimus trough levels (TTL)'].map({True:'Within the therapeutic range', False: 'Outside of the therapeutic range'})
     new_dat = new_dat.rename(columns={'dose_range':'Dose range', 'day':'Day'})
 
+    print(new_dat.columns)
+
     if plot == True:
 
         # Add fake row with empty data under response to structure legend columns
-        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, "", "Low"]
-        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", 1, " ", "Low"]
+        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", "Low"]
+        new_dat.loc[len(new_dat.index)] = [2, 5, 0.5, 1, True, "", "Low"]
         
         # Plot tac levels by day
         sns.set(font_scale=1.5, rc={"figure.figsize": (16,10), "xtick.bottom" : True, "ytick.left" : True}, style='white')
 
         g = sns.relplot(data=new_dat, x='Day', y='response', hue='Tacrolimus trough levels (TTL)', col='patient', col_wrap=4, style='Dose range',
-                height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white','white'], 
+                height=3, aspect=1,s=100, palette=['tab:blue','tab:orange','white'], 
                 style_order=['Low', 'Medium', 'High', 'Unavailable'], zorder=2, edgecolor=None)
 
         # g = sns.relplot(data=new_dat[new_dat['Dose range']=='Low'], x='Day', y='response', hue='TTL', col='patient', col_wrap=4, style='o',
