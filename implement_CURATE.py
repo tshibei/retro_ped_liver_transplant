@@ -17,23 +17,23 @@ from plotting import *
 from scipy import interpolate
 
 # CURATE
-def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', dose='total'):
+def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string=''):
     """ 
     Execute CURATE.
 
     Output: 
-    'CURATE_results.xlsx' if dose is 'total', and 'CURATE_results_evening_dose.xlsx' if dose is 'evening'
+    'CURATE_results.xlsx':
             Excel sheet with cleaned patient dataframe, 
             dataframe for calibration and efficacy-driven dosing, 
             result of all methods.
     """
     # Generate profiles and join dataframes
-    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary, dose)
+    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary)
     df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
 
     # Print patients to exclude anad ouput dataframes to excel as individual sheets
     print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
-    output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose=dose)
+    output_df_to_excel(df, cal_pred, result_df, pop_tau_string)
 
 # Pop tau
 def find_pop_tau(dose='total', method='LOOCV'):
