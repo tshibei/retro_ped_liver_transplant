@@ -1524,9 +1524,9 @@ if __name__ == '__main__':
         percentage_of_pts_that_reached_TR_per_dose_range()
         patient_population_values()
     elif args.analysis=='technical_perf_metrics':
-        technical_performance_metrics(dose=args.dose)
+        technical_performance_metrics()
     elif args.analysis=='clinically_relevant_perf_metrics':
-        clinically_relevant_performance_metrics(dose=args.dose)
+        clinically_relevant_performance_metrics()
     elif args.analysis=='effect_of_CURATE':
         effect_of_CURATE_categories()
         effect_of_CURATE_values()
