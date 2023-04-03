@@ -52,8 +52,7 @@ def generate_profiles():
     """
 
     # Profile Generation
-    input_file = 'Retrospective Liver Transplant Data.xlsx'
-    rows_to_skip = 17
+    input_file = raw_data_file
 
     # Get list of patients/sheet names
     list_of_patients = get_sheet_names(input_file)
@@ -69,7 +68,7 @@ def generate_profiles():
     for patient in list_of_patients:
 
         # Create and clean patient dataframe        
-        df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
+        df = pd.read_excel(input_file, sheet_name=patient)
         df = clean_data(df)
         df = keep_ideal_data(df, patient, list_of_patient_df)
         
@@ -135,7 +134,7 @@ def clean_data(df):
     Output:
     df - cleaned dataframe        
     """
-    dose_string = "2nd Tac dose (pm)"
+    dose_string = "Eff 24h Tac Dose"
 
     # Keep target columns
     df = df[["Day #", "Tac level (prior to am dose)", dose_string]]
@@ -171,7 +170,7 @@ def keep_ideal_data(df, patient, list_of_patient_df):
     Output: Dataframe with the longest chunk of consecutive ideal data.
     """
 
-    dose_string = "2nd Tac dose (pm)"
+    dose_string = "Eff 24h Tac Dose"
 
     # Create boolean column of data to remove
     # Including NA, <2 tac level, multiple blood draws
@@ -508,7 +507,7 @@ def all_data():
     df = pd.DataFrame()
 
     for patient in list_of_patients:
-        patient_df = pd.read_excel('Retrospective Liver Transplant Data.xlsx', sheet_name=patient, skiprows=17)
+        patient_df = pd.read_excel(raw_data_file, sheet_name=patient)
         patient_df['patient'] = patient
 
         # Subset dataframe
