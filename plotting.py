@@ -797,7 +797,7 @@ def effect_of_CURATE_categories():
     Calculate and print out the percentage of days with projected improvement, 
     worsening, or having no effect on patient outcomes.
     """
-    df = fig_7a(dose=dose)
+    df = fig_7a()
     df = df.dropna().reset_index(drop=True)
 
     for i in range(len(df)):
@@ -836,7 +836,7 @@ def effect_of_CURATE_values():
     with open('effect_of_CURATE.txt', 'w') as f:
         sys.stdout = f
 
-        df = fig_7a(dose=dose)
+        df = fig_7a()
 
         # Drop rows where response is NaN
         df = df[df.response.notna()].reset_index(drop=True)
@@ -1078,8 +1078,55 @@ def fig_7b(plot=False):
     Boxplot for day when TR is first achieved, for
     both SOC and CURATE
     """
+    plot_df = fig_7b_computation()
 
-    # SOC
+    if plot == True:
+        
+        sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
+        fig, ax = plt.subplots()
+
+        # Boxplot
+        g = sns.boxplot(x='Dosing', y='First day in therapeutic range', data=plot_df, width=0.5, zorder=1)
+        g.set_xlabel(None)
+        g.set_xticklabels(['SOC dosing\n(N = 15)', 'CURATE.AI-assisted\ndosing\n(N = 15)'])
+        
+        # Scatter points
+        SOC_df = plot_df[plot_df.Dosing=='SOC'].reset_index(drop=True)['First day in therapeutic range']
+        CURATE_df = plot_df[plot_df.Dosing=='CURATE'].reset_index(drop=True)['First day in therapeutic range']
+        
+        plt.scatter(np.zeros(len(SOC_df)), SOC_df, c='k', zorder=2)
+        plt.scatter(np.ones(len(CURATE_df)), CURATE_df, c='k', zorder=3)
+        for i in range(len(SOC_df)):
+            plt.plot([0,1], [SOC_df[i], CURATE_df[i]], c='k', alpha=.5)
+
+        # Aesthetics
+        sns.despine()
+
+        # Bracket and star
+        x1, x2 = 0, 1
+        y, h = SOC_df.max() + 3.5, 1
+        plt.plot([0, 0, 1, 1], [y, y+h, y+h, y], lw=1.5, c='k')
+        plt.text((x1+x2)*.5, y+h, "*", ha='center', va='bottom', color='k')    
+
+        # Box labels
+        # rects = ax.patches
+        medians = [median(SOC_df), median(CURATE_df)]
+        lower_quartile = [SOC_df.quantile(0.25), CURATE_df.quantile(0.25)]
+        upper_quartile = [SOC_df.quantile(0.75), CURATE_df.quantile(0.75)]
+        labels = [f"{i:.2f}\n({j:.2f} - {k:.2f})" for i,j,k in zip(medians, lower_quartile, upper_quartile)]
+        
+        plt.text(0, SOC_df.max()+0.9, labels[0], ha='center', va='bottom', 
+                color='k', fontsize=13)
+        plt.text(1, CURATE_df.max()+1.5, labels[1], ha='center', va='bottom', 
+                color='k', fontsize=13)
+
+        # Save
+        plt.tight_layout()
+        plt.savefig('fig_7b.png', dpi=1000)
+        plt.savefig('fig_7b.svg', dpi=1000)
+
+def fig_7b_computation():
+        # SOC
     SOC = fig_2(plot=False)
     SOC = SOC[SOC.response.notna()].reset_index(drop=True)
 
@@ -1120,59 +1167,14 @@ def fig_7b(plot=False):
         print(f'Normal distribution, Paired t test p value: {stats.ttest_rel(combined_df.SOC, combined_df.CURATE).pvalue:.2f}')
 
     # Rearrange dataframe for seaborn boxplot
+
     plot_df = combined_df.set_index('patient')
     plot_df = plot_df.stack().reset_index()
+
     plot_df = plot_df.rename(columns={'level_1':'Dosing', 0:'First day in therapeutic range'})
+    plot_df['First day in therapeutic range'] = plot_df['First day in therapeutic range'].astype(float)
 
-    if plot == True:
-        
-        sns.set(font_scale=1.2, rc={"figure.figsize": (5,5), "xtick.bottom":True, "ytick.left":True}, style='white')
-        fig, ax = plt.subplots()
-
-        # Boxplot
-        g = sns.boxplot(x="Dosing", y="First day in therapeutic range", 
-                        data=plot_df, width=0.5, palette=[sns.color_palette("Paired",8)[2],sns.color_palette("Paired",8)[3]],
-                        zorder=1)
-        
-        # Scatter points
-        SOC_df = plot_df[plot_df.Dosing=='SOC'].reset_index(drop=True)['First day in therapeutic range']
-        CURATE_df = plot_df[plot_df.Dosing=='CURATE'].reset_index(drop=True)['First day in therapeutic range']
-        
-        plt.scatter(np.zeros(len(SOC_df)), SOC_df, c='k', zorder=2)
-        plt.scatter(np.ones(len(CURATE_df)), CURATE_df, c='k', zorder=3)
-        for i in range(len(SOC_df)):
-            plt.plot([0,1], [SOC_df[i], CURATE_df[i]], c='k', alpha=.5)
-
-        # Aesthetics
-        sns.despine()
-        g.set_xlabel(None)
-        # g.set_ylabel('Days in therapeutic range (%)')
-        g.set_xticklabels(['SOC dosing\n(N = 15)', 'CURATE.AI-assisted\ndosing\n(N = 15)'])
-
-        # Bracket and star
-        x1, x2 = 0, 1
-        y, h = SOC_df.max() + 3.5, 1
-        plt.plot([0, 0, 1, 1], [y, y+h, y+h, y], lw=1.5, c='k')
-        plt.text((x1+x2)*.5, y+h, "*", ha='center', va='bottom', color='k')    
-
-        # Box labels
-        rects = ax.patches
-        medians = [median(SOC_df), median(CURATE_df)]
-        lower_quartile = [SOC_df.quantile(0.25), CURATE_df.quantile(0.25)]
-        upper_quartile = [SOC_df.quantile(0.75), CURATE_df.quantile(0.75)]
-        labels = [f"{i:.2f}\n({j:.2f} - {k:.2f})" for i,j,k in zip(medians, lower_quartile, upper_quartile)]
-        
-        ax.text(0, SOC_df.max()+0.9, labels[0], ha='center', va='bottom', 
-                color='k', fontsize=13)
-        ax.text(1, CURATE_df.max()+1.5, labels[1], ha='center', va='bottom', 
-                color='k', fontsize=13)
-
-        # plt.show()
-        # Save
-        plt.savefig('fig_7b.png', dpi=1000, facecolor='w', bbox_inches='tight')
-        plt.savefig('fig_7b.svg', dpi=1000, facecolor='w', bbox_inches='tight')
-
-    return plot_df, SOC_df, CURATE_df
+    return plot_df
 
 # Fig 7c
 def fig_7c(plot=False):
@@ -1181,7 +1183,7 @@ def fig_7c(plot=False):
     SOC and CURATE.
     """
     # SOC
-    data = fig_2(plot=False, dose=dose)
+    data = fig_2(plot=False)
 
     # Drop rows where response is NaN
     data = data[data.response.notna()].reset_index(drop=True)
@@ -1216,7 +1218,6 @@ def fig_7c(plot=False):
     reach_TR_in_first_week = df[df.final_response_in_TR==True].groupby('patient')['day'].first().reset_index(name='first_day')
     reach_TR_in_first_week['result'] = reach_TR_in_first_week['first_day'] <= 7
 
-    print(reach_TR_in_first_week)
     result = reach_TR_in_first_week['result'].sum() / len(reach_TR_in_first_week) * 100
 
     CURATE = result
@@ -1254,7 +1255,7 @@ def SOC_CURATE_perc_in_TR():
     """
 
     # SOC
-    perc_days_TR_SOC = fig_2(plot=False, dose=dose)
+    perc_days_TR_SOC = fig_2(plot=False)
 
     # Drop rows where response is NaN
     perc_days_TR_SOC = perc_days_TR_SOC[perc_days_TR_SOC.response.notna()].reset_index(drop=True)
@@ -1270,7 +1271,7 @@ def SOC_CURATE_perc_in_TR():
     perc_days_TR_SOC = perc_days_TR_SOC.reset_index(name='SOC')
 
     # CURATE
-    perc_days_TR_CURATE = fig_7a(dose=dose)
+    perc_days_TR_CURATE = fig_7a()
 
     # Drop rows where response is NaN
     perc_days_TR_CURATE = perc_days_TR_CURATE[perc_days_TR_CURATE.response.notna()].reset_index(drop=True)
