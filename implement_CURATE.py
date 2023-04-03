@@ -17,34 +17,34 @@ from plotting import *
 from scipy import interpolate
 
 # CURATE
-def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', dose='total'):
+def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string=''):
     """ 
     Execute CURATE.
 
     Output: 
-    'CURATE_results.xlsx' if dose is 'total', and 'CURATE_results_evening_dose.xlsx' if dose is 'evening'
+    'CURATE_results.xlsx':
             Excel sheet with cleaned patient dataframe, 
             dataframe for calibration and efficacy-driven dosing, 
             result of all methods.
     """
     # Generate profiles and join dataframes
-    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary, dose)
+    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary)
     df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
 
     # Print patients to exclude anad ouput dataframes to excel as individual sheets
     print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
-    output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose=dose)
+    output_df_to_excel(df, cal_pred, result_df, pop_tau_string)
 
 # Pop tau
-def find_pop_tau(dose='total', method='LOOCV'):
+def find_pop_tau(method='LOOCV'):
     if method == 'LOOCV':
-        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV(dose)
+        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_LOOCV()
     else:
-        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_CV(dose)
+        five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau_with_CV()
 
     return five_fold_cross_val_results, five_fold_cross_val_results_summary
 
-def find_pop_tau_with_CV(dose='total'):
+def find_pop_tau_with_CV():
     """
     Calculate pop tau with five fold cross validation.
 
@@ -56,10 +56,7 @@ def find_pop_tau_with_CV(dose='total'):
     - five_fold_cross_val_results: dataframe of results of cross validation per experiment
     - five_fold_cross_val_results_summary: dataframe of results of cross validation per method
     """
-    if dose == 'evening':
-            file_name = 'CURATE_results_evening_dose.xlsx'
-    else:
-        file_name = 'CURATE_results.xlsx'
+    file_name = 'CURATE_results.xlsx'
 
     dat = pd.read_excel(file_name, sheet_name='result')
 
@@ -200,7 +197,7 @@ def find_pop_tau_with_CV(dose='total'):
     
     return five_fold_cross_val_results, five_fold_cross_val_results_summary
 
-def find_pop_tau_with_LOOCV(dose='total'):
+def find_pop_tau_with_LOOCV():
     """
     Calculate pop tau with leave one out cross validation (LOOCV).
 
@@ -212,10 +209,7 @@ def find_pop_tau_with_LOOCV(dose='total'):
     - five_fold_cross_val_results: dataframe of results of LOOCV per experiment
     - five_fold_cross_val_results_summary: dataframe of results of LOOCV per method
     """
-    if dose == 'evening':
-            file_name = 'CURATE_results_evening_dose.xlsx'
-    else:
-        file_name = 'CURATE_results.xlsx'
+    file_name = 'CURATE_results.xlsx'
 
     dat = pd.read_excel(file_name, sheet_name='result')
 
@@ -341,7 +335,7 @@ def LOOCV(patient_list, method_df, list_of_pop_half_life_fold, list_of_median_ab
 
     return list_of_pop_half_life_fold, list_of_median_abs_dev_train, list_of_median_abs_dev_test, five_fold_cross_val_results, fold_counter
 
-def execute_CURATE_and_update_pop_tau_results(dose, cross_val_method):
+def execute_CURATE_and_update_pop_tau_results(cross_val_method):
     """
     Execute CURATE with pop tau and update pop tau results
 
@@ -349,9 +343,9 @@ def execute_CURATE_and_update_pop_tau_results(dose, cross_val_method):
     Excel sheet containing dataframes for results of each experiment in 'Experiments' sheet and of overall results
     of each method in 'Overall' sheet.
     """
-    five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau(dose, cross_val_method)
+    five_fold_cross_val_results, five_fold_cross_val_results_summary = find_pop_tau(cross_val_method)
 
-    execute_CURATE(five_fold_cross_val_results_summary, pop_tau_string=' (of pop tau models only using ' + cross_val_method + ')', dose=dose)
+    execute_CURATE(five_fold_cross_val_results_summary, pop_tau_string=' (of pop tau models only using ' + cross_val_method + ')')
 
     # Add pop_tau_method column
     five_fold_cross_val_results_summary['pop_tau_method'] = ""
@@ -360,10 +354,8 @@ def execute_CURATE_and_update_pop_tau_results(dose, cross_val_method):
 
     # Import output with pop tau
     pop_tau_string=' (of pop tau models only using ' + cross_val_method + ')'
-    if dose == 'evening':
-        file_name = 'CURATE_results_evening_dose'+ pop_tau_string + '.xlsx'
-    else:
-        file_name = 'CURATE_results' + pop_tau_string + '.xlsx'
+    
+    file_name = 'CURATE_results' + pop_tau_string + '.xlsx'
 
     pop_tau_df = pd.read_excel(file_name, sheet_name='result')
 
@@ -390,7 +382,7 @@ def execute_CURATE_and_update_pop_tau_results(dose, cross_val_method):
         summary_df.to_excel(writer, sheet_name='Overall', index=False)
 
 # Generate profiles
-def generate_profiles(five_fold_cross_val_results_summary, dose):
+def generate_profiles(five_fold_cross_val_results_summary):
     """
     Generate profiles for patients.
     
@@ -419,15 +411,6 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
     list_of_result_df = []
     patients_to_exclude_linear = []
     patients_to_exclude_quad = []
-    list_of_body_weight = []
-
-    # Create list of body_weight
-    for i in range(len(list_of_patients)):    
-        data = pd.read_excel(input_file, list_of_patients[i], index_col=None, usecols = "C", nrows=15)
-        data = data.reset_index(drop=True)
-        list_of_body_weight.append(data['Unnamed: 2'][13])
-        
-    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
 
     number_of_patients = 0
 
@@ -435,11 +418,8 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
 
         # Create and clean patient dataframe        
         df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
-        df = clean_data(df, dose)
-        df = keep_ideal_data(df, patient, list_of_patient_df, dose)
-
-        # Change to dose by body weight
-        df['dose_BW'] = df['dose'] / list_of_body_weight[number_of_patients]
+        df = clean_data(df)
+        df = keep_ideal_data(df, patient, list_of_patient_df)
         
         # Counter for number of patients
         number_of_patients = number_of_patients + 1
@@ -477,12 +457,9 @@ def join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df):
     
     return df, cal_pred, result_df
 
-def output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose):
+def output_df_to_excel(df, cal_pred, result_df, pop_tau_string):
     """Output dataframes to excel as individual sheets"""
-    if dose == 'evening':
-        file_name = 'CURATE_results_evening_dose'+ pop_tau_string + '.xlsx'
-    else:
-        file_name = 'CURATE_results' + pop_tau_string + '.xlsx'
+    file_name = 'CURATE_results' + pop_tau_string + '.xlsx'
 
     with pd.ExcelWriter(file_name) as writer:
         df.to_excel(writer, sheet_name='clean', index=False)
@@ -497,7 +474,7 @@ def get_sheet_names(input_file):
     wb.close()
     return patient_list
 
-def clean_data(df, dose):
+def clean_data(df):
     """ 
     Keep target columns from excel, shift tac level one cell up, remove "mg"/"ng" 
     from dose, replace NaN with 0 in dose.
@@ -509,10 +486,7 @@ def clean_data(df, dose):
     Output:
     df - cleaned dataframe        
     """
-    if dose == 'total':
-        dose_string = "Eff 24h Tac Dose"
-    else:
-        dose_string = "2nd Tac dose (pm)"
+    dose_string = "2nd Tac dose (pm)"
 
     # Keep target columns
     df = df[["Day #", "Tac level (prior to am dose)", dose_string]]
@@ -538,7 +512,7 @@ def clean_data(df, dose):
     
     return df
 
-def keep_ideal_data(df, patient, list_of_patient_df, dose):
+def keep_ideal_data(df, patient, list_of_patient_df):
     """
     Remove rows with non-ideal data, including missing tac level and/or tac dose, 
     <2 tac level, multiple blood draws. Then keep the longest consecutive chunk
@@ -548,10 +522,7 @@ def keep_ideal_data(df, patient, list_of_patient_df, dose):
     Output: Dataframe with the longest chunk of consecutive ideal data.
     """
 
-    if dose == 'total':
-        dose_string = "Eff 24h Tac Dose"
-    else:
-        dose_string = "2nd Tac dose (pm)"
+    dose_string = "2nd Tac dose (pm)"
 
     # Create boolean column of data to remove
     # Including NA, <2 tac level, multiple blood draws
@@ -1730,7 +1701,7 @@ def format_result_df(cal_pred, result_df):
     return result_df
 
 # Consolidate all patient data and label those assessed as ideal or non-ideal for analysis
-def all_data(dose='total'):
+def all_data():
     """
     Clean raw data and label which are ideal or non-ideal.
     
@@ -1738,19 +1709,11 @@ def all_data(dose='total'):
     - Dataframe of all cleaned raw data with label of ideal/non-ideal.
     - 'all_data.xlsx' with dataframe
     """
-    if dose == 'total':
-        dose_string = "Eff 24h Tac Dose"
-    else:
-        dose_string = "2nd Tac dose (pm)"
-
-    if dose == "total":
-        result_file = "CURATE_results.xlsx"
-    else:
-        result_file = "CURATE_results_evening_dose.xlsx"
+    dose_string = "Eff 24h Tac Dose"
+    result_file = "CURATE_results.xlsx"
 
     # Create dataframe from all sheets
     list_of_patients = find_list_of_patients()
-    list_of_body_weight = find_list_of_body_weight()
 
     df = pd.DataFrame()
 
@@ -1803,21 +1766,12 @@ def all_data(dose='total'):
     # Fill in ideal column with False if NaN
     combined_df['ideal'] = combined_df['ideal'].fillna(False)
 
-    # Fill in body weight
-    combined_df['body_weight'] = ""
-
     for i in range(len(combined_df)):
         # Find index of patient in list_of_patients
         index = list_of_patients.index(str(combined_df.patient[i]))
-        body_weight = list_of_body_weight[index]    
 
-        # Add body weight to column
-        combined_df.loc[i, 'body_weight'] = body_weight
-
-    # Add column 'dose' by dividing dose_mg by body weight
-    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
+    # Add column 'dose'
     combined_df['dose'] = combined_df['dose'].astype(float)
-    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
 
     # Clean up response column
     for i in range(len(combined_df)):
@@ -1833,12 +1787,12 @@ def all_data(dose='total'):
             combined_df.loc[i, 'response'] = np.nan
 
     # Export to excel
-    combined_df.to_excel(r'all_data_' + dose + '.xlsx', index = False, header=True)
+    combined_df.to_excel(r'all_data.xlsx', index = False, header=True)
     
     return combined_df
 
 # Calculate dose recommendations
-def dose_recommendation_results(dose="total"):
+def dose_recommendation_results():
     """
     Compute dose recommendations after fitting the training data with L_RW_wo_origin.
 
@@ -1846,10 +1800,7 @@ def dose_recommendation_results(dose="total"):
     """
     minimum_capsule = 0.5
 
-    if dose == "total":
-        result_file = "CURATE_results.xlsx"
-    else:
-        result_file = "CURATE_results_evening_dose.xlsx"
+    result_file = "CURATE_results.xlsx"
     
     df = pd.read_excel(result_file, sheet_name='result')
     df = df[df.method=='L_RW_wo_origin'].reset_index(drop=True)
@@ -1906,7 +1857,7 @@ def dose_recommendation_results(dose="total"):
     df['predicted_response_after_recommended_dose'] = df['coeff_1x'] * df['dose_recommendation'] + df['coeff_0x']
 
     # Export to excel
-    df.to_excel(r'dose_recommendations_' + dose + '.xlsx', index = False, header=True)
+    df.to_excel(r'dose_recommendations.xlsx', index = False, header=True)
 
     return df
 
@@ -1923,17 +1874,17 @@ if __name__ == '__main__':
     original_stdout = sys.stdout
     with open('patients_to_exclude.txt', 'w') as f:
         sys.stdout = f
-        execute_CURATE(dose=args.dose)
+        execute_CURATE()
     sys.stdout = original_stdout
 
     print('implementing CURATE.AI models with pop tau...')
-    execute_CURATE_and_update_pop_tau_results(args.dose, args.cross_val_method)
+    execute_CURATE_and_update_pop_tau_results(args.cross_val_method)
         
     # Consolidate all patient data, label them as ideal or non-ideal for analysis
     print('consolidating all patient data and labeling them as ideal or non-ideal for analysis...')   
-    all_data(dose=args.dose)
+    all_data()
     
     # Dose recommendations
     print('computing CURATE.AI dose recommendations...')
-    dose_recommendation_results(dose=args.dose)
+    dose_recommendation_results()
     print('end of code')
