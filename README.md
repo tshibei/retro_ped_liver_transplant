@@ -9,7 +9,7 @@ Install dependencies required in `requirements.txt`
 
 ## Usage
 
-### Implement CURATE.AI models
+### Implement CURATE.AI model
 ```
 python implement_CURATE.py
 ```  
