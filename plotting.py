@@ -89,7 +89,6 @@ def patient_population_values():
     3. % of participants that reached therapeutic range within first week
     4. Day where patient first achieved therapeutic range
     5. Dose administered by mg
-    6. Dose administered by body weight
     """
     original_stdout = sys.stdout
     with open('patient_population_values.txt', 'w') as f:
@@ -138,10 +137,6 @@ def patient_population_values():
         # 5. Dose administered by mg
         dose_df = data.copy()
         result_and_distribution(dose_df.dose, '5. Dose administered')
-
-        # 6. Dose administered by body weight
-        dose_df = data.copy()
-        result_and_distribution(dose_df.dose_BW, '6. Dose administered by body weight')
 
     sys.stdout = original_stdout
 
@@ -1481,23 +1476,6 @@ def create_df_for_CURATE_assessment(dose='total'):
     return CURATE_assessment
 
 # Create lists
-def find_list_of_body_weight():
-
-    xl = pd.ExcelFile(raw_data_file)
-    excel_sheet_names = xl.sheet_names
-
-    list_of_body_weight = []
-
-    # Create list of body_weight
-    for sheet in excel_sheet_names:    
-        data = pd.read_excel(raw_data_file, sheet_name=sheet, index_col=None, usecols = "C", nrows=15)
-        data = data.reset_index(drop=True)
-        list_of_body_weight.append(data['Unnamed: 2'][13])
-
-    list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
-
-    return list_of_body_weight
-
 def find_list_of_patients():
     # Declare list
     list_of_patients = []
