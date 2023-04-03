@@ -407,7 +407,7 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
     """
 
     # Profile Generation
-    input_file = 'Retrospective Liver Transplant Data.xlsx'
+    input_file = 'Retrospective Liver Transplant Data - edited.xlsx'
     rows_to_skip = 17
 
     # Get list of patients/sheet names
@@ -1755,7 +1755,7 @@ def all_data(dose='total'):
     df = pd.DataFrame()
 
     for patient in list_of_patients:
-        patient_df = pd.read_excel('Retrospective Liver Transplant Data.xlsx', sheet_name=patient, skiprows=17)
+        patient_df = pd.read_excel('Retrospective Liver Transplant Data - edited.xlsx', sheet_name=patient, skiprows=17)
         patient_df['patient'] = patient
 
         # Subset dataframe
