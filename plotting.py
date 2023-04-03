@@ -294,7 +294,7 @@ def values_in_clinically_relevant_flow_chart():
 
         result_file = 'CURATE_results.xlsx'
 
-        df = create_df_for_CURATE_assessment(result_file)
+        df = create_df_for_CURATE_assessment()
 
         # 1. Calculate values for clinially relevant flow chart (step 1 of 2)
 
