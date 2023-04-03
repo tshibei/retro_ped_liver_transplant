@@ -800,21 +800,23 @@ def effect_of_CURATE_categories():
     df = fig_7a()
     df = df.dropna().reset_index(drop=True)
 
+    print(df.columns)
+
     for i in range(len(df)):
-        if 'Unaffected' in df['Effect of CURATE.AI-assisted dosing'][i]:
+        if 'unaffected' in df['Effect of CURATE.AI-assisted dosing'][i]:
             df.loc[i, 'result'] = 'unaffected'
-        elif 'Improve' in df['Effect of CURATE.AI-assisted dosing'][i]:
+        elif 'improve' in df['Effect of CURATE.AI-assisted dosing'][i]:
             df.loc[i, 'result'] = 'improve'
-        elif 'Worsen' in df['Effect of CURATE.AI-assisted dosing'][i]:
+        elif 'worsen' in df['Effect of CURATE.AI-assisted dosing'][i]:
             df.loc[i, 'result'] = 'worsen'
         else: print(f'uncertain result at index {i}')
-        
-    perc_of_days_improved = len(df[df.result=='improve'])/len(df)*100
-    perc_of_days_worsened = len(df[df.result=='worsen'])/len(df)*100
-    perc_of_days_unaffected = len(df[df.result=='unaffected'])/len(df)*100
+    
+    perc_of_days_improved = len(df[df['result']=='improve'])/len(df)*100
+    perc_of_days_worsened = len(df[df['result']=='worsen'])/len(df)*100
+    perc_of_days_unaffected = len(df[df['result']=='unaffected'])/len(df)*100
 
     original_stdout = sys.stdout
-    with open('effect_of_CURATE_categorie.txt', 'w') as f:
+    with open('effect_of_CURATE_categories.txt', 'w') as f:
         sys.stdout = f
         print(f'perc_of_days_improved: {perc_of_days_improved:.2f}%, n = {len(df)}')
         print(f'perc_of_days_worsened: {perc_of_days_worsened:.2f}%, n = {len(df)}')
