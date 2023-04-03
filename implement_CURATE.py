@@ -17,39 +17,23 @@ from plotting import *
 from scipy import interpolate
 
 # CURATE
-<<<<<<< HEAD
-def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string=''):
-=======
 def execute_CURATE(five_fold_cross_val_results_summary='', pop_tau_string='', dose='total'):
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
     """ 
     Execute CURATE.
 
     Output: 
-<<<<<<< HEAD
-    'CURATE_results.xlsx':
-=======
     'CURATE_results.xlsx' if dose is 'total', and 'CURATE_results_evening_dose.xlsx' if dose is 'evening'
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
             Excel sheet with cleaned patient dataframe, 
             dataframe for calibration and efficacy-driven dosing, 
             result of all methods.
     """
     # Generate profiles and join dataframes
-<<<<<<< HEAD
-    patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary)
-=======
     patients_to_exclude_linear, patients_to_exclude_quad, list_of_patient_df, list_of_cal_pred_df, list_of_result_df = generate_profiles(five_fold_cross_val_results_summary, dose)
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
     df, cal_pred, result_df = join_dataframes(list_of_patient_df, list_of_cal_pred_df, list_of_result_df)
 
     # Print patients to exclude anad ouput dataframes to excel as individual sheets
     print_patients_to_exclude(patients_to_exclude_linear, patients_to_exclude_quad)
-<<<<<<< HEAD
-    output_df_to_excel(df, cal_pred, result_df, pop_tau_string)
-=======
     output_df_to_excel(df, cal_pred, result_df, pop_tau_string, dose=dose)
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
 
 # Pop tau
 def find_pop_tau(dose='total', method='LOOCV'):
@@ -435,11 +419,6 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
     list_of_result_df = []
     patients_to_exclude_linear = []
     patients_to_exclude_quad = []
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> parent of 9dbe5d5 (Remove body weight components from implement_CURATE.py)
     list_of_body_weight = []
 
     # Create list of body_weight
@@ -449,10 +428,6 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
         list_of_body_weight.append(data['Unnamed: 2'][13])
         
     list_of_body_weight = list_of_body_weight[:12]+[8.29]+list_of_body_weight[12+1:]
-<<<<<<< HEAD
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
-=======
->>>>>>> parent of 9dbe5d5 (Remove body weight components from implement_CURATE.py)
 
     number_of_patients = 0
 
@@ -462,18 +437,9 @@ def generate_profiles(five_fold_cross_val_results_summary, dose):
         df = pd.read_excel(input_file, sheet_name=patient, skiprows=rows_to_skip)
         df = clean_data(df, dose)
         df = keep_ideal_data(df, patient, list_of_patient_df, dose)
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 
         # Change to dose by body weight
         df['dose_BW'] = df['dose'] / list_of_body_weight[number_of_patients]
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
-=======
-
-        # Change to dose by body weight
-        df['dose_BW'] = df['dose'] / list_of_body_weight[number_of_patients]
->>>>>>> parent of 9dbe5d5 (Remove body weight components from implement_CURATE.py)
         
         # Counter for number of patients
         number_of_patients = number_of_patients + 1
@@ -1784,14 +1750,7 @@ def all_data(dose='total'):
 
     # Create dataframe from all sheets
     list_of_patients = find_list_of_patients()
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
     list_of_body_weight = find_list_of_body_weight()
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
-=======
-    list_of_body_weight = find_list_of_body_weight()
->>>>>>> parent of 9dbe5d5 (Remove body weight components from implement_CURATE.py)
 
     df = pd.DataFrame()
 
@@ -1844,26 +1803,6 @@ def all_data(dose='total'):
     # Fill in ideal column with False if NaN
     combined_df['ideal'] = combined_df['ideal'].fillna(False)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    # Fill in body weight
-    combined_df['body_weight'] = ""
-
->>>>>>> parent of 9dbe5d5 (Remove body weight components from implement_CURATE.py)
-    for i in range(len(combined_df)):
-        # Find index of patient in list_of_patients
-        index = list_of_patients.index(str(combined_df.patient[i]))
-        body_weight = list_of_body_weight[index]    
-
-        # Add body weight to column
-        combined_df.loc[i, 'body_weight'] = body_weight
-
-    # Add column 'dose' by dividing dose_mg by body weight
-    combined_df['body_weight'] = combined_df['body_weight'].astype(float)
-    combined_df['dose'] = combined_df['dose'].astype(float)
-<<<<<<< HEAD
-=======
     # Fill in body weight
     combined_df['body_weight'] = ""
 
@@ -1879,10 +1818,6 @@ def all_data(dose='total'):
     combined_df['body_weight'] = combined_df['body_weight'].astype(float)
     combined_df['dose'] = combined_df['dose'].astype(float)
     combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
->>>>>>> parent of 9d1aefc (Change name of implement_CURATE.py to ..._original.py)
-=======
-    combined_df['dose_BW'] = combined_df['dose'] / combined_df['body_weight']
->>>>>>> parent of 9dbe5d5 (Remove body weight components from implement_CURATE.py)
 
     # Clean up response column
     for i in range(len(combined_df)):
