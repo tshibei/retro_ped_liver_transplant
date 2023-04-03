@@ -1,27 +1,21 @@
 # retro_ped_liver_transplant
 
 ## Objective
-Fit data with CURATE.AI models, compute predictions and prediction errors, compute dose recommendations.
+Fit data to the CURATE.AI model, compute predictions and prediction errors, compute dose recommendations.
 Plot and analyse results.
 
 ## Getting Started
 Install dependencies required in `requirements.txt`
 
 ## Usage
-Note: The raw data is not provided, and can be provided upon reasonable request to Agata Blasiak (agata.blasiak@nus.edu.sg), Vidyadhar Padmakar Mali (vidyadhar_mali@nuhs.edu.sg), Marion M. Aw (paeawm@nus.edu.sg), or Dean Ho (biedh@nus.edu.sg). Please also note that this code only works with the full set of data (including body weight, tacrolimus dose in PM, etc.).
 
 ### Implement CURATE.AI models
 ```
 python implement_CURATE.py
-```
-Add `--cross_val_method CV` to implement pop tau models with CV method instead of LOOCV (default).  
-Add `--dose evening` to implement CURATE.AI models with evening dose instead of effective 24-hour dose.  
-  
+```  
   The outputs are:
-- *CURATE_results.xlsx* containing results of CURATE.AI models without pop tau,  
-- *CURATE_results (of pop tau models only using <cross_val_method>).xlsx* containing results of CURATE.AI models with pop tau,  
-- *experiments_to_find_pop_tau (by <cross_val_method>).xlsx* containing results from <cross_val_method> to find pop tau,  
-- *all_data_total.xlsx* containing all patient data labeled as ideal or non-ideal for analysis, and  
+- *CURATE_results.xlsx* containing results of the CURATE.AI model, 
+- *all_data.xlsx* containing all patient data labeled as ideal or non-ideal for analysis, and  
 - *dose_recommendations.xlsx* containing CURATE.AI dose recommendations.  
 
 ### Plot and analyse results
